@@ -57,6 +57,11 @@ display: flex!important;padding: 5px;
 
 }
 
+
+ a {
+        color:black;
+      }
+
 /*
 להציג באותה שורה
 display: flex
