@@ -1,9 +1,17 @@
-    body {
+* {font-family: Arial !important;}
+a { text-decoration: none !important;}
+body {
+    background-image: url("pattern.png") !important;
       font-family: Arial, sans-serif;
-      margin: 0;
-      background: #B3B3B3;
-      color: #fff;
+         /* 
+      background: #B3B3B3; 
+      background-image: url("paper.gif");
+      */
     }
+    .line-btn {background-image: url("pattern.png") !important;}
+    .line-btn-up {background-image: url("menu.png") !important;}
+    
+
     .poster-wall {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -36,8 +44,13 @@ transform: scale(1.30);
       text-align: center;
       font-size: 1.1em;
 
-color:black;
+color:black !important;
     }
+.poster-title b {
+  line-height: 1.0;
+  display: inline-block;
+}
+
     @media (max-width: 600px) {
       .poster-wall {
         padding: 10px;
@@ -47,32 +60,132 @@ color:black;
         height: 180px;
       }
     }
-.bookmark1 {width: 20px !important; height: 20px !important; margin-right: 8px !important;
+.bookmark, .bookmark1  {width: 20px !important; height: 20px !important; margin-right: 8px !important;
 display: flex!important;padding: 5px;
 }
 
 .imdb {width: 50px !important; height: 30px !important; margin-right: 8px !important;}
 
-.imdb-first {display: flex
-
-}
+.imdb-first {display: flex;}
 
 
  a {
-        color:black;
+        color:black !important;
       }
 
 .rtl {
         direction: rtl !important;
       }
 
+.ltr {
+        direction: ltr !important;
+      }
+.no-results {
+  text-align: center;
+  font-size: 18px;
+  color: black !important;
+  margin-top: 30px;
+}
 
 /*
 להציג באותה שורה
 display: flex
 */
 
+.poster-tags {
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.tag-link {
+  background-color: #eee;
+  padding: 4px 8px;
+  margin: 3px;
+  border-radius: 4px;
+  display: inline-block;
+  text-decoration: none;
+  color: #333;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.tag-link:hover {
+  background-color: #ccc;
+}
+
+.poster-tags {
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.tag-link {
+  background-color: #eee;
+  padding: 4px 8px;
+  margin: 3px;
+  border-radius: 4px;
+  display: inline-block;
+  text-decoration: none;
+  color: #333;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.tag-link:hover {
+  background-color: #ccc;
+}
+
+.poster-actions {
+  text-align: center;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.poster-actions a {
+  color: #2d89ef;
+  text-decoration: none;
+  margin: 0 6px;
+}
+
+.poster-actions a:hover {
+  text-decoration: underline;
+}
 
 
+/*
+, .w3-button, .w3-black !important, .w3-black !important, .w3-xlarge, .w3-padding-32
+*/
+
+.w3-white{color:black !important; background-color: white !important;}
 
 
+.active {
+  font-weight: bold;
+  /*background-color: #000 !important;*/
+  color: black !important;
+  /*border-bottom: 2px solid #fff;*/
+}
+.w3-button.active {
+  font-weight: bold;
+  color:  white !important; /*white #5CABED*/
+  /*border-bottom: 2px solid #fff;*/
+}
+
+/*
+.active {
+  font-weight: bold;
+  background-color: #000 !important;
+  color: white !important;
+  */
+  /*border-bottom: 2px solid #fff;*/
+/*
+.w3-button.active {
+  font-weight: bold;
+  background-color: #000 !important;
+  color: white !important;
+  */
+  /*border-bottom: 2px solid #fff;*/
+
+
+/* btn text blue #5CABED */
