@@ -1,0 +1,124 @@
+   body {
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  padding: 20px;
+  direction: rtl;
+  text-align: right;
+}
+
+form {
+  background: #fff;
+  padding: 20px;
+  max-width: 700px;
+  margin: auto;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.15);
+}
+
+label {
+  font-weight: bold;
+  margin-top: 12px;
+  display: block;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+  margin-bottom: 1px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  background-color: #0077cc;
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button:hover {
+  background-color: #005fa3;
+}
+
+#posterPreview, #trailerPreview {
+  display: none;
+  background: #f8f8f8;
+  padding: 15px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* טבלת שפות */
+.flags-wrapper {
+  direction: ltr !important;
+  text-align: left !important;
+  font-family: Calibri, sans-serif !important;
+  font-weight: normal !important;
+}
+
+.languages-table {
+  direction: ltr !important;
+  text-align: left !important;
+  border-collapse: collapse;
+  margin: 10px auto;
+  font-family: Calibri, sans-serif;
+  font-size: 13px;
+}
+
+.language-td {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  margin: 0 !important;
+  height: 26px !important;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.language-cell {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+  font-family: Calibri, sans-serif;
+  font-size: 13px;
+  font-weight: normal;
+  text-align: left;
+  direction: ltr;
+  line-height: 16px !important;
+  height: 22px;
+}
+
+.language-cell input[type="checkbox"] {
+  transform: scale(1.2);
+  margin: 0;
+}
+
+.language-cell img {
+  height: 16px;
+  vertical-align: middle;
+  margin: 0;
+}
+
+.language-cell span {
+  display: inline-block;
+  min-width: 80px;
+  font-weight: normal;
+  text-align: left;
+  margin: 0;
+}
+
+.language-cell {
+  height: 18px !important;
+  line-height: 1 !important;
+}
+
+.language-td {
+  height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
