@@ -8,7 +8,7 @@ function safe($str) {
   return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
 }
 
-$tmdb_key = '931b94936ba364daf0fd91fb38ecd91e';
+$tmdb_key = 'KEY'; //כאן מפתח
 $report = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['imdb_ids'])) {
