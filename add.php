@@ -134,7 +134,7 @@ $conn->close();
     }
 
     function fetchDetails(imdbId) {
-      fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=1ae9a12e`)
+      fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=YOUR_KEY`) // כאן לשים מפתח חינמי של omdbapi
         .then(r => r.json())
         .then(data => {
           if (data.Response !== "True") return alert("❌ IMDb לא מצא פרטים.");
@@ -235,7 +235,7 @@ $conn->close();
     let debounceTimer;
 
     function fetchDetails(imdbId) {
-      fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=1ae9a12e`)
+      fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=YOUR_KEY`) // כאן לשים מפתח חינמי של omdbapi
         .then(res => res.json())
         .then(data => {
           if (data.Response !== "True") return alert("❌ IMDb לא החזיר תוצאה תקפה");
