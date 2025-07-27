@@ -14,7 +14,7 @@ C:\xampp\htdocs
 ## התקנה
 י mysql צרו דאטה בייס ב בשם thiseldb  
 ובצעו ייבוא של הקובץ    
-media.sql  
+thiseldb.sql  
 
 
 ## אלו הגדרות השרת
