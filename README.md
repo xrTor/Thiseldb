@@ -12,13 +12,13 @@ http://localhost/thiseldb
 C:\xampp\htdocs
 
 ## התקנה
-י mysql צרו דאטה בייס ב בשם media  
+י mysql צרו דאטה בייס ב בשם thiseldb  
 ובצעו ייבוא של הקובץ    
 media.sql  
 
 
 ## אלו הגדרות השרת
- י 'localhost', 'root', '', 'media'    
+ י 'localhost', 'root', '', 'thiseldb'    
 שם משתמש root    
 בלי סיסמא    
 media שם הדאטה בייס    
