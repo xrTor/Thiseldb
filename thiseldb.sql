@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: יולי 27, 2025 בזמן 02:16 AM
+-- Generation Time: יולי 28, 2025 בזמן 03:26 AM
 -- גרסת שרת: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -37,6 +37,19 @@ CREATE TABLE `actors` (
 -- --------------------------------------------------------
 
 --
+-- מבנה טבלה עבור טבלה `categories`
+--
+
+CREATE TABLE `categories` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `sort_order` int(11) DEFAULT 0,
+  `description` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- מבנה טבלה עבור טבלה `collections`
 --
 
@@ -53,7 +66,7 @@ CREATE TABLE `collections` (
 --
 
 INSERT INTO `collections` (`id`, `name`, `description`, `created_at`, `image_url`) VALUES
-(6, 'אוסף לדוגמא', 'דוגמא בלבד', '2025-07-26 23:55:31', '');
+(7, 'אוסף לדוגמא', '', '2025-07-27 21:12:46', '');
 
 -- --------------------------------------------------------
 
@@ -95,13 +108,6 @@ CREATE TABLE `contact_requests` (
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- הוצאת מידע עבור טבלה `contact_requests`
---
-
-INSERT INTO `contact_requests` (`id`, `email`, `message`, `created_at`) VALUES
-(7, 'Thisel.db1@gmail.com', 'צור קשר!', '2025-07-27 00:14:38');
-
 -- --------------------------------------------------------
 
 --
@@ -141,10 +147,11 @@ CREATE TABLE `posters` (
   `title_en` varchar(255) DEFAULT NULL,
   `title_he` varchar(255) DEFAULT NULL,
   `year` varchar(20) DEFAULT NULL,
-  `imdb_rating` varchar(10) DEFAULT NULL,
+  `imdb_rating` decimal(3,1) DEFAULT NULL,
   `imdb_link` varchar(255) DEFAULT NULL,
   `image_url` varchar(255) DEFAULT NULL,
   `plot` text DEFAULT NULL,
+  `plot_he` text DEFAULT NULL,
   `lang_code` varchar(10) DEFAULT NULL,
   `is_dubbed` tinyint(1) DEFAULT 0,
   `has_subtitles` tinyint(1) DEFAULT 0,
@@ -160,15 +167,24 @@ CREATE TABLE `posters` (
   `pending` tinyint(4) DEFAULT 0,
   `collection_name` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
-  `type_id` int(11) DEFAULT NULL
+  `type_id` int(11) DEFAULT NULL,
+  `directors` varchar(255) DEFAULT NULL,
+  `writers` varchar(255) DEFAULT NULL,
+  `producers` varchar(255) DEFAULT NULL,
+  `cinematographers` varchar(255) DEFAULT NULL,
+  `composers` varchar(255) DEFAULT NULL,
+  `runtime` int(11) DEFAULT NULL,
+  `languages` varchar(255) DEFAULT NULL,
+  `countries` varchar(255) DEFAULT NULL,
+  `tmdb_collection_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- הוצאת מידע עבור טבלה `posters`
 --
 
-INSERT INTO `posters` (`id`, `title_en`, `title_he`, `year`, `imdb_rating`, `imdb_link`, `image_url`, `plot`, `lang_code`, `is_dubbed`, `has_subtitles`, `tvdb_id`, `youtube_trailer`, `genre`, `actors`, `metacritic_score`, `rt_score`, `metacritic_link`, `rt_link`, `imdb_id`, `pending`, `collection_name`, `created_at`, `type_id`) VALUES
-(1, 'Poster', 'פוסטר', '2012', '', '', '', '', 'hebrew', 0, 0, '', '', '', '', '', '', '', '', '', 0, NULL, '2025-07-27 03:13:14', 4);
+INSERT INTO `posters` (`id`, `title_en`, `title_he`, `year`, `imdb_rating`, `imdb_link`, `image_url`, `plot`, `plot_he`, `lang_code`, `is_dubbed`, `has_subtitles`, `tvdb_id`, `youtube_trailer`, `genre`, `actors`, `metacritic_score`, `rt_score`, `metacritic_link`, `rt_link`, `imdb_id`, `pending`, `collection_name`, `created_at`, `type_id`, `directors`, `writers`, `producers`, `cinematographers`, `composers`, `runtime`, `languages`, `countries`, `tmdb_collection_id`) VALUES
+(1, 'Movie', 'דוגמא', '2012', 0.0, '', '', '', NULL, 'hebrew', 0, 0, '', '', '', '', '', '', '', '', '', 0, NULL, '2025-07-28 04:24:28', 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -211,7 +227,7 @@ CREATE TABLE `poster_collections` (
 --
 
 INSERT INTO `poster_collections` (`poster_id`, `collection_id`) VALUES
-(1, 6);
+(1, 7);
 
 -- --------------------------------------------------------
 
@@ -270,13 +286,6 @@ CREATE TABLE `poster_reports` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `handled_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- הוצאת מידע עבור טבלה `poster_reports`
---
-
-INSERT INTO `poster_reports` (`id`, `poster_id`, `report_reason`, `created_at`, `handled_at`) VALUES
-(8, 1, 'נסיון דיווח', '2025-07-27 00:14:51', '2025-07-27 03:15:14');
 
 -- --------------------------------------------------------
 
@@ -376,6 +385,12 @@ CREATE TABLE `user_tags` (
 -- אינדקסים לטבלה `actors`
 --
 ALTER TABLE `actors`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- אינדקסים לטבלה `categories`
+--
+ALTER TABLE `categories`
   ADD PRIMARY KEY (`id`);
 
 --
@@ -513,10 +528,16 @@ ALTER TABLE `actors`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `categories`
+--
+ALTER TABLE `categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `collections`
 --
 ALTER TABLE `collections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `collection_items`
@@ -588,7 +609,7 @@ ALTER TABLE `poster_types`
 -- AUTO_INCREMENT for table `poster_votes`
 --
 ALTER TABLE `poster_votes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `ratings`
@@ -600,7 +621,7 @@ ALTER TABLE `ratings`
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=70;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
 
 --
 -- הגבלות לטבלאות שהוצאו
