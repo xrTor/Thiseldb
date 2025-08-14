@@ -1,39 +1,47 @@
 <?php
 require_once 'server.php';
 
-$type      = $_GET['type']      ?? '';
+// שליפת סוגים מה-DB (icon+label_he)
+$types = [];
+$res_types = $conn->query("SELECT * FROM poster_types ORDER BY id");
+while ($t = $res_types->fetch_assoc()) $types[] = $t;
+
+$type_id   = isset($_GET['type_id']) ? intval($_GET['type_id']) : 0;
 $year      = $_GET['year']      ?? '';
 $genre     = $_GET['genre']     ?? '';
 $subtitles = $_GET['subtitles'] ?? '';
 $dubbed    = $_GET['dubbed']    ?? '';
+$limits = [10, 20, 50, 100, 250];
+$limit = isset($_GET['limit']) && in_array((int)$_GET['limit'], $limits) ? (int)$_GET['limit'] : 10;
 
+// WHERE
 $where = ["imdb_rating IS NOT NULL", "imdb_rating != ''"];
-$params = []; $types = '';
+$params = []; $bind_types = '';
 
-if ($type) {
-  $where[] = "type = ?";
-  $params[] = $type;
-  $types .= 's';
+if ($type_id) {
+  $where[] = "type_id = ?";
+  $params[] = $type_id;
+  $bind_types .= 'i';
 }
 if ($year) {
   $where[] = "year = ?";
   $params[] = $year;
-  $types .= 's';
+  $bind_types .= 's';
 }
 if ($genre) {
   $where[] = "genre LIKE ?";
   $params[] = "%$genre%";
-  $types .= 's';
+  $bind_types .= 's';
 }
 if ($subtitles) $where[] = "has_subtitles = 1";
 if ($dubbed)    $where[] = "is_dubbed = 1";
 
 $sql = "SELECT * FROM posters";
 if ($where) $sql .= " WHERE " . implode(" AND ", $where);
-$sql .= " ORDER BY CAST(SUBSTRING_INDEX(imdb_rating, '/', 1) AS DECIMAL(3,1)) DESC LIMIT 10";
+$sql .= " ORDER BY CAST(SUBSTRING_INDEX(imdb_rating, '/', 1) AS DECIMAL(3,1)) DESC LIMIT $limit";
 
 $stmt = $conn->prepare($sql);
-if ($types) $stmt->bind_param($types, ...$params);
+if ($bind_types) $stmt->bind_param($bind_types, ...$params);
 $stmt->execute();
 $res = $stmt->get_result();
 ?>
@@ -56,8 +64,7 @@ $res = $stmt->get_result();
   text-align: center;
   margin-bottom: 30px;
 }
-.top10-wrapper form input,
-.top10-wrapper form select {
+.top10-wrapper form input {
   padding: 6px;
   margin: 6px;
   font-size: 14px;
@@ -91,7 +98,7 @@ $res = $stmt->get_result();
   flex: 1;
 }
 .top-title {
-  color: #467AFC !important; /* #5CABED */
+  color: #467AFC !important;
   font-weight: bold;
   text-decoration: none;
   font-size: 16px;
@@ -115,26 +122,79 @@ $res = $stmt->get_result();
 .imdb-link:hover {
   text-decoration: underline;
 }
+.type-tags-bar {
+  text-align: center;
+  margin: 18px 0 6px 0;
+}
+.type-tag-btn {
+  display: inline-block;
+  background: #f4f7ff;
+  border-radius: 16px;
+  border: 1px solid #dde5f4;
+  color: #333;
+  font-size: 14px;
+  padding: 7px 14px;
+  margin: 0 4px 6px 4px;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.type-tag-btn.selected {
+  background: #468bf5;
+  color: #fff;
+  font-weight: bold;
+  border-color: #357ad5;
+}
+.limit-bar {
+  text-align: center;
+  margin-bottom: 16px;
+  margin-top: 0;
+}
+.limit-btn {
+  display: inline-block;
+  background: #f4f4f4;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  color: #333;
+  font-size: 14px;
+  padding: 5px 13px;
+  margin: 0 2px 8px 2px;
+  text-decoration: none;
+  transition: background 0.14s, color 0.14s;
+}
+.limit-btn.selected {
+  background: #47c5ff;
+  color: #fff;
+  border-color: #2593b8;
+  font-weight: bold;
+}
 </style>
 
 <div class="top10-wrapper">
-  <h2>🏆 10 הפוסטרים עם הדירוג הגבוה ביותר לפי IMDb</h2>
+  <h2>🏆 הפוסטרים עם הדירוג הגבוה ביותר לפי IMDb</h2>
 
   <form method="get" action="top.php">
-    <select name="type">
-      <option value="">כל הסוגים</option>
-      <option value="movie" <?= $type == 'movie' ? 'selected' : '' ?>>🎬 סרטים</option>
-      <option value="series" <?= $type == 'series' ? 'selected' : '' ?>>📺 סדרות</option>
-      <option value="short" <?= $type == 'short' ? 'selected' : '' ?>>🎞 קצר</option>
-      <option value="miniseries" <?= $type == 'miniseries' ? 'selected' : '' ?>>📺 מיני־סדרה</option>
-    </select>
-
-    <input type="text" name="year" value="<?= htmlspecialchars($year) ?>" placeholder="🗓 שנה">
-    <input type="text" name="genre" value="<?= htmlspecialchars($genre) ?>" placeholder="🎭 ז׳אנר">
-    <label><input type="checkbox" name="subtitles" value="1" <?= $subtitles ? 'checked' : '' ?>> כתוביות</label>
-    <label><input type="checkbox" name="dubbed" value="1" <?= $dubbed ? 'checked' : '' ?>> מדובבים</label>
-    <button type="submit">📊 הצג</button>
-    <a href="top.php" style="margin-right: 10px;">🔄 איפוס</a>
+    <div class="type-tags-bar">
+      <a href="top.php?limit=<?= $limit ?>&year=<?= urlencode($year) ?>&genre=<?= urlencode($genre) ?><?= $subtitles?'&subtitles=1':'' ?><?= $dubbed?'&dubbed=1':'' ?>" class="type-tag-btn<?= !$type_id ? ' selected' : '' ?>">כל הסוגים</a>
+      <?php foreach($types as $t): ?>
+        <a href="top.php?type_id=<?= $t['id'] ?>&limit=<?= $limit ?>&year=<?= urlencode($year) ?>&genre=<?= urlencode($genre) ?><?= $subtitles?'&subtitles=1':'' ?><?= $dubbed?'&dubbed=1':'' ?>"
+           class="type-tag-btn<?= $type_id==$t['id'] ? ' selected' : '' ?>">
+          <?= htmlspecialchars($t['icon'].' '.$t['label_he']) ?>
+        </a>
+      <?php endforeach; ?>
+    </div>
+    <div class="limit-bar">
+      הצג:
+      <?php foreach($limits as $l): ?>
+        <a href="top.php?<?= http_build_query([
+            'type_id'=>$type_id, 'limit'=>$l,
+            'year'=>$year, 'genre'=>$genre,
+            'subtitles'=>$subtitles, 'dubbed'=>$dubbed
+        ]) ?>"
+        class="limit-btn<?= $limit == $l ? ' selected' : '' ?>"><?= $l ?></a>
+        <?php if ($l !== end($limits)) echo '|'; ?>
+      <?php endforeach; ?>
+      רשומות
+    </div>
   </form>
 
   <?php $index = 1; ?>

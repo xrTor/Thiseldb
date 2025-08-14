@@ -2,7 +2,7 @@
 require_once 'server.php';
 
 header('Content-Type: text/csv; charset=UTF-8');
-header('Content-Disposition: attachment; filename="posters.csv"');
+header('Content-Disposition: attachment; filename="Thiseldb.csv"');
 
 // פתרון לבעיות עברית ב־Excel
 echo "\xEF\xBB\xBF";

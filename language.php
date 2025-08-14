@@ -1,9 +1,5 @@
 <?php include 'header.php'; 
 require_once 'server.php';
-?>
-
-<?php
-require_once 'server.php';
 require_once 'languages.php';
 
 $lang_code = $_GET['lang_code'] ?? '';

@@ -15,7 +15,7 @@ $result = $conn->query($sql);
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>📝 ז׳אנר קהילתי: <?= htmlspecialchars($name) ?></title>
+  <title>📝 תגיות: <?= htmlspecialchars($name) ?></title>
   <style>
     body { font-family:Arial; direction:rtl; background:#f0f0f0; padding:40px; }
     .poster-card {
@@ -36,7 +36,7 @@ $result = $conn->query($sql);
 </head>
 <body>
 
-<h2 style="text-align:center;">📝 פוסטרים עם ז׳אנר קהילתי: <?= htmlspecialchars($name) ?></h2>
+<h2 style="text-align:center;">📝 פוסטרים עם תגית: <?= htmlspecialchars($name) ?></h2>
 
 <?php if ($result->num_rows > 0): ?>
   <div style="display:flex; flex-wrap:wrap; justify-content:center;">
@@ -50,7 +50,7 @@ $result = $conn->query($sql);
     <?php endwhile; ?>
   </div>
 <?php else: ?>
-  <p style="text-align:center; color:#666;">😢 לא נמצאו פוסטרים עם ז׳אנר זה מתוך הקהילה</p>
+  <p style="text-align:center; color:#666;">😢 לא נמצאו פוסטרים עם תגית זו</p>
 <?php endif; ?>
 
 <div style="text-align:center; margin-top:20px;">

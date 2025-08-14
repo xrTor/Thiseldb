@@ -40,7 +40,7 @@ $total_pages = ceil($total_rows / $per_page);
     body { font-family:Arial; direction:rtl; background:#f9f9f9; padding:10px; }
     .collection-card {
       background:white; padding:20px; margin:10px auto;
-      border-radius:6px; box-shadow:0 0 4px rgba(0,0,0,0.1); max-width:600px; position:relative;
+      border-radius:6px; box-shadow:0 0 4px rgba(0,0,0,0.1); max-width:1100px; position:relative; text-align: right;
     }
     .collection-card h3 { margin:0 0 10px 0; font-size:20px; }
     .collection-card .description { color:#555; margin-bottom:10px; }

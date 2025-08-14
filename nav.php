@@ -1,43 +1,111 @@
-
 <?php
 $current = basename($_SERVER['PHP_SELF']);
-echo "<!-- current page: $current -->";
+echo "";
 ?>
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="w3.css">
 
-<div class="w3-bar w3-light-grey w3-padding w3-white" style="text-align:center; ">
+<style>
+    /* ============================================== */
+    /* ==   סגנונות שנלקחו מהקובץ w3.css   == */
+    /* ============================================== */
+
+    /* הגדרות בסיס ואיפוס */
+    html {
+        box-sizing: border-box;
+    }
+    *, *:before, *:after {
+        box-sizing: inherit;
+    }
+    a {
+        color: inherit;
+        background-color: transparent;
+    }
+    
+    /* .w3-bar */
+    .w3-bar {
+        width: 100%;
+        overflow: hidden;
+    }
+    .w3-bar .w3-bar-item {
+        padding: 8px 16px;
+        float: left; /* הדפדפן הופך אוטומטית לימין ב-RTL */
+        width: auto;
+        border: none;
+        display: block;
+        outline: 0;
+    }
+    .w3-bar .w3-button {
+        white-space: normal;
+    }
+    .w3-bar:before, .w3-bar:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    /* .w3-padding */
+    .w3-padding {
+        padding: 8px 16px !important;
+    }
+
+    /* .w3-button */
+    .w3-button {
+        border: none;
+        display: inline-block;
+        padding: 8px 16px;
+        vertical-align: middle;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        background-color: inherit;
+        text-align: center;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    
+    /* צבעים */
+    .w3-black, .w3-hover-black:hover {
+        color: #fff !important;
+        background-color: #000 !important;
+    }
+    .w3-white, .w3-hover-white:hover {
+        color: #000 !important;
+        background-color: #fff !important;
+    }
+    .w3-button:hover {background-color:grey; color: white !important;}
+</style>
+<div class="w3-bar w3-padding" style="text-align:center; ">
   <?php
   $pages = [
-
     'index.php' => 'עמוד ראשי',
-    'home.php' => 'חיפוש',
+    'home.php' => '🔎 חיפוש',
     //'movies.php' => '🎬 סרטים',
     //'series.php' => '📺 סדרות', 
     'random.php' => '🎲 סרט רנדומלי',
-    'collections.php' => 'אוספים',
+    'collections.php' => '📦 אוספים',
+    'universe.php' => '🌌 ציר זמן',
+    'spotlight.php' => '🎯 זרקור', 
     'top.php' => '🏆 TOP 10',
      'stats.php' => '📈 סטטיסטיקה',
      'contact.php' => 'צור קשר',
      'about.php' => 'אודות',
+    'export.php' => '💾 ייצוא לCSV',
   ];
 
     foreach ($pages as $file => $label) {
     $active = $current == $file ? 'active w3-black' : '';
     echo "<a href='$file' class='w3-button $active'>$label</a>";
-  }/*w3-white*/
+  }
   ?>
+  <a href="javascript:history.back()" class="w3-button">⬅️ חזור</a>
 </div>
 
-<div class="w3-bar w3-light-grey w3-padding" style="text-align:center;">
+<div class="w3-bar w3-padding" style="text-align:center;">
   <?php
   $pages = [
-
     'add.php' => '➕ הוסף פוסטר חדש',
     'auto-add.php' => 'הוספה אוטומטית',
-    'export.php' => '📤 ייצוא לCSV',
     'panel.php' => 'פאנל ניהול',
-    
   ];
 
     foreach ($pages as $file => $label) {
@@ -61,7 +129,7 @@ echo "<!-- current page: $current -->";
     vertical-align: middle;
     overflow: hidden;
     text-decoration: none;
-    background-color: inherit;
+    background-color: /*inherit*/;
     text-align: center;
     cursor: pointer;
     white-space: nowrap;"

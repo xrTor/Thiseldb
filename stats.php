@@ -1,6 +1,7 @@
 <?php
 include 'header.php';
 require_once 'server.php';
+require_once 'languages.php';
 
 // 🔢 סטטיסטיקה לפי סוג עם אייקונים
 $types_data = [];
@@ -35,9 +36,14 @@ $top_posters = $conn->query("
 ");
 
 // 🌐 שפה + שנה
-$languages = $conn->query("SELECT lang_code, COUNT(*) AS total FROM poster_languages GROUP BY lang_code ORDER BY total DESC");
+$languages_count = $conn->query("SELECT lang_code, COUNT(*) AS total FROM poster_languages GROUP BY lang_code ORDER BY total DESC");
 $years = $conn->query("SELECT year, COUNT(*) AS total FROM posters WHERE year IS NOT NULL GROUP BY year ORDER BY year ASC");
 $year_data = []; while ($row = $years->fetch_assoc()) $year_data[] = $row;
+
+// ספירה כללית
+$total_query = $conn->query("SELECT COUNT(*) AS total FROM posters");
+$total = $total_query->fetch_assoc()['total'] ?? 0;
+
 
 // 📦 אוספים
 $count_collections = $conn->query("SELECT COUNT(*) AS c FROM collections")->fetch_assoc()['c'];
@@ -55,13 +61,14 @@ $count_collections = $conn->query("SELECT COUNT(*) AS c FROM collections")->fetc
     table { width:100%; border-collapse:collapse; background:white; margin-top:20px; }
     th, td { padding:12px; border-bottom:1px solid #ccc; text-align:right; }
     th { background:#eee; }
-    canvas { max-width:500px; margin:20px auto; }
+    canvas { max-width:1000px; margin:20px auto; }
     .bar { height:20px; background:#ddd; border-radius:10px; overflow:hidden; margin:10px 0; }
     .bar-inner { height:100%; text-align:right; color:#fff; padding-right:10px; line-height:20px; font-size:13px; }
     .like-bar { background:#28a745; width:<?= $percent_likes ?>%; }
     .dislike-bar { background:#dc3545; width:<?= $percent_dislikes ?>%; }
     a { color:#007bff; text-decoration:none; }
     a:hover { text-decoration:underline; }
+    .yearChart {width: 100% !important;;}
   </style>
 </head>
 <body>
@@ -72,7 +79,9 @@ $count_collections = $conn->query("SELECT COUNT(*) AS c FROM collections")->fetc
   <h2>🔢 לפי סוג</h2>
   <table>
     <tr><th>סוג</th><th>מספר פוסטרים</th></tr>
+    <span><strong>📊 סך הכול פוסטרים: </strong><?= $total ?>
     <?php foreach ($types_data as $type): ?>
+      
       <tr>
         <td><?= htmlspecialchars($type['label_with_icon']) ?></td>
         <td><?= $type['total'] ?></td>
@@ -109,9 +118,28 @@ $count_collections = $conn->query("SELECT COUNT(*) AS c FROM collections")->fetc
   <h2>🌐 פילוח לפי שפה</h2>
   <table>
     <tr><th>שפה</th><th>מספר פוסטרים</th></tr>
-    <?php while ($row = $languages->fetch_assoc()): ?>
+    <?php while ($row = $languages_count->fetch_assoc()): ?>
+      <?php
+      $lang_code = $row['lang_code'];
+      $lang_label = $lang_code; // ברירת מחדל לקוד השפה
+      $lang_flag = '';
+      
+      // בדיקה במערך השפות
+      foreach ($languages as $lang) {
+        if ($lang['code'] === $lang_code) {
+          $lang_label = $lang['label']; // הצגת שם השפה (הלועזי)
+          $lang_flag = $lang['flag'];
+          break;
+        }
+      }
+      ?>
       <tr>
-        <td><?= htmlspecialchars($row['lang_code']) ?></td>
+        <td>
+          <?php if ($lang_flag): ?>
+            <img src="<?= htmlspecialchars($lang_flag) ?>" alt="<?= htmlspecialchars($lang_label) ?>" style="height:16px; vertical-align:middle; margin-left: 5px;">
+          <?php endif; ?>
+          <?= htmlspecialchars($lang_label) ?>
+        </td>
         <td><?= $row['total'] ?></td>
       </tr>
     <?php endwhile; ?>
@@ -129,7 +157,7 @@ $count_collections = $conn->query("SELECT COUNT(*) AS c FROM collections")->fetc
       </tr>
     <?php endforeach; ?>
   </table>
-  <canvas id="yearChart"></canvas>
+  <canvas id="yearChart" class="yearChart"></canvas>
 </div>
 
 <div class="box">

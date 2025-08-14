@@ -4,6 +4,11 @@
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) die("Connection failed: " . $conn->connect_error);
 
+
+// ספירה כללית
+$total_query = $conn->query("SELECT COUNT(*) AS total FROM posters");
+$total = $total_query->fetch_assoc()['total'] ?? 0;
+
 // ספירה לפי סוג
 $count_series = $conn->query("
   SELECT COUNT(*) AS c
@@ -27,22 +32,43 @@ $tags = $conn->query("
   GROUP BY c.id
   ORDER BY total DESC
 ");
+
+// --- התיקון כאן ---
+// הגדר את הפונקציה רק אם היא לא קיימת עדיין
+if (!function_exists('safeCount')) {
+    function safeCount($conn, $table)
+    {
+        $res = $conn->query("SELECT COUNT(*) as c FROM $table");
+        return ($res && $res->num_rows > 0) ? $res->fetch_assoc()['c'] : 0;
+    }
+}
+
+// המשתנה stats יחושב רק אם הוא לא הוגדר כבר (כמו בעמוד הפאנל)
+if (!isset($stats)) {
+    $stats = [
+        'collections' => safeCount($conn, 'collections'),
+    ];
+}
+
 ?>
 
-
 <footer style="text-align:center; margin-top:30px; font-size:14px;">
-   <a href="index.html"><img src="images/logo1.png" style="width:100px" alt="Thiseldb" title:"Thiseldb"></a>
+   <a href="index.php"><img src="images/logo1.png" style="width:100px" alt="Thiseldb" title:"Thiseldb"></a>
    <br> 
    <p>&copy; <?= date("Y")?>
 </p>
-Thisel.db1@gmail.com
+<a href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a>
+
 <br><br>
   סטטיסטיקה:
+  <div class="box center">
+    
+    <span><strong>📁 פוסטרים: </strong><?= $total ?> |
+      <span class="white"><a href="collections.php" target="_blank" class="white"><strong>📦אוספים: </strong></span></a><?= $stats['collections'] ?> | 
+  <span class="white"><a href="home.php?type%5B%5D=3" target="_blank" class="white"><strong>🎞️ סרטים: </strong></span></a><?= $count_movies ?> | 
+  <span class="white"><a href="home.php?type%5B%5D=4" target="_blank" class="white"><strong>📺 סדרות: </strong></span><?= $count_series ?></a> | 
 
-  <div class="box">
- <span><a href="movies.php">🎬 סרטים: <strong><?= $count_movies ?></a></strong></span> |
-  <span><a href="series.php">📺 סדרות: <strong><?= $count_series ?></a></strong></span> |
-  <span><a href="https://github.com/xrTor/Thiseldb_V1" target="_blank">קוד מקור</span></a><br>
+  <span class="white"><a href="https://github.com/xrTor/Thiseldb" target="_blank" class="white">קוד מקור</span></a><br>
  </div><br><br>
 </footer>
 

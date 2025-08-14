@@ -13,6 +13,55 @@ function extractImdbId($input) {
 $keyword = $_GET['q'] ?? '';
 $keyword = trim($keyword);
 $keyword = extractImdbId($keyword);
+
+$results = [];
+$num_results = 0;
+
+if (!empty($keyword)) {
+  // שדות החיפוש הרגילים
+  $searchFields = [
+    "title_en", "title_he", "plot", "plot_he", "actors", "genre",
+    "directors", "writers", "producers", "composers", "cinematographers",
+    "languages", "countries", "imdb_id", "year", "tvdb_id"
+  ];
+  $like = "%$keyword%";
+  $params = array_fill(0, count($searchFields), $like);
+  $types  = str_repeat('s', count($searchFields));
+  $where  = [];
+  foreach ($searchFields as $f) $where[] = "p.$f LIKE ?";
+
+  // הוספת חיפוש בתגיות משתמש
+  $where[] = "ut.genre LIKE ?";
+  $params[] = $like;
+  $types .= 's';
+
+  $sql = "
+    SELECT DISTINCT p.*
+    FROM posters p
+    LEFT JOIN user_tags ut ON ut.poster_id = p.id
+    WHERE (" . implode(' OR ', $where) . ")
+    ORDER BY p.year DESC, p.title_en ASC
+    LIMIT 30000
+  ";
+  $stmt = $conn->prepare($sql);
+  $stmt->bind_param($types, ...$params);
+  $stmt->execute();
+  $result = $stmt->get_result();
+
+  // דילוג אוטומטי אם יש תוצאה אחת בלבד
+  if ($result && $result->num_rows === 1) {
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    header("Location: poster.php?id=" . $row['id']);
+    exit;
+  }
+  $num_results = $result->num_rows;
+  while ($row = $result->fetch_assoc()) {
+    $results[] = $row;
+  }
+  $stmt->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -38,6 +87,9 @@ $keyword = extractImdbId($keyword);
     .card img {
       width: 100%;
       border-radius: 6px;
+      object-fit: cover;
+      min-height: 290px;
+      background: #eee;
     }
     .results {
       display: flex;
@@ -54,65 +106,73 @@ $keyword = extractImdbId($keyword);
       width: 220px;
       padding: 8px;
     }
+    .aka {
+      font-size: 13px;
+      color: #444;
+    }
+    .title-he {
+      color: #666;
+      font-size: 14px;
+      margin-top: 3px;
+    }
+    .results-count {
+      text-align: center;
+      font-size: 18px;
+      margin: 12px 0 4px 0;
+      color: #444;
+    }
   </style>
 </head>
 <body>
 
-
-<!-- טופס חיפוש שתמיד מופיע 
- <div class="" style="text-align:center;">
-  <form method="get" action="search.php" class="search-container">
-    <input type="text" name="q" placeholder="🔎 הקלד מילה או לינק ל-IMDb">
-    <button type="submit">🔍 חפש</button>
-  </form>
-</div>
-
-<div class="" style="text-align:center;">
-  <form method="get" action="search.php" class="search-container">
-    <input type="text" name="q" placeholder="🔎 הקלד מילה או לינק ל-IMDb" class="">
-    <button type="submit" class="w3-button w3-blue">🔍 חפש</button>
-  </form>
-</div>
--->
-<h2 class="w3-center">
-  <?= empty($keyword) ? '🔍 חיפוש פוסטרים' : '🔍 תוצאות עבור: ' . htmlspecialchars($keyword) ?>
-</h2>
+  <h2 class="w3-center">
+    <?= empty($keyword) ? '🔍 חיפוש פוסטרים' : '🔍 תוצאות עבור: ' . htmlspecialchars($keyword) ?>
+  </h2>
 
 <?php
 if (!empty($keyword)) {
-  $like = "%$keyword%";
-  $stmt = $conn->prepare("
-    SELECT * FROM posters 
-    WHERE title_en LIKE ? 
-    OR title_he LIKE ? 
-    OR plot LIKE ? 
-    OR genre LIKE ? 
-    OR actors LIKE ? 
-    OR imdb_id LIKE ?
-  ");
-  $stmt->bind_param("ssssss", $like, $like, $like, $like, $like, $like);
-  $stmt->execute();
-  $result = $stmt->get_result();
-
-  if ($result->num_rows > 0): ?>
+  if ($num_results > 0) {
+    $txt = ($num_results == 1) ? "נמצאה תוצאה אחת" : "נמצאו $num_results תוצאות";
+    echo "<div class='results-count'>$txt עבור <b>\"" . htmlspecialchars($keyword) . "\"</b></div>";
+  } else {
+    echo "<div class='results-count'>לא נמצאו תוצאות עבור <b>\"" . htmlspecialchars($keyword) . "\"</b></div>";
+  }
+  if ($num_results > 0): ?>
     <div class="results">
-      <?php while ($row = $result->fetch_assoc()): ?>
+      <?php foreach ($results as $row): ?>
         <div class="card">
           <a href="poster.php?id=<?= $row['id'] ?>">
-            <img src="<?= htmlspecialchars($row['image_url']) ?>" alt="Poster">
-            <p><?= htmlspecialchars($row['title_en']) ?></p>
+            <img src="<?= htmlspecialchars($row['image_url']) ?: 'images/no-poster.png' ?>" alt="Poster">
+            <div style="margin-top: 8px;">
+              <?= htmlspecialchars($row['title_en']) ?>
+              <?php
+                // הצגת AKA
+                if (preg_match('/^(.*?)\s*AKA\s*(.*)$/i', $row['title_en'], $m) && trim($m[2])) {
+                  echo '<div class="aka">(AKA '.htmlspecialchars($m[2]).')</div>';
+                }
+              ?>
+              <?php if (!empty($row['title_he'])): ?>
+                <div class="title-he"><?= htmlspecialchars($row['title_he']) ?></div>
+              <?php endif; ?>
+            </div>
           </a>
+          <div style="font-size:12px; color:#888; margin-top:4px;">
+            🗓 <?= htmlspecialchars($row['year']) ?> | 
+            ⭐ <?= htmlspecialchars($row['imdb_rating']) ?>
+            <?php if (!empty($row['imdb_id'])): ?>
+              <a href="<?= htmlspecialchars($row['imdb_link']) ?>" target="_blank" style="color:#E6B91E;text-decoration:none;font-weight:bold;">IMDb</a>
+            <?php endif; ?>
+          </div>
+          <div style="margin-top:5px;">
+            <?php if (!empty($row['genre'])): ?>
+              <span style="font-size:12px;">🎭 <?= htmlspecialchars($row['genre']) ?></span>
+            <?php endif; ?>
+          </div>
         </div>
-      <?php endwhile; ?>
+      <?php endforeach; ?>
     </div>
-  <?php else: ?>
-    <p class="w3-center">😢 לא נמצאו תוצאות עבור "<?= htmlspecialchars($keyword) ?>"</p>
   <?php endif;
-
-  $stmt->close();
 }
-
-$conn->close();
 ?>
 
 </body>

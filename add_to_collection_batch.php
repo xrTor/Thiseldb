@@ -1,6 +1,8 @@
 <?php
 require_once 'server.php';
 
+set_time_limit(3000000);
+
 $cid = intval($_POST['collection_id'] ?? 0);
 $raw = trim($_POST['poster_ids_raw'] ?? '');
 $final_ids = [];

@@ -52,18 +52,18 @@
   direction: rtl;
   text-align: right;
 }
-a {color: #2d89ef !important;}
+.blue {color: #2d89ef !important;}
   </style>
 </head>
 <body>
-<div class="about-wrapper">
-  <h2>על האתר Thiseldb 🎬</h2>
+<div class="center about-wrapper">
+  <h2 class="center">על האתר Thiseldb 🍿</h2>
 
 <img src="images/logo.png" height="240px"><br>
   <div class="about-section">
 
   <h3><b><u>שלום!</u></h3></b><br>
-אז אני מייקל, חובב סרטים וקולנוע מושבע<br>
+  ברוכים הבאים לת'יסל. אז אני מייקל, חובב סרטים וקולנוע מושבע<br>
 תמיד שאני מחפש לדוגמא סרט קומדיה עם אחותי אנחנו מחפשים שעות במה לצפות, אז חשבתי להקים פרוייקט המלצות לתכנים רלוונטים לקהילה.<br><br>
 
     <h3><b><u>מטרת האתר:</u></h3></b>    
@@ -78,23 +78,27 @@ a {color: #2d89ef !important;}
 אם סרט זמין בבלעדיות בישראל בשירות סטרימינג כל שהוא יסומן עם מדבקה.<br>
 רוב התוכן באתר מבוסס על תרגומים פיראטיים של הקהילה, אני מביא סרטים שאין להם תרגום עברי ברשת ולא משודרים בישראל רק כשהם נדרשים ל'שושלת' (סאגות, אוספים) או תוכן שאני ממליץ עליו בגלל שאהבתי אותו גם אם צפיתי בו בגרסא ללא תרגום עברי, אבל שוב מדובר במיעוט של התוכן (300~ סרטים)<br>
 <h3><b><u>פיתוח האתר:</u></h3></b>
-האתר זמין כ<a href="https://github.com/xrTor/Thiseldb-PHP">קוד מקור בGitHub</a>
- תחת רישיון GPL הוא נכתב עם PHP 8 בצד שרת יחד עם דאטה-בייס מבוסס MySQL בעזרה של הכלי CoPilot<br>
-אם אתם רוצים לקבל את ארכיון האתר כולו אנא בקשו בעמוד '<a href="contact.php">צור קשר</a>'.<br>
-הארכיון של האתר משוחרר בחינם לחלוטין וגם האתר עצמו, אתם מוזמנים להוריד ולעשות כל מה שיתחשק לכם עם המאגר או עם קוד המקור של האתר עצמו.<br><br>
-
+האתר זמין כ<a class="blue" href="https://github.com/xrTor/Thiseldb">קוד מקור בGitHub</a>
+ תחת רישיון GPL הוא נכתב עם PHP 8 בצד שרת יחד עם דאטה-בייס מבוסס MySQL בעזרה של הכלים CoPilot, GPT ו Gemini<br>
+אם אתם רוצים לקבל את ארכיון האתר כולו אנא בקשו בעמוד '<a class="blue" href="contact.php">צור קשר</a>'.<br>
+הארכיון של האתר משוחרר בחינם לחלוטין וגם האתר עצמו, אתם מוזמנים להוריד ולעשות כל מה שיתחשק לכם עם המאגר או עם קוד המקור של האתר עצמו.<br>
+הדומיין יושב בשירות <a class="blue" href="https://www.namecheap.com/">Namecheap</a>
+והאתר מאוחסן בשרת <a class="blue" href="https://www.hostinger.com/il/1">Hostinger</a>.
 
 <h3><b><u>כלים:</u></h3></b>
-<a href="https://www.omdbapi.com">פרוייקט API של omdbapi </a><br>
-<a href="https://github.com/FabianBeiner/PHP-IMDB-Grabber
-">PHP-IMDB-Grabber</a><br>
+<a class="blue" href="https://www.omdbapi.com">פרוייקט API של OMDB </a><br>
+<a class="blue" href="https://developer.themoviedb.org/docs/getting-started">פרוייקט API של TMDB </a><br>
+<a class="blue" href="https://www.thetvdb.com/api-information">פרוייקט API של TVDB </a><br>
+
+<a class="blue" href="https://github.com/FabianBeiner/PHP-IMDB-Grabber">פרוייקט IMDB-Grabber </a><br>
 <br>
 <h3><b><u>הצעות לשיפור ודיווח על באגים:</u></h3></b>
-אם חשבתם על דרך לשפר תאתר או נתקלתם בשגיאה או באג או נתון לא נכון, בעמודי הפוסטרים השתמשו בכפתור ה'דיווח', לכל פנייה אחרת נא שלחו טופס דרך עמוד '<a href="contact.php">צור קשר</a>'.<br>
+אם חשבתם על דרך לשפר תאתר או נתקלתם בשגיאה או באג או נתון לא נכון, בעמודי הפוסטרים השתמשו בכפתור ה'דיווח', לכל פנייה אחרת נא שלחו טופס דרך עמוד '<a class="blue" href="contact.php">צור קשר</a>'.<br>
+או שלחו מייל אל הכתובת <a class="blue" href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a><br>
+
 תהנו : )
 </div>
 </div>
-
+<?php include 'footer.php'; ?>
 </body>
 </html>
-<?php include 'footer.php'; ?>

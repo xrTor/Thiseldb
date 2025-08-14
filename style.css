@@ -126,7 +126,6 @@ display: flex
   margin-top: 6px;
   text-align: center;
 }
-
 .tag-link {
   background-color: #eee;
   padding: 4px 8px;
@@ -164,7 +163,7 @@ display: flex
 , .w3-button, .w3-black !important, .w3-black !important, .w3-xlarge, .w3-padding-32
 */
 
-.w3-white{color:black !important; background-color: white !important;}
+.w3-white{color:black !important; }
 
 
 .active {
@@ -232,3 +231,7 @@ display: flex
   text-decoration: none;
 }
 
+
+ a:hover {text-decoration:none!important;}
+
+ 
