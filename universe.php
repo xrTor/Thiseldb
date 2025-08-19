@@ -93,10 +93,10 @@ $conn->close();
         }
         body {
             font-family: system-ui, -apple-system, sans-serif;
-            background-color: var(--background-color);
             color: var(--text-color);
             margin: 0;
             padding: 40px 20px;
+            background-color: #101010 !important;
         }
         .universe-header { text-align: center; margin-bottom: 20px; }
         .universe-header h1 { font-size: 3.5em; margin: 0; }
