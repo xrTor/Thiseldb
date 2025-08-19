@@ -57,7 +57,7 @@ if (!isset($stats)) {
    <br> 
    <p>&copy; <?= date("Y")?>
 </p>
-<a href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a>
+<a class="white" href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a>
 
 <br><br>
   סטטיסטיקה:

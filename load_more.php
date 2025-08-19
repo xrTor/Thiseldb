@@ -114,10 +114,10 @@ if (!empty($rows)):
       </div>
 
       <div class="view-link rtl" style="margin-top:10px; text-align:center;">
-        <a href="poster.php?id=<?= $row['id'] ?>">📄 צפה בפוסטר</a>
+        <!-- <a href="poster.php?id=<?= $row['id'] ?>">📄 צפה בפוסטר</a> -->
         <?php if (($row['code'] ?? '') === 'series' && !empty($row['tvdb_id'])): ?>
           <div style="text-align:center; margin-top:6px;">
-            <a href="<?= htmlspecialchars($row['tvdb_id']) ?>" target="_blank">צפה בסדרה ב־TVDB</a>
+            <!-- <a href="<?= htmlspecialchars($row['tvdb_id']) ?>" target="_blank">צפה בסדרה ב־TVDB</a> -->
           </div>
         <?php endif; ?>
       </div>

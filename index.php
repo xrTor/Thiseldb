@@ -1,6 +1,9 @@
 <?php require_once 'server.php';?>
 <?php include 'header.php'; ?>
 
+<style>
+   body {background-color:#EDEDEE !important} 
+</style>
 <?php
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $limit = 20;
@@ -137,11 +140,11 @@ while ($row = $result->fetch_assoc()) $rows[] = $row;
       </div>
 
       <div class="view-link rtl" style="margin-top:10px; text-align:center;">
-        <a href="poster.php?id=<?= $row['id'] ?>">📄 צפה בפוסטר</a>
+        <!-- <a href="poster.php?id=<?= $row['id'] ?>">📄 צפה בפוסטר</a> -->
         <?php if (($row['code'] ?? '') === 'series' && !empty($row['tvdb_id'])): ?>
-          <div style="text-align:center; margin-top:6px;">
+          <!-- <div style="text-align:center; margin-top:6px;">
             <a href="<?= htmlspecialchars($row['tvdb_id']) ?>" target="_blank">צפה בסדרה ב־TVDB</a>
-          </div>
+          </div> -->
         <?php endif; ?>
       </div>
     </div>
