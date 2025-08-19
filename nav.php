@@ -87,7 +87,7 @@ echo "";
     'spotlight.php' => '🎯 זרקור', 
     'top.php' => '🏆 TOP 10',
      'stats.php' => '📈 סטטיסטיקה',
-     'contact.php' => 'צור קשר',
+     'contact.php' => '📩 צור קשר',
      'about.php' => 'אודות',
     'export.php' => '💾 ייצוא לCSV',
   ];

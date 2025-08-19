@@ -80,7 +80,7 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
       .nav-button { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px 10px; text-decoration: none; color: #fff; background: var(--btn-color, var(--primary-color)); border-radius: var(--border-radius); font-weight: 500; text-align: center; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; min-height: 90px; }
       .nav-button:hover { transform: scale(1.05); box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
       .nav-icon { font-size: 1.8rem; line-height: 1; }
-      .nav-text { margin-top: 10px; font-size: 0.85rem; line-height: 1.2; }
+      .nav-text { margin-top: 10px; font-size: 0.85rem; line-height: 1.2; color:white; font-weight: bold;}
       .stat-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; font-size: 1rem; border-bottom: 1px solid #f2f2f2; }
       .stat-item:last-child { border-bottom: none; }
       .stat-item span:first-child { font-weight: 500; }
@@ -231,7 +231,21 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
       </div>
       <div class="nav-box">
         <h2>🧭 ניווט מהיר</h2>
-        <a href="manage_posters.php">ניהול פוסטרים</a><a href="manage_collections.php">ניהול אוספים</a><a href="manage_contacts.php">ניהול פניות</a><a href="manage_reports.php">ניהול דיווחים</a><a href="manage_trailers.php">ניהול טריילרים</a><a href="manage_genres.php">ניהול ז'אנרים</a><a href="manage_user_tag.php">ניהול תגיות</a><a href="manage_name_genres.php">ניהול שמות ז'אנרים</a><a href="manage_name_user_tag.php">ניהול שמות תגיות</a><a href="manage_languages.php">ניהול שפות</a><a href="manage_types.php">ניהול סוגים</a><a href="manage_type_admin.php">שיוך סוגים</a><a href="manage_titles.php">ניהול שמות כותרות</a><a href="manage_missing.php">ניהול פוסטרים חסרים</a><a href="manage_sync.php">סנכרון תמונות מהאינטרנט</a>
+        <a href="manage_posters.php">ניהול פוסטרים</a>
+        <a href="manage_collections.php">ניהול אוספים</a>
+        <a href="manage_contacts.php">ניהול פניות</a>
+        <a href="manage_reports.php">ניהול דיווחים</a>
+        <a href="manage_trailers.php">ניהול טריילרים</a>
+        <a href="manage_genres.php">ניהול ז'אנרים</a>
+        <a href="manage_user_tag.php">ניהול תגיות</a>
+        <a href="manage_name_genres.php">ניהול שמות ז'אנרים</a>
+        <a href="manage_name_user_tag.php">ניהול שמות תגיות</a>
+        <a href="manage_languages.php">ניהול שפות</a>
+        <a href="manage_types.php">ניהול סוגים</a>
+        <a href="manage_type_admin.php">שיוך סוגים</a>
+        <a href="manage_titles.php">ניהול שמות כותרות</a>
+        <a href="manage_missing.php">ניהול פוסטרים חסרים</a>
+        <a href="manage_sync.php">סנכרון תמונות מהאינטרנט</a>
       </div>
     </div>
     

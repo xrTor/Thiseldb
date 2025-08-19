@@ -1,6 +1,6 @@
 <?php
+// שלב 1: טעינת החיבור למסד הנתונים והפונקציות
 require_once 'server.php';
-include 'header.php';
 
 // פונקציה לזיהוי מזהה IMDb מתוך מזהה או קישור
 function extractImdbId($input) {
@@ -10,6 +10,7 @@ function extractImdbId($input) {
   return $input;
 }
 
+// שלב 2: כל הלוגיקה של החיפוש וההפניה רצה כאן, לפני ה-HTML
 $keyword = $_GET['q'] ?? '';
 $keyword = trim($keyword);
 $keyword = extractImdbId($keyword);
@@ -18,7 +19,6 @@ $results = [];
 $num_results = 0;
 
 if (!empty($keyword)) {
-  // שדות החיפוש הרגילים
   $searchFields = [
     "title_en", "title_he", "plot", "plot_he", "actors", "genre",
     "directors", "writers", "producers", "composers", "cinematographers",
@@ -30,7 +30,6 @@ if (!empty($keyword)) {
   $where  = [];
   foreach ($searchFields as $f) $where[] = "p.$f LIKE ?";
 
-  // הוספת חיפוש בתגיות משתמש
   $where[] = "ut.genre LIKE ?";
   $params[] = $like;
   $types .= 's';
@@ -48,20 +47,27 @@ if (!empty($keyword)) {
   $stmt->execute();
   $result = $stmt->get_result();
 
-  // דילוג אוטומטי אם יש תוצאה אחת בלבד
+  // בדיקת הפנייה אוטומטית אם יש תוצאה אחת בלבד
   if ($result && $result->num_rows === 1) {
     $row = $result->fetch_assoc();
     $stmt->close();
     $conn->close();
     header("Location: poster.php?id=" . $row['id']);
-    exit;
+    exit; // חובה לצאת אחרי הפנייה
   }
+
+  // אם לא בוצעה הפנייה, ממשיכים לשלוף את שאר התוצאות
   $num_results = $result->num_rows;
   while ($row = $result->fetch_assoc()) {
     $results[] = $row;
   }
   $stmt->close();
 }
+
+$conn->close();
+
+// שלב 3: רק אחרי שסיימנו עם הלוגיקה, טוענים את ה-header ומתחילים להציג HTML
+include 'header.php';
 ?>
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -69,7 +75,6 @@ if (!empty($keyword)) {
   <meta charset="UTF-8">
   <title><?= empty($keyword) ? 'חיפוש פוסטרים' : 'תוצאות עבור ' . htmlspecialchars($keyword) ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
   <style>
     .card {
       width: 200px;
@@ -80,6 +85,7 @@ if (!empty($keyword)) {
       padding: 10px;
       margin: 10px;
       transition: transform 0.2s ease;
+      color: #333; /* צבע טקסט לכרטיסיות */
     }
     .card:hover {
       transform: scale(1.05);
@@ -95,16 +101,6 @@ if (!empty($keyword)) {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-    }
-    .search-container {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    .search-container input[type="text"] {
-      width: 220px;
-      padding: 8px;
     }
     .aka {
       font-size: 13px;
@@ -125,7 +121,7 @@ if (!empty($keyword)) {
 </head>
 <body>
 
-  <h2 class="w3-center">
+  <h2 style="text-align:center; color: #333;">
     <?= empty($keyword) ? '🔍 חיפוש פוסטרים' : '🔍 תוצאות עבור: ' . htmlspecialchars($keyword) ?>
   </h2>
 
@@ -143,10 +139,9 @@ if (!empty($keyword)) {
         <div class="card">
           <a href="poster.php?id=<?= $row['id'] ?>">
             <img src="<?= htmlspecialchars($row['image_url']) ?: 'images/no-poster.png' ?>" alt="Poster">
-            <div style="margin-top: 8px;">
+            <div style="margin-top: 8px; color: #333;">
               <?= htmlspecialchars($row['title_en']) ?>
               <?php
-                // הצגת AKA
                 if (preg_match('/^(.*?)\s*AKA\s*(.*)$/i', $row['title_en'], $m) && trim($m[2])) {
                   echo '<div class="aka">(AKA '.htmlspecialchars($m[2]).')</div>';
                 }
