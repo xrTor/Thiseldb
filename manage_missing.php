@@ -74,7 +74,7 @@ $total_missing = $count_result ? (int)$count_result->fetch_assoc()['total'] : 0;
 
 echo "<p style='text-align:center; font-weight:bold;'>נמצאו <span style='color:darkred;'>$total_missing</span> פוסטרים חסרים</p>";
 
-$query = "SELECT * FROM posters WHERE $where ORDER BY id DESC LIMIT 100";
+$query = "SELECT * FROM posters WHERE $where ORDER BY id DESC LIMIT 1000000";
 $result = $conn->query($query);
 
 if ($total_missing === 0) {
@@ -104,7 +104,7 @@ if ($total_missing === 0) {
 
     $id_link = '<a href="poster.php?id=' . $row['id'] . '" target="_blank">' . $row['id'] . '</a>';
     $title_raw = $row['title_he'] ?: $row['title_en'];
-    $title = mb_strlen($title_raw) > 30 ? mb_substr($title_raw, 0, 30) . '…' : $title_raw;
+    $title = mb_strlen($title_raw) > 60 ? mb_substr($title_raw, 0, 60) . '…' : $title_raw;
     $title_link = '<a href="poster.php?id=' . $row['id'] . '" target="_blank">' . htmlspecialchars($title) . '</a>';
     $imdb_id = htmlspecialchars($row['imdb_id']);
     $imdb_link = $imdb_id ? '<a href="https://www.imdb.com/title/' . $imdb_id . '" target="_blank">' . $imdb_id . '</a>' : '—';
