@@ -1,468 +1,291 @@
 <?php
-include 'header.php';
+/****************************************************
+ * poster.php — עמוד פוסטר מלא (RTL, עברית)
+ * גרסה מתוקנת עם הצגת Connections, כותרת תקינה ו-runtime משופר
+ ****************************************************/
+mb_internal_encoding('UTF-8');
+header('Content-Type: text/html; charset=UTF-8');
+if (function_exists('opcache_reset')) { @opcache_reset(); }
 
-function extractImdbId($input) {
-  if (preg_match('/tt\d{7,8}/', $input, $matches)) return $matches[0];
-  return '';
+/* ====== תלויות ====== */
+require_once __DIR__ . '/SERVER.php'; // מגדיר $conn ועוד
+include 'header.php'; 
+/* ====== עזרי תצוגה ====== */
+function flatten_strings($v){$o=[];$st=[$v];while($st){$c=array_pop($st);if(is_array($c)){foreach($c as $x)$st[]=$x;continue;}if(is_object($c))$c=(string)$c;$t=trim((string)$c);if($t!=='')$o[]=$t;}return $o;}
+function safeHtml($v){if(is_array($v)||is_object($v))return htmlspecialchars(implode(', ',flatten_strings($v)),ENT_QUOTES,'UTF-8');return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
+function safeJoin($arr,$sep=', '){ if($arr===null) return ''; if(!is_array($arr)) $arr = [$arr]; $vals=array_map(fn($t)=>trim((string)$t),flatten_strings($arr)); $vals=array_values(array_filter($vals,fn($x)=>$x!=='')); return htmlspecialchars(implode($sep,$vals),ENT_QUOTES,'UTF-8');}
+function H($v){return (is_array($v)||is_object($v))?safeJoin($v):safeHtml($v);}
+function normalize_list($v){ $o=[]; $split=function($s){return array_map('trim',preg_split('~\s*[,;/]\s*~u',(string)$s,-1,PREG_SPLIT_NO_EMPTY)?:[]);}; $push=function($x)use(&$o,$split){foreach($split($x) as $p){ if($p!=='') $o[]=$p; }}; if(is_array($v)){ $it=new RecursiveIteratorIterator(new RecursiveArrayIterator($v)); foreach($it as $x){ if(!is_array($x)) $push($x); } } elseif($v!==null && $v!==''){ $push($v); } $seen=[]; $u=[]; foreach($o as $i){ $k=mb_strtolower(preg_replace('~\s+~u',' ',$i),'UTF-8'); if(!isset($seen[$k])){$seen[$k]=1; $u[]=$i;} } return $u; }
+function parse_any_list_field($raw){ if ($raw===null || $raw==='') return []; if (is_string($raw)) { $j = json_decode($raw,true); if (json_last_error()===JSON_ERROR_NONE && is_array($j)) return normalize_list($j); } if (is_array($raw)) return normalize_list($raw); return normalize_list((string)$raw); }
+
+// <<< הוספה: פונקציה לעיצוב זמן ריצה
+function format_runtime(int $minutes): string {
+    if ($minutes <= 0) return '';
+    $h = floor($minutes / 60);
+    $m = $minutes % 60;
+    $parts = [];
+    if ($h > 0) $parts[] = "{$h}h";
+    if ($m > 0) $parts[] = "{$m}m";
+    if (empty($parts)) return "{$minutes} min";
+    return implode(' ', $parts) . " ({$minutes} min)";
 }
-function extractLocalId($input) {
-  if (preg_match('/poster\.php\?id=(\d+)/', $input, $matches)) return (int)$matches[1];
-  return 0;
+
+
+/* ====== הבאת פוסטר מה-DB ====== */
+$posterRow = null;
+if (isset($_GET['id']) && ctype_digit($_GET['id'])) {
+  $stmt = $conn->prepare("SELECT * FROM posters WHERE id = ?");
+  $stmt->bind_param("i", $_GET['id']);
+  $stmt->execute();
+  $posterRow = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+} elseif (!empty($_GET['tt']) && preg_match('~^tt\d{6,10}$~', $_GET['tt'])) {
+  $stmt = $conn->prepare("SELECT * FROM posters WHERE imdb_id = ? LIMIT 1");
+  $stmt->bind_param("s", $_GET['tt']);
+  $stmt->execute();
+  $posterRow = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
 }
-function extractYoutubeId($url) {
-  if (preg_match('/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/', $url, $matches)) return $matches[1];
-  return '';
+
+if (!$posterRow) {
+  http_response_code(404);
+  die('<!doctype html><html><head><title>404 Not Found</title></head><body><h1>Poster Not Found</h1></body></html>');
 }
 
-require_once 'server.php';
- 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-$result = $conn->query("SELECT p.*, pt.label_he AS type_label, pt.icon AS type_icon
-  FROM posters p
-  LEFT JOIN poster_types pt ON p.type_id = pt.id
-  WHERE p.id = $id");
-if ($result->num_rows == 0) { echo "<p style='text-align:center;'>❌ פוסטר לא נמצא</p>"; exit; }
-$row = $result->fetch_assoc();
-$video_id = extractYoutubeId($row['youtube_trailer'] ?? '');
-$message = '';
+/* ====== הבאת רשימת AKAs ====== */
+$akas = [];
+$poster_id_for_akas = (int)$posterRow['id'];
+if ($poster_id_for_akas > 0) {
+  $stmt = $conn->prepare("SELECT aka_title FROM poster_akas WHERE poster_id = ? ORDER BY sort_order ASC, id ASC");
+  $stmt->bind_param("i", $poster_id_for_akas);
+  $stmt->execute();
+  $res = $stmt->get_result();
+  while ($r = $res->fetch_assoc()) { if (trim($r['aka_title'])) $akas[] = trim($r['aka_title']); }
+  $stmt->close();
+}
 
-session_start();
-$visitor_token = session_id();
-
-$vote_row = $conn->query("
-  SELECT vote_type FROM poster_votes 
-  WHERE poster_id = $id AND visitor_token = '$visitor_token'
-");
-$user_vote = $vote_row->num_rows ? $vote_row->fetch_assoc()['vote_type'] : '';
-
-if (isset($_POST['vote'])) {
-  $vote = $_POST['vote'];
-
-  if ($vote === 'remove') {
-    $conn->query("DELETE FROM poster_votes WHERE poster_id=$id AND visitor_token='$visitor_token'");
-    $user_vote = '';
-  } elseif (in_array($vote, ['like','dislike'])) {
-    if ($user_vote === '') {
-      $stmt = $conn->prepare("INSERT INTO poster_votes (poster_id, visitor_token, vote_type) VALUES (?, ?, ?)");
-      $stmt->bind_param("iss", $id, $visitor_token, $vote); $stmt->execute(); $stmt->close();
-    } else {
-      $stmt = $conn->prepare("UPDATE poster_votes SET vote_type=? WHERE poster_id=? AND visitor_token=?");
-      $stmt->bind_param("sis", $vote, $id, $visitor_token); $stmt->execute(); $stmt->close();
+// <<< הוספה: הבאת Connections מה-DB
+$connections = [];
+$poster_id_for_conn = (int)$posterRow['id'];
+if ($poster_id_for_conn > 0) {
+    $stmt = $conn->prepare("SELECT relation_label, related_title, related_imdb_id FROM poster_connections WHERE poster_id = ? ORDER BY relation_label, id");
+    $stmt->bind_param("i", $poster_id_for_conn);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($r = $res->fetch_assoc()) {
+        $connections[$r['relation_label']][] = ['title' => $r['related_title'], 'imdb_id' => $r['related_imdb_id']];
     }
-    $user_vote = $vote;
-  }
-}
-
-$likes = $conn->query("
-  SELECT COUNT(*) as c FROM poster_votes 
-  WHERE poster_id=$id AND vote_type='like'
-")->fetch_assoc()['c'];
-
-$dislikes = $conn->query("
-  SELECT COUNT(*) as c FROM poster_votes 
-  WHERE poster_id=$id AND vote_type='dislike'
-")->fetch_assoc()['c'];
-
-
-// פעולות: תגיות, סרטים דומים
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
- if (isset($_POST['add_user_tags'])) {
-  $g = trim($_POST['user_tags'] ?? '');
-  if ($g !== '') {
-    // בדוק אם התגית כבר קיימת בז'אנר הראשי
-    $existing_genres = array_map('trim', explode(',', $row['genre']));
-    if (in_array($g, $existing_genres)) {
-      $message = "⚠️ תגית כבר קיימת בז׳אנרים";
-    } else {
-      // בדוק אם קיימת כבר ב-user_tags
-      $stmt = $conn->prepare("SELECT 1 FROM user_tags WHERE poster_id = ? AND genre = ?");
-      $stmt->bind_param("is", $id, $g); $stmt->execute(); $stmt->store_result();
-      if ($stmt->num_rows > 0) {
-        $message = "⚠️ תגית כבר קיימת";
-      } else {
-        $stmt = $conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?, ?)");
-        $stmt->bind_param("is", $id, $g); $stmt->execute();
-        $message = "✅ תגית נוספה";
-      }
-      $stmt->close();
-    }
-  }
+    $stmt->close();
 }
 
 
-  if (isset($_POST['remove_user_tags'])) {
-    $gid = (int)$_POST['remove_user_tags'];
-    $conn->query("DELETE FROM user_tags WHERE id=$gid AND poster_id=$id");
-    $message = "🗑️ תגית נמחקה";
-  }
+/* ====== עיבוד שדות לתצוגה ====== */
+$imdb_id        = $posterRow['imdb_id']         ?? '';
+$title_en       = $posterRow['title_en']        ?? '';
+$original_title = $posterRow['original_title']  ?? '';
+$title_he       = $posterRow['title_he']        ?? '';
+$year           = $posterRow['year']            ?? '';
+$is_tv          = (int)($posterRow['is_tv']     ?? 0);
+$poster_url     = $posterRow['poster_url']      ?? ($posterRow['poster'] ?? '');
+$trailer_url    = $posterRow['trailer_url']     ?? '';
+$overview_he    = $posterRow['overview_he']     ?? '';
+$overview_en    = $posterRow['overview_en']     ?? '';
+$imdb_rating    = $posterRow['imdb_rating']     ?? null;
+$imdb_votes     = $posterRow['imdb_votes']      ?? null;
+$rt_score       = $posterRow['rt_score']        ?? null;
+$rt_url         = $posterRow['rt_url']          ?? null;
+$mc_score       = $posterRow['mc_score']        ?? null;
+$mc_url         = $posterRow['mc_url']          ?? null;
+$tmdb_url       = $posterRow['tmdb_url']        ?? null;
+$tvdb_url       = $posterRow['tvdb_url']        ?? null;
+// <<< תיקון: קריאת נתונים מהעמודות הנכונות
+$seasons        = $posterRow['seasons_count']   ?? null;
+$episodes       = $posterRow['episodes_count']  ?? null;
 
-  if (isset($_POST['add_similar'])) {
-    $input = trim($_POST['similar_input'] ?? '');
-    $target_id = 0;
-    if (is_numeric($input)) $target_id = (int)$input;
-    elseif ($local = extractLocalId($input)) $target_id = $local;
-    elseif ($imdb = extractImdbId($input)) {
-      $stmt = $conn->prepare("SELECT id FROM posters WHERE imdb_id = ?");
-      $stmt->bind_param("s", $imdb); $stmt->execute();
-      $res = $stmt->get_result();
-      if ($r = $res->fetch_assoc()) $target_id = $r['id'];
-      $stmt->close();
-    }
-if ($target_id > 0 && $target_id != $id) {
-  $exists = $conn->prepare("SELECT 1 FROM posters WHERE id = ?");
-  $exists->bind_param("i", $target_id);
-  $exists->execute();
-  $exists->store_result();
+// <<< תיקון: שימוש בפונקציה החדשה לעיצוב זמן הריצה
+$runtime_formatted = format_runtime((int)($posterRow['runtime'] ?? 0));
 
-  if ($exists->num_rows === 0) {
-    $message = "❌ הסרט לא קיים במסד הנתונים";
-  } else {
-    $check = $conn->prepare("SELECT 1 FROM poster_similar WHERE poster_id=? AND similar_id=?");
-    $check->bind_param("ii", $id, $target_id); $check->execute(); $check->store_result();
-    if ($check->num_rows == 0) {
-      $conn->query("INSERT INTO poster_similar (poster_id, similar_id) VALUES ($id, $target_id)");
-      $conn->query("INSERT INTO poster_similar (poster_id, similar_id) VALUES ($target_id, $id)");
-      $message = "✅ סרט דומה נוסף";
-    } else {
-      $message = "⚠️ הקשר כבר קיים";
-    }
-    $check->close();
-  }
-  $exists->close();
-} else {
-  $message = "❌ הסרט לא נמצא";
-}
-  }
+$genres         = parse_any_list_field($posterRow['genres'] ?? '');
+$languages      = parse_any_list_field($posterRow['languages'] ?? '');
+$countries      = parse_any_list_field($posterRow['countries'] ?? '');
+$networks       = parse_any_list_field($posterRow['networks'] ?? '');
+$directors      = parse_any_list_field($posterRow['directors'] ?? '');
+$writers        = parse_any_list_field($posterRow['writers'] ?? '');
+$producers      = parse_any_list_field($posterRow['producers'] ?? '');
+$composers      = parse_any_list_field($posterRow['composers'] ?? '');
+$cinematographers = parse_any_list_field($posterRow['cinematographers'] ?? '');
+$cast           = parse_any_list_field($posterRow['cast'] ?? '');
 
-  if (isset($_POST['remove_similar'])) {
-    $sid = (int)$_POST['remove_similar'];
-    $conn->query("DELETE FROM poster_similar WHERE poster_id=$id AND similar_id=$sid");
-    $conn->query("DELETE FROM poster_similar WHERE poster_id=$sid AND similar_id=$id");
-    $message = "🗑️ הקשר נמחק";
-  }
-}
+$title_kind = $is_tv ? 'TV Series' : 'Movie';
 
-$similar = [];
-$res = $conn->query("SELECT p.* FROM poster_similar ps JOIN posters p ON p.id=ps.similar_id WHERE ps.poster_id=$id");
-while ($r = $res->fetch_assoc()) $similar[] = $r;
+// <<< תיקון: שימוש בכותרת הנקייה כפי שנשמרה ב-DB
+$display_title = $title_en ?: ($original_title ?: $imdb_id);
 
-$collections = [];
-$res = $conn->query("
-  SELECT c.* FROM poster_collections pc
-  JOIN collections c ON c.id = pc.collection_id
-  WHERE pc.poster_id = $id
-");
-while ($r = $res->fetch_assoc()) $collections[] = $r;
-
-switch ($row['type'] ?? '') {
-  case 'series':
-    break;
-  case 'movie':
-    break;
-  case 'short':
-    break;
-  case 'miniseries':
-    break;
-  default:
-    }
+$CAST_LIMIT = 60;
 ?>
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title><?= htmlspecialchars($row['title_en']) ?></title>
-  <link rel="stylesheet" href="style.css">
-  
+  <meta charset="utf-8">
+  <title><?= H($display_title) ?> — עמוד פוסטר</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body.rtl { direction: rtl; font-family: Arial; background:#f1f1f1; padding:40px; }
-    .poster-page {
-      max-width:800px; margin:auto;
-      background:#fff; padding:20px;
-      border-radius:6px; box-shadow:0 0 6px rgba(0,0,0,0.1);
-      
-    }
-    .poster-image {
-      width:200px; float:right; margin-left:20px;
-      border-radius:1px; box-shadow:0 0 4px rgba(0,0,0,0.08);
-      
-    }
-    .poster-details { overflow:hidden; }
-    .tag {
-      background:#eee; padding:6px 12px; margin:4px;
-      display:inline-block; border-radius:12px;
-      font-size:13px; text-decoration:none; color:#333;
-    }
-    button.like-button {
-  cursor: pointer;
-}
+    :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
+    *{box-sizing:border-box} body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial;direction:rtl;background:var(--bg);color:var(--text);margin:0;padding:24px} .wrap{max-width:1100px;margin:0 auto} h2{margin:0 0 18px;font-weight:700;letter-spacing:.2px} .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden} .row{display:grid;grid-template-columns:320px 1fr;gap:0} .poster{padding:18px;border-inline-end:1px solid var(--line);background:linear-gradient(180deg,#161b26,#131723)} img.poster-img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line)} .content{padding:20px 20px 10px} .title{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px} .title h3{margin:0;font-size:24px;line-height:1.25} .subtitle{color:var(--muted)} .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0} .chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:13px} .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:6px} .section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)} .kv{margin:0;font-size:14px} .label{color:var(--muted)} .links a,.conn-list a{color:var(--accent);text-decoration:none} .links a:hover,.conn-list a:hover{text-decoration:underline} .ratings{display:flex;flex-wrap:wrap;gap:14px} .pill{background:#121623;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;display:inline-block} .comma-list{margin:0} .hidden{display:none} .btn-toggle{cursor:pointer;background:#121623;border:1px solid var(--line);color:#e7ecff;border-radius:10px;padding:6px 10px;margin-top:8px} .ellipsis{color:var(--muted)}
+  body {background-color:#161b26 !important; text-align: right !important;}
+    .content {text-align: right !important;}
+    .content a  {color: #6E8BFC !important;}
 
+    /* .w3-bar */
+    .w3-bar {
+        width: 100%;
+        overflow: hidden;
+    }
+    .w3-bar .w3-bar-item {
+        padding: 8px 16px;
+        float: left; /* הדפדפן הופך אוטומטית לימין ב-RTL */
+        width: auto;
+        border: none;
+        display: block;
+        outline: 0;
+    }
+    .w3-bar .w3-button {
+        color: white !important;;
+        white-space: normal;
+    }
+    .w3-bar:before, .w3-bar:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    /* .w3-padding */
+    .w3-padding {
+        padding: 8px 16px !important;
+    }
+
+    /* .w3-button */
+    .w3-button {
+        border: none;
+        display: inline-block;
+        padding: 8px 16px;
+        vertical-align: middle;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        text-align: center;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    
+
+    /* צבעים */
+    .w3-black, .w3-hover-black:hover {
+        color: #fff !important;
+        background-color: white;
+    }
+    .w3-white, .w3-hover-white:hover {
+        color: #000 !important;
+        background-color: #fff !important;
+    }
+    .white {color: #f1f1f1 !important;}
+    .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
+  
   </style>
 </head>
-<body class="rtl">
-<br>
-<div class="poster-page">
-
-  <!-- 🚨 דיווח על תקלה -->
-  <div style="text-align:left; margin-bottom:10px;">
-    <a href="report.php?poster_id=<?= $row['id'] ?>" style="background:#ffdddd; color:#a00; padding:6px 12px; border-radius:6px; font-weight:bold; text-decoration:none;">🚨 דווח על תקלה בפוסטר</a>
-  </div>
-
-  <form method="post" style="margin-top:30px;">
-  <button type="submit" name="vote" class="like-button" value="like"
-    style="background:<?= $user_vote === 'like' ? '#28a745' : '#ccc' ?>; color:white; padding:10px 16px; border:none; border-radius:6px;">
-    ❤️ אהבתי (<?= $likes ?>)
-  </button>
-
-  <button type="submit" name="vote" class="like-button" value="dislike"
-    style="background:<?= $user_vote === 'dislike' ? '#dc3545' : '#ccc' ?>; color:white; padding:10px 16px; border:none; border-radius:6px; margin-right:10px;">
-    💔 לא אהבתי (<?= $dislikes ?>)
-  </button>
-
-  <?php if ($user_vote): ?>
-    <button type="submit" name="vote" class="like-button" value="remove"
-      style="background:#666; color:white; padding:10px 16px; border:none; border-radius:6px; margin-right:10px;">
-      ❌ בטל הצבעה
-    </button>
-  <?php endif; ?>
-</form><br>
-
-  <?php if ($message): ?>
-    <p style="background:#ffe; border:1px solid #cc9; padding:10px; border-radius:6px; color:#444; font-weight:bold;">
-      <?= $message ?>
-    </p>
-  <?php endif; ?>
-
-  
-<div style="float: right; width: 220px; margin-left: 20px; text-align: right;">
-<?php
-$img = (!empty($row['image_url'])) ? $row['image_url'] : 'images/no-poster.png';
-?>
-<img src="<?= htmlspecialchars($img) ?>" alt="Poster" style="width: 100%; border-radius: 2px;">
-  <div style="margin-top: 10px;">
-    <p><strong>🗓️ שנה:</strong> <?= htmlspecialchars($row['year']) ?></p>
-<?php if (!empty($row['type_label']) || !empty($row['type_icon'])): ?>
-<p><strong>🎞️ סוג:</strong> <?= htmlspecialchars($row['type_icon'] . ' ' . $row['type_label']) ?></p>
-<?php endif; ?>
-<!--
-<p><strong>🌐</strong><br>
-  -->
-<p><strong></strong>
-  <?php
-  include 'languages.php';
-  $lang_result = $conn->query("SELECT lang_code FROM poster_languages WHERE poster_id = $id");
-  if ($lang_result->num_rows > 0):
-    while ($l = $lang_result->fetch_assoc()):
-      $code = $l['lang_code'];
-      foreach ($languages as $lang) {
-        if ($lang['code'] === $code) {
-          echo "<a href='language.php?lang_code=" . urlencode($code) . "' style='display:inline-flex; align-items:center; gap:6px; text-decoration:none; margin:4px 0;'>";
-          echo "<img src='" . $lang['flag'] . "' alt='" . $lang['label'] . "' style='height:16px;'> ";
-          echo "<span>" . $lang['label'] . "</span>";
-          echo "</a><br>";
-          break;
-        }
-      }
-    endwhile;
-  else:
-    echo "<span style='color:#999;'>אין שפות</span>";
-  endif;
-  ?>
-</p>
-
-
-    <?php if (!empty($row['genre'])):
-      $genres = explode(',', $row['genre']);
-      echo "<p><strong>🎭 ז׳אנר:</strong><br>";
-      foreach ($genres as $g):
-        $g_clean = trim($g); ?>
-        <a href="genre.php?name=<?= urlencode($g_clean) ?>" class="tag"><?= htmlspecialchars($g_clean) ?></a><br>
-      <?php endforeach;
-      echo "</p>";
-    endif; ?>
+<body><br>
+<div class="wrap">
+  <div class="card" style="margin-bottom:16px">
+    <div class="row">
+      <div class="poster">
+        <?php if (!empty($poster_url)): ?>
+          <img class="poster-img" src="<?= H($poster_url) ?>" alt="Poster" loading="lazy" decoding="async">
+        <?php endif; ?>
+      </div>
+      <div class="content">
+        <div class="title">
+          <h3><?= H($display_title) ?></h3>
+          <?php if (!empty($year)): ?><span class="subtitle">(<?= H($year) ?>)</span><?php endif; ?>
+        </div>
+      <div class="chips">
+    <span class="chip"><?= H($title_kind) ?></span>
+    <?php if (!empty($languages)): ?><span class="chip"><?= safeJoin($languages) ?></span><?php endif; ?>
+    <?php if (!empty($countries)): ?><span class="chip"><?= safeJoin($countries) ?></span><?php endif; ?>
+    <?php if (!empty($runtime_formatted)): ?><span class="chip"><?= H($runtime_formatted) ?></span><?php endif; ?>
     
-    <!-- 📝 תגיות קהילתיות -->
-    <?php
-    $res_user = $conn->query("SELECT id, genre FROM user_tags WHERE poster_id = $id");
-    if ($res_user->num_rows > 0): ?>
-      <p><strong>📝 תגיות משתמשים:</strong><br>
-        <?php while ($g = $res_user->fetch_assoc()):
-          $g_clean = trim($g['genre']); ?><br>
-          <form method="post" style="display:inline;">
-            <a href="user_tags.php?name=<?= urlencode($g_clean) ?>" class="tag"><?= htmlspecialchars($g_clean) ?></a>
-            <button type="submit" name="remove_user_tags" value="<?= $g['id'] ?>"
-              style="border:none; background:none; color:#900; cursor:pointer;">🗑️</button>
-          </form>
-        <?php endwhile; ?>
-      </p>
-    <?php endif; ?>
+    <?php if ($is_tv && !empty($seasons) && $seasons > 0): ?><span class="chip">Seasons: <?= H($seasons) ?></span><?php endif; ?>
+    <?php if ($is_tv && !empty($episodes) && $episodes > 0): ?><span class="chip">Episodes: <?= H($episodes) ?></span><?php endif; ?>
 
-    <!-- ➕ טופס להוספת תגית -->
-    <form method="post" style="margin-bottom:20px;">
-      <input type="text" name="user_tags" placeholder="הוסף תגית" required>
-      <button type="submit" name="add_user_tags">➕ הוסף</button>
-    </form>
+    <?php if ($is_tv && !empty($networks)): ?><span class="chip"><?= safeJoin($networks) ?></span><?php endif; ?>
+</div>
+        <?php if (!empty($title_he)): ?><p class="kv"><span class="label">שם בעברית:</span> <?= H($title_he) ?></p><?php endif; ?>
+        <?php if (!empty($genres)): ?><p class="kv"><span class="label">ז׳אנרים:</span> <?= safeJoin($genres) ?></p><?php endif; ?>
+        <div class="section">
+          <div class="ratings">
+            <?php if ($imdb_rating): ?><span class="pill">IMDb: <?= H($imdb_rating) ?>/10<?= $imdb_votes ? ' • '.number_format((int)$imdb_votes).' votes' : '' ?><img src="images/imdb.png" alt="Metacritic Score" title="Metacritic Score" width="24px"></span><?php endif; ?>
+            <?php if ($rt_score): ?><?php if ($rt_url): ?><a class="pill" href="<?= H($rt_url) ?>" target="_blank" rel="noopener">Rotten Tomatoes: <?= H($rt_score) ?>%🍅</a><?php else: ?><span class="pill">Rotten Tomatoes: <?= H($rt_score) ?>%</span><?php endif; ?><?php endif; ?>
+            <?php if ($mc_score): ?><?php if ($mc_url): ?><a class="pill" href="<?= H($mc_url) ?>" target="_blank" rel="noopener">Metacritic: <?= H($mc_score) ?>/100 <img src="images/metacritic.png" alt="Metacritic Score" title="Metacritic Score" width="24px"></a><?php else: ?><span class="pill">Metacritic: <?= H($mc_score) ?>/100</span><?php endif; ?><?php endif; ?>
+          </div>
+                 </div>
+        <div class="section links">
+          <div class="grid">
+            <?php if ($imdb_id): ?><p class="kv"><span class="label">IMDb ID:</span> <?= H($imdb_id) ?> — <a href="<?= H('https://www.imdb.com/title/'.$imdb_id.'/') ?>" target="_blank" rel="noopener">Open</a></p><?php endif; ?>
+            <?php if ($tvdb_url): ?><p class="kv"><span class="label">TVDB:</span> <a href="<?= H($tvdb_url) ?>" target="_blank" rel="noopener"><?= H($tvdb_url) ?></a></p><?php endif; ?>
+            <?php if ($tmdb_url): ?><p class="kv"><span class="label">TMDb:</span> <a href="<?= H($tmdb_url) ?>" target="_blank" rel="noopener"><?= H($tmdb_url) ?></a></p><?php endif; ?>
+            <?php if ($trailer_url): ?><p class="kv"><span class="label">טריילר:</span> <a href="<?= H($trailer_url) ?>" target="_blank" rel="noopener"><?= H($trailer_url) ?></a></p><?php endif; ?>
+          </div>
+        </div>
+        <?php if ($overview_he || $overview_en): ?>
+          <div class="section">
+            <?php if ($overview_he): ?><p class="kv"><span class="label">תקציר:</span> <?= H($overview_he) ?></p><?php endif; ?>
+            <?php if ($overview_en): ?><p class="kv"><span class="label">תקציר (EN):</span> <?= H($overview_en) ?></p><?php endif; ?>
+          </div>
+        <?php endif; ?>
+        <div class="section">
+          <div class="grid">
+            <?php if ($directors): ?><p class="kv"><span class="label">Directors:</span> <?= safeJoin($directors) ?></p><?php endif; ?>
+            <?php if ($writers): ?><p class="kv"><span class="label">Writers:</span> <?= safeJoin($writers) ?></p><?php endif; ?>
+            <?php if ($producers): ?><p class="kv"><span class="label">Producers:</span> <?= safeJoin($producers) ?></p><?php endif; ?>
+            <?php if ($composers): ?><p class="kv"><span class="label">Composers:</span> <?= safeJoin($composers) ?></p><?php endif; ?>
+            <?php if ($cinematographers): ?><p class="kv"><span class="label">Cinematographers:</span> <?= safeJoin($cinematographers) ?></p><?php endif; ?>
+          </div>
+        </div>
+        <?php if (!empty($cast)): $items = $cast; $first = array_slice($items, 0, $CAST_LIMIT); $rest = array_slice($items, $CAST_LIMIT); $ctid = 'cast-'.$posterRow['id']; ?>
+          <div class="section">
+            <p class="kv"><span class="label">שחקנים:</span></p>
+            <p class="comma-list" dir="rtl"><?= safeJoin($first) ?><?php if ($rest): ?>, <span class="ellipsis" id="ell-<?= H($ctid) ?>">…</span><span id="<?= H($ctid) ?>" class="more hidden">, <?= safeJoin($rest) ?></span><?php endif; ?></p>
+            <?php if ($rest): ?><button class="btn-toggle" type="button" data-toggle="<?= H($ctid) ?>" data-open="false">הצג הכל</button><?php endif; ?>
+          </div>
+        <?php endif; ?>
+        
+        <?php if (!empty($akas)): ?>
+          <div class="section">
+            <p class="kv"><span class="label">AKAs:</span></p>
+            <p class="comma-list" dir="rtl"><?= safeJoin($akas) ?></p>
+          </div>
+        <?php endif; ?>
+        
+        <?php if (!empty($connections)): ?>
+          <div class="section">
+            <h4 style="margin:0 0 8px 0">IMDb Connections</h4>
+            <?php foreach ($connections as $label => $items): ?>
+              <p class="kv">
+                <span class="label"><?= H($label) ?>:</span>
+                <span class="conn-list">
+                  <?php $links = []; foreach($items as $item) { $links[] = '<a href="?tt='.H($item['imdb_id']).'">'.H($item['title']).'</a>'; } echo implode(', ', $links); ?>
+                </span>
+              </p>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+    </div>
   </div>
 </div>
-
-
-<div class="poster-details">
-    <h2>
-      <?= htmlspecialchars($row['title_en']) ?>
-      <?php if (!empty($row['title_he'])): ?><br><?= htmlspecialchars($row['title_he']) ?><?php endif; ?>
-    </h2>
-
-    <?php if ($row['is_dubbed'] || $row['has_subtitles']): ?>
-      <p>
-        <?php if ($row['is_dubbed']): ?>🎙️ מדובב<br><?php endif; ?>
-        <?php if ($row['has_subtitles']): ?>📝 כולל כתוביות<?php endif; ?>
-      </p>
-    <?php endif; ?>
-
-<p><strong>🗓️ שנה:</strong> <?= htmlspecialchars($row['year']) ?></p>
-<p><strong>⭐ IMDb:</strong> <?= $row['imdb_rating'] ? htmlspecialchars($row['imdb_rating']) . ' / 10' : 'לא זמין' ?></p>
-
-    <p><strong>🔤 IMDb ID:</strong> <?= htmlspecialchars($row['imdb_id']) ?></p>
-
-     <!-- 🎞️ טריילר מוטמע -->
- <?php if ($video_id): ?>
-  <div style="margin-top:30px; text-align:center;">
-    <h3>🎞️ טריילר</h3>
-    <iframe width="100%" height="315"
-      src="https://www.youtube.com/embed/<?= htmlspecialchars($video_id) ?>"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowfullscreen loading="lazy"></iframe>
-  </div>
-<?php else: ?>
-  <div style="margin-top:30px; text-align:center;">
-    <h3>🎞️ טריילר</h3>
-    <img src="images/no-trailer.png" alt="אין טריילר" style="width:300px; border-radius:6px;">
-    <p style="color:#888;">אין טריילר זמין כרגע</p>
-  </div>
-<?php endif; ?>
-
-    
-
-    <?php if (!empty($row['tvdb_id'])): ?>
-      <p><strong>🛰️ TVDB:</strong>
-        <a href="https://thetvdb.com/?id=<?= htmlspecialchars($row['tvdb_id']) ?>" target="_blank" class="tag">
-          <?= htmlspecialchars($row['tvdb_id']) ?>
-        </a>
-      </p>
-    <?php endif; ?>
-
-    <?php if (!empty($row['user_rating'])): ?>
-      <p><strong>🧑‍⚖️ דירוג קהילתי:</strong> <?= htmlspecialchars($row['user_rating']) ?>/10</p>
-    <?php endif; ?>
-
-    <?php if (!empty($row['plot'])): ?>
-      <p><strong>📝 תקציר:</strong><br><?= nl2br(htmlspecialchars($row['plot'])) ?></p>
-    <?php endif; ?>
-
-    <?php if (!empty($row['collection_name'])): ?>
-  <p><strong>📦 אוסף:</strong>
-    <a href="collection.php?name=<?= urlencode($row['collection_name']) ?>" class="tag">
-      <?= htmlspecialchars($row['collection_name']) ?>
-    </a>
-  </p>
-<?php endif; ?>
-
-    <?php if (!empty($row['collection_name'])): ?>
-      <p><strong>📦 אוסף:</strong>
-        <a href="collection.php?name=<?= urlencode($row['collection_name']) ?>" class="tag">
-          <?= htmlspecialchars($row['collection_name']) ?>
-        </a>
-      </p>
-    <?php endif; ?>
-
-    
-
-    <?php if (!empty($row['actors'])):
-      echo "<p><strong>👥 שחקנים:</strong><br>";
-      foreach (explode(',', $row['actors']) as $a):
-        $a_clean = trim($a); ?>
-        <a href="actor.php?name=<?= urlencode($a_clean) ?>" class="tag"><?= htmlspecialchars($a_clean) ?></a>
-      <?php endforeach;
-      echo "</p>";
-    endif; ?>
-    <!-- 🔗 קישורים חיצוניים -->
-    <?php if (!empty($row['imdb_link'])): ?>
-      <p><strong>🔗 IMDb:</strong>
-        <a href="<?= htmlspecialchars($row['imdb_link']) ?>" target="_blank" class="tag">מעבר לקישור</a>
-      </p>
-    <?php endif; ?>
-    <?php if (!empty($row['rt_score'])): ?>
-      <p><strong>🍅 Rotten Tomatoes:</strong> <?= htmlspecialchars($row['rt_score']) ?></p>
-    <?php endif; ?>
-    <?php if (!empty($row['rt_link'])): ?>
-      <p><strong>🔗 RT:</strong>
-        <a href="<?= htmlspecialchars($row['rt_link']) ?>" target="_blank" class="tag">צפייה באתר</a>
-      </p>
-    <?php endif; ?>
-    <?php if (!empty($row['metacritic_score'])): ?>
-      <p><strong>📊 Metacritic:</strong> <?= htmlspecialchars($row['metacritic_score']) ?></p>
-    <?php endif; ?>
-    <?php if (!empty($row['metacritic_link'])): ?>
-      <p><strong>🔗 Metacritic:</strong>
-        <a href="<?= htmlspecialchars($row['metacritic_link']) ?>" target="_blank" class="tag">צפייה באתר</a>
-      </p>
-    <?php endif; ?>
-
-   
-<?php if (count($collections) > 0): ?>
-  <p><strong>📦 שייך לאוספים:</strong><br>
-    <?php foreach ($collections as $c): ?>
-      <a href="collection.php?id=<?= $c['id'] ?>" class="tag"><?= htmlspecialchars($c['name']) ?></a>
-    <?php endforeach; ?>
-  </p>
-<?php endif; ?>
-
-
-    <!-- 🎬 סרטים דומים -->
-    <hr>
-    <h3>🎬 סרטים דומים:</h3>
-    <?php if ($similar): ?>
-      <div style="display:flex; flex-wrap:wrap; gap:16px;">
-        <?php foreach ($similar as $sim): ?>
-  <?php $sim_img = (!empty($sim['image_url'])) ? $sim['image_url'] : 'images/no-poster.png'; ?>
-  <div style="width:100px; text-align:center;">
-    <form method="post">
-      <a href="poster.php?id=<?= $sim['id'] ?>">
-        <img src="<?= htmlspecialchars($sim_img) ?>" style="width:100px; border-radius:1px;"><br>
-        <small><?= htmlspecialchars($sim['title_en']) ?></small>
-      </a><br>
-      <button type="submit" name="remove_similar" value="<?= $sim['id'] ?>">🗑️</button>
-    </form>
-  </div>
-<?php endforeach; ?>
-
-      </div>
-    <?php else: ?>
-      <p style="color:#888;">אין סרטים דומים כרגע</p>
-    <?php endif; ?>
-
-    <!-- ➕ טופס סרט דומה -->
-    <h3>➕ הוסף סרט דומה</h3>
-    <form method="post">
-      <input type="text" name="similar_input" placeholder="מזהה פנימי, tt1234567 או קישור" required>
-      <button type="submit" name="add_similar">📥 קישור</button>
-    </form>
-
-    <!-- 🎛 פעולות מערכת -->
-    <div class="actions" style="margin-top:20px;">
-      <a href="edit.php?id=<?= $row['id'] ?>">✏️ ערוך</a> |
-      <a href="delete.php?id=<?= $row['id'] ?>" onclick="return confirm('למחוק את הפוסטר?')">🗑️ מחק</a> |
-      <a href="index.php">⬅ חזרה</a>
-    </div>
-
-  </div> <!-- .poster-details -->
-</div> <!-- .poster-page -->
-
+<script>
+  function toggleMore(btn){ var id=btn.getAttribute('data-toggle'),more=document.getElementById(id),ell=document.getElementById('ell-'+id),open=btn.getAttribute('data-open')==='true';if(!more)return;if(open){more.classList.add('hidden');if(ell)ell.classList.remove('hidden');btn.textContent='הצג הכל';btn.setAttribute('data-open','false');}else{more.classList.remove('hidden');if(ell)ell.classList.add('hidden');btn.textContent='הצג פחות';btn.setAttribute('data-open','true');}}
+  document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.btn-toggle');if(t)toggleMore(t);});
+</script>
 </body>
 </html>
-
-<?php
-$conn->close();
-include 'footer.php';
-?>
+<?php include 'footer.php'; ?>
