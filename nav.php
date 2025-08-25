@@ -77,18 +77,19 @@ echo "";
 <div class="w3-bar w3-padding" style="text-align:center; ">
   <?php
   $pages = [
-    'index.php' => 'עמוד ראשי',
+    'index.php' => '🪁 עמוד ראשי',
     'home.php' => '🔎 חיפוש',
     //'movies.php' => '🎬 סרטים',
     //'series.php' => '📺 סדרות', 
     'random.php' => '🎲 סרט רנדומלי',
+    'new-movie-imdb.php' => '🎞️ סרט חדש', 
     'collections.php' => '📦 אוספים',
     'universe.php' => '🌌 ציר זמן',
     'spotlight.php' => '🎯 זרקור', 
     'top.php' => '🏆 TOP 10',
      'stats.php' => '📈 סטטיסטיקה',
      'contact.php' => '📩 צור קשר',
-     'about.php' => 'אודות',
+     'about.php' => '🎉 אודות',
     'export.php' => '💾 ייצוא לCSV',
   ];
 
