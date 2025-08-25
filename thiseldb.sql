@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: יולי 28, 2025 בזמן 03:26 AM
+-- Generation Time: אוגוסט 26, 2025 בזמן 01:32 AM
 -- גרסת שרת: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -58,15 +58,17 @@ CREATE TABLE `collections` (
   `name` varchar(255) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `image_url` text DEFAULT NULL
+  `image_url` text DEFAULT NULL,
+  `pinned` tinyint(1) NOT NULL DEFAULT 0,
+  `is_pinned` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- הוצאת מידע עבור טבלה `collections`
 --
 
-INSERT INTO `collections` (`id`, `name`, `description`, `created_at`, `image_url`) VALUES
-(7, 'אוסף לדוגמא', '', '2025-07-27 21:12:46', '');
+INSERT INTO `collections` (`id`, `name`, `description`, `created_at`, `image_url`, `pinned`, `is_pinned`) VALUES
+(54, 'Disneynature', 'רשימה של דוקומנטריים בהפקת דיסני', '2025-08-25 16:52:53', 'images/logos/Disneynature.png', 0, 0);
 
 -- --------------------------------------------------------
 
@@ -146,27 +148,40 @@ CREATE TABLE `posters` (
   `id` int(11) NOT NULL,
   `title_en` varchar(255) DEFAULT NULL,
   `title_he` varchar(255) DEFAULT NULL,
+  `original_title` varchar(255) DEFAULT NULL,
   `year` varchar(20) DEFAULT NULL,
+  `is_tv` tinyint(1) NOT NULL DEFAULT 0,
   `imdb_rating` decimal(3,1) DEFAULT NULL,
+  `imdb_votes` int(11) DEFAULT NULL,
+  `poster_url` text DEFAULT NULL,
+  `trailer_url` text DEFAULT NULL,
+  `tmdb_url` text DEFAULT NULL,
+  `tvdb_url` text DEFAULT NULL,
   `imdb_link` varchar(255) DEFAULT NULL,
+  `network` varchar(255) DEFAULT NULL,
   `image_url` varchar(255) DEFAULT NULL,
   `plot` text DEFAULT NULL,
   `plot_he` text DEFAULT NULL,
   `lang_code` varchar(10) DEFAULT NULL,
-  `is_dubbed` tinyint(1) DEFAULT 0,
-  `has_subtitles` tinyint(1) DEFAULT 0,
   `tvdb_id` varchar(100) DEFAULT NULL,
+  `tmdb_id` int(11) DEFAULT NULL,
+  `tmdb_type` varchar(10) DEFAULT NULL,
   `youtube_trailer` varchar(255) DEFAULT NULL,
   `genre` varchar(255) DEFAULT NULL,
   `actors` text DEFAULT NULL,
   `metacritic_score` varchar(50) DEFAULT NULL,
   `rt_score` varchar(50) DEFAULT NULL,
+  `mc_score` int(11) DEFAULT NULL,
+  `rt_url` text DEFAULT NULL,
+  `mc_url` text DEFAULT NULL,
+  `poster` text DEFAULT NULL,
   `metacritic_link` varchar(255) DEFAULT NULL,
   `rt_link` varchar(255) DEFAULT NULL,
   `imdb_id` varchar(15) DEFAULT NULL,
   `pending` tinyint(4) DEFAULT 0,
   `collection_name` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `type_id` int(11) DEFAULT NULL,
   `directors` varchar(255) DEFAULT NULL,
   `writers` varchar(255) DEFAULT NULL,
@@ -176,15 +191,42 @@ CREATE TABLE `posters` (
   `runtime` int(11) DEFAULT NULL,
   `languages` varchar(255) DEFAULT NULL,
   `countries` varchar(255) DEFAULT NULL,
-  `tmdb_collection_id` int(11) DEFAULT NULL
+  `genres` text DEFAULT NULL,
+  `networks` text DEFAULT NULL,
+  `tmdb_collection_id` int(11) DEFAULT NULL,
+  `seasons_count` int(11) DEFAULT 0,
+  `episodes_count` int(11) DEFAULT 0,
+  `network_logo` varchar(255) DEFAULT NULL,
+  `has_subtitles` tinyint(1) DEFAULT 0,
+  `is_dubbed` tinyint(1) DEFAULT 0,
+  `overview_he` text DEFAULT NULL,
+  `overview_en` text DEFAULT NULL,
+  `cast` longtext DEFAULT NULL,
+  `title_kind` varchar(50) DEFAULT NULL,
+  `he_title` varchar(255) DEFAULT NULL,
+  `runtime_minutes` int(11) DEFAULT NULL,
+  `connections_count` int(11) NOT NULL DEFAULT 0,
+  `imported_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `runtime_pretty` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- הוצאת מידע עבור טבלה `posters`
+-- מבנה טבלה עבור טבלה `poster_akas`
 --
 
-INSERT INTO `posters` (`id`, `title_en`, `title_he`, `year`, `imdb_rating`, `imdb_link`, `image_url`, `plot`, `plot_he`, `lang_code`, `is_dubbed`, `has_subtitles`, `tvdb_id`, `youtube_trailer`, `genre`, `actors`, `metacritic_score`, `rt_score`, `metacritic_link`, `rt_link`, `imdb_id`, `pending`, `collection_name`, `created_at`, `type_id`, `directors`, `writers`, `producers`, `cinematographers`, `composers`, `runtime`, `languages`, `countries`, `tmdb_collection_id`) VALUES
-(1, 'Movie', 'דוגמא', '2012', 0.0, '', '', '', NULL, 'hebrew', 0, 0, '', '', '', '', '', '', '', '', '', 0, NULL, '2025-07-28 04:24:28', 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+CREATE TABLE `poster_akas` (
+  `id` int(11) NOT NULL,
+  `poster_id` int(11) NOT NULL,
+  `aka_title` varchar(255) NOT NULL,
+  `aka_lang` varchar(10) DEFAULT NULL,
+  `source` enum('imdb','tmdb','tvdb','manual') DEFAULT 'imdb',
+  `aka` varchar(255) NOT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `imdb_id` varchar(15) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -219,15 +261,36 @@ CREATE TABLE `poster_categories` (
 
 CREATE TABLE `poster_collections` (
   `poster_id` int(11) NOT NULL,
-  `collection_id` int(11) NOT NULL
+  `collection_id` int(11) NOT NULL,
+  `added_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_pinned` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- הוצאת מידע עבור טבלה `poster_collections`
+-- מבנה טבלה עבור טבלה `poster_connections`
 --
 
-INSERT INTO `poster_collections` (`poster_id`, `collection_id`) VALUES
-(1, 7);
+CREATE TABLE `poster_connections` (
+  `id` int(11) NOT NULL,
+  `poster_id` int(11) NOT NULL,
+  `relation_label` varchar(50) NOT NULL,
+  `conn_title` varchar(255) DEFAULT NULL,
+  `related_imdb_id` varchar(15) DEFAULT NULL,
+  `conn_imdb_id` varchar(15) NOT NULL,
+  `related_title` varchar(255) DEFAULT NULL,
+  `related_poster_id` int(11) DEFAULT NULL,
+  `relation_type` enum('Follows','Followed by','Remake of','Remade as','Spin-off','Spin-off from','Version of','Alternate versions') NOT NULL,
+  `related_title_en` varchar(255) DEFAULT NULL,
+  `related_year` varchar(20) DEFAULT NULL,
+  `source` varchar(20) NOT NULL DEFAULT 'imdb',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `kind` varchar(40) NOT NULL,
+  `target_tt` varchar(16) NOT NULL,
+  `target_title` varchar(255) DEFAULT NULL,
+  `imdb_id` varchar(15) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -252,13 +315,6 @@ CREATE TABLE `poster_languages` (
   `poster_id` int(11) NOT NULL,
   `lang_code` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- הוצאת מידע עבור טבלה `poster_languages`
---
-
-INSERT INTO `poster_languages` (`poster_id`, `lang_code`) VALUES
-(1, 'hebrew');
 
 -- --------------------------------------------------------
 
@@ -323,9 +379,9 @@ INSERT INTO `poster_types` (`id`, `code`, `label_he`, `label_en`, `icon`, `descr
 (4, 'series', 'סדרה', 'Series', '📺', '0', 3),
 (5, 'miniseries', 'מיני-סדרה', 'Miniseries', '📺', '0', 4),
 (6, 'short', 'סרט קצר', 'Short Film', '🎞️', '0', 2),
-(11, ' Stand-up', ' Stand-up', ' Stand-up Comedy', '🎞️', '0', 5),
-(12, ' Performance', ' Live Performance', ' Live Performance', '🎞️', '0', 6),
-(13, 'Special', 'ספיישל', 'Special Episodes', '🎬', '0', 7),
+(11, ' stand-up', 'Stand-up Comedy', ' Stand-up Comedy', '🎞️', '0', 5),
+(12, ' performance', ' Live Performance', ' Live Performance', '🎞️', '0', 6),
+(13, 'special', 'ספיישל', 'Special Episodes', '🎬', '0', 7),
 (14, 'none', ' לא ידוע', 'None', '❓', '0', 8);
 
 -- --------------------------------------------------------
@@ -348,7 +404,16 @@ CREATE TABLE `poster_votes` (
 --
 
 INSERT INTO `poster_votes` (`id`, `poster_id`, `visitor_token`, `ip_address`, `vote_type`, `created_at`) VALUES
-(26, 1, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-27 00:13:46');
+(26, 1, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-27 00:13:46'),
+(28, 816, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-28 02:37:28'),
+(29, 810, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'dislike', '2025-07-28 02:37:41'),
+(30, 295, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-28 02:43:46'),
+(31, 2109, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-29 00:38:37'),
+(32, 2118, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-29 09:25:48'),
+(33, 18953, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-30 23:00:51'),
+(34, 18981, 'j55r4r2k10r6i009s865dqdj05', NULL, 'like', '2025-07-31 23:24:52'),
+(36, 509, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-31 23:36:22'),
+(37, 34, '', NULL, 'like', '2025-08-25 16:49:45');
 
 -- --------------------------------------------------------
 
@@ -435,7 +500,25 @@ ALTER TABLE `languages`
 -- אינדקסים לטבלה `posters`
 --
 ALTER TABLE `posters`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_imdb` (`imdb_id`),
+  ADD UNIQUE KEY `uniq_imdb_id` (`imdb_id`),
+  ADD UNIQUE KEY `uq_imdb_id` (`imdb_id`),
+  ADD KEY `idx_imdb_id` (`imdb_id`),
+  ADD KEY `idx_title_en` (`title_en`(191)),
+  ADD KEY `idx_title_he` (`title_he`(191)),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_created` (`created_at`);
+
+--
+-- אינדקסים לטבלה `poster_akas`
+--
+ALTER TABLE `poster_akas`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_poster_aka` (`poster_id`,`aka_title`(191)),
+  ADD UNIQUE KEY `uniq_aka` (`poster_id`,`source`,`aka`),
+  ADD KEY `idx_poster_id` (`poster_id`),
+  ADD KEY `idx_aka_title` (`aka_title`(191));
 
 --
 -- אינדקסים לטבלה `poster_bookmarks`
@@ -456,6 +539,17 @@ ALTER TABLE `poster_categories`
 ALTER TABLE `poster_collections`
   ADD PRIMARY KEY (`poster_id`,`collection_id`),
   ADD KEY `collection_id` (`collection_id`);
+
+--
+-- אינדקסים לטבלה `poster_connections`
+--
+ALTER TABLE `poster_connections`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_conn` (`poster_id`,`conn_imdb_id`,`relation_type`),
+  ADD UNIQUE KEY `uniq_conn_rel` (`imdb_id`,`relation_label`,`related_imdb_id`),
+  ADD KEY `idx_related_imdb` (`conn_imdb_id`),
+  ADD KEY `idx_related_poster` (`related_poster_id`),
+  ADD KEY `idx_pc_related` (`related_imdb_id`);
 
 --
 -- אינדקסים לטבלה `poster_genres_user`
@@ -537,7 +631,7 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `collections`
 --
 ALTER TABLE `collections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
 --
 -- AUTO_INCREMENT for table `collection_items`
@@ -573,13 +667,25 @@ ALTER TABLE `languages`
 -- AUTO_INCREMENT for table `posters`
 --
 ALTER TABLE `posters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `poster_akas`
+--
+ALTER TABLE `poster_akas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2818;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
 --
 ALTER TABLE `poster_bookmarks`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `poster_connections`
+--
+ALTER TABLE `poster_connections`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=133;
 
 --
 -- AUTO_INCREMENT for table `poster_genres_user`
@@ -609,7 +715,7 @@ ALTER TABLE `poster_types`
 -- AUTO_INCREMENT for table `poster_votes`
 --
 ALTER TABLE `poster_votes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 
 --
 -- AUTO_INCREMENT for table `ratings`
@@ -621,7 +727,7 @@ ALTER TABLE `ratings`
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
 
 --
 -- הגבלות לטבלאות שהוצאו
@@ -633,6 +739,12 @@ ALTER TABLE `user_tags`
 ALTER TABLE `collection_items`
   ADD CONSTRAINT `collection_items_ibfk_1` FOREIGN KEY (`collection_id`) REFERENCES `collections` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `collection_items_ibfk_2` FOREIGN KEY (`poster_id`) REFERENCES `posters` (`id`) ON DELETE CASCADE;
+
+--
+-- הגבלות לטבלה `poster_akas`
+--
+ALTER TABLE `poster_akas`
+  ADD CONSTRAINT `fk_poster_akas_posters` FOREIGN KEY (`poster_id`) REFERENCES `posters` (`id`) ON DELETE CASCADE;
 
 --
 -- הגבלות לטבלה `poster_categories`
@@ -647,6 +759,13 @@ ALTER TABLE `poster_categories`
 ALTER TABLE `poster_collections`
   ADD CONSTRAINT `poster_collections_ibfk_1` FOREIGN KEY (`poster_id`) REFERENCES `posters` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `poster_collections_ibfk_2` FOREIGN KEY (`collection_id`) REFERENCES `collections` (`id`) ON DELETE CASCADE;
+
+--
+-- הגבלות לטבלה `poster_connections`
+--
+ALTER TABLE `poster_connections`
+  ADD CONSTRAINT `poster_connections_ibfk_1` FOREIGN KEY (`poster_id`) REFERENCES `posters` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `poster_connections_ibfk_2` FOREIGN KEY (`related_poster_id`) REFERENCES `posters` (`id`) ON DELETE SET NULL;
 
 --
 -- הגבלות לטבלה `poster_genres_user`
