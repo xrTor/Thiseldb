@@ -1,15 +1,51 @@
 <?php
-require_once 'server.php';
+require_once 'server.php'; // 1. חיבור למסד הנתונים
+
+// ==========================================================
+// == כל הלוגיקה שכוללת הפנייה (redirect) ממוקמת כאן ==
+// ==========================================================
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+if ($id === 0) {
+  // אם אין ID, אפשר להפסיק כאן לפני הדפסת ה-HTML
+  echo "<p>❌ אוסף לא צוין</p>";
+  exit;
+}
+
+// שמירת כל הפרמטרים הנוכחיים לשימוש בקישורים
+$current_params = $_GET;
+unset($current_params['pin_poster'], $current_params['unpin_poster']);
+$redirect_query_string = http_build_query($current_params);
+
+// לוגיקה לנעיצה והסרת נעיצה של פוסטר
+if (isset($_GET['pin_poster'])) {
+  $poster_to_pin = (int)$_GET['pin_poster'];
+  $stmt_pin = $conn->prepare("UPDATE poster_collections SET is_pinned = 1 WHERE collection_id = ? AND poster_id = ?");
+  $stmt_pin->bind_param("ii", $id, $poster_to_pin);
+  $stmt_pin->execute();
+  $stmt_pin->close();
+  header("Location: collection.php?" . $redirect_query_string); // הפנייה מתבצעת כאן
+  exit; // חובה לצאת מהסקריפט אחרי הפנייה
+}
+if (isset($_GET['unpin_poster'])) {
+  $poster_to_unpin = (int)$_GET['unpin_poster'];
+  $stmt_unpin = $conn->prepare("UPDATE poster_collections SET is_pinned = 0 WHERE collection_id = ? AND poster_id = ?");
+  $stmt_unpin->bind_param("ii", $id, $poster_to_unpin);
+  $stmt_unpin->execute();
+  $stmt_unpin->close();
+  header("Location: collection.php?" . $redirect_query_string); // הפנייה מתבצעת כאן
+  exit; // חובה לצאת מהסקריפט אחרי הפנייה
+}
+// ==========================================================
+// == סוף הלוגיקה של ההפניות ==
+// ==========================================================
+
+
+// 2. רק עכשיו, אחרי שסיימנו עם ההפניות, טוענים את ה-HTML
 include 'header.php';
 
 set_time_limit(3000000);
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-if ($id === 0) {
-  echo "<p>❌ אוסף לא צוין</p>";
-  include 'footer.php'; exit;
-}
-
+// שולפים את כל נתוני האוסף, כולל סטטוס הנעיצה שלו
 $stmt = $conn->prepare("SELECT * FROM collections WHERE id = ?");
 $stmt->bind_param("i", $id); $stmt->execute();
 $result = $stmt->get_result();
@@ -21,7 +57,7 @@ $collection = $result->fetch_assoc();
 $stmt->close();
 
 // =================================================================
-// == שדרוג: לוגיקת סינון מתקדמת שעובדת יחד עם החיפוש הקיים שלך ==
+// == לוגיקת סינון ומיון מתקדמת שעובדת יחד עם החיפוש ==
 // =================================================================
 $types_list = [];
 $types_result = $conn->query("SELECT id, label_he FROM poster_types ORDER BY sort_order ASC");
@@ -31,7 +67,7 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $per_page = 250;
 $offset = ($page - 1) * $per_page;
 
-// איסוף כל הפילטרים מה-URL
+// איסוף כל הפילטרים והמיון מה-URL
 $filters = [
     'q' => $_GET['q'] ?? '',
     'type_id' => $_GET['type_id'] ?? '',
@@ -39,13 +75,14 @@ $filters = [
     'max_year' => $_GET['max_year'] ?? '',
     'min_rating' => $_GET['min_rating'] ?? ''
 ];
+$sort_order = $_GET['sort'] ?? 'added_desc'; // ברירת מחדל 'האחרון שהתווסף'
 
 $where_conditions = ["pc.collection_id = ?"];
 $params = [$id];
 $types = "i";
 $filter_query_string = ''; // מחרוזת שתוצמד לקישורי העמודים
 
-// שמירה על לוגיקת החיפוש המקורית שלך
+// שמירה על לוגיקת החיפוש המקורית
 if (!empty($filters['q'])) {
     $keyword = $filters['q'];
     $filter_query_string .= "&q=" . urlencode($keyword);
@@ -88,7 +125,31 @@ foreach ($filters as $key => $value) {
         }
     }
 }
+
+// הוספת פרמטר המיון למחרוזת הקישורים
+if ($sort_order !== 'added_desc') {
+    $filter_query_string .= "&sort=" . urlencode($sort_order);
+}
+
 $where_clause = "WHERE " . implode(" AND ", $where_conditions);
+
+// הגדרת תנאי המיון באופן דינמי, עם עדיפות לפריטים נעוצים
+$order_by_clause = 'ORDER BY pc.is_pinned DESC'; // תמיד נעוצים קודם
+switch ($sort_order) {
+    case 'added_asc': // הראשון שהתווסף
+        $order_by_clause .= ", pc.added_at ASC, p.id ASC"; // מיון משני ליציבות
+        break;
+    case 'year_desc': // שנה - חדש לישן
+        $order_by_clause .= ", p.year DESC, p.id DESC";
+        break;
+    case 'year_asc': // שנה - ישן לחדש
+        $order_by_clause .= ", p.year ASC, p.id ASC";
+        break;
+    case 'added_desc': // האחרון שהתווסף (ברירת מחדל)
+    default:
+        $order_by_clause .= ", pc.added_at DESC, p.id DESC"; // מיון משני ליציבות
+        break;
+}
 
 // ספירת תוצאות כוללת
 $count_sql = "SELECT COUNT(DISTINCT p.id) FROM posters p JOIN poster_collections pc ON p.id = pc.poster_id $where_clause";
@@ -99,8 +160,8 @@ $total_posters = $count_stmt->get_result()->fetch_row()[0] ?? 0;
 $total_pages = ceil($total_posters / $per_page);
 $count_stmt->close();
 
-// שליפת הפוסטרים לעמוד הנוכחי
-$posters_sql = "SELECT p.* FROM posters p JOIN poster_collections pc ON p.id = pc.poster_id $where_clause ORDER BY p.year DESC LIMIT ? OFFSET ?";
+// שליפת הפוסטרים עם המיון הדינמי והמידע על נעיצה
+$posters_sql = "SELECT p.*, pc.is_pinned, pc.added_at FROM posters p JOIN poster_collections pc ON p.id = pc.poster_id $where_clause $order_by_clause LIMIT ? OFFSET ?";
 $params_with_limit = $params;
 $params_with_limit[] = $per_page;
 $types_with_limit = $types . "i";
@@ -114,9 +175,11 @@ $poster_list = [];
 while ($row = $res->fetch_assoc()) $poster_list[] = $row;
 $stmt->close();
 
+// === התיקון נמצא כאן ===
 // כל הפוסטרים לאוסף (עבור הרשימה השמית בצד)
 $all_posters_for_list = [];
-$sql_all = "SELECT p.* FROM poster_collections pc JOIN posters p ON p.id = pc.poster_id WHERE pc.collection_id = ? ORDER BY pc.poster_id ASC";
+// שינוי: מיון הרשימה השמית לפי סדר ההוספה, מהישן לחדש
+$sql_all = "SELECT p.* FROM poster_collections pc JOIN posters p ON p.id = pc.poster_id WHERE pc.collection_id = ? ORDER BY pc.added_at ASC";
 $stmt_all = $conn->prepare($sql_all);
 $stmt_all->bind_param("i", $id);
 $stmt_all->execute();
@@ -132,7 +195,7 @@ $stmt_all->close();
   <style>
     body { font-family:Arial; background:#f9f9f9; padding:10px; direction:rtl; }
     .container { max-width:1300px; margin:auto; background:white; padding:20px; border-radius:6px; box-shadow:0 0 6px rgba(0,0,0,0.1); }
-    .header-img { max-width:100%; border-radius:1px; margin-top:10px; }
+    .header-img { max-width:100%; border-radius:1px; margin-top:10px; max-width:420px;width:auto; height:auto;}
     .description { margin-top:10px; color:#444; }
     .link-btn { background:#eee; padding:6px 12px; border-radius:6px; text-decoration:none; margin:10px 10px 0 0; display:inline-block; }
     .link-btn:hover { background:#ddd; }
@@ -141,7 +204,8 @@ $stmt_all->close();
     .poster-grid.small { gap:2px; }
     .poster-grid.medium { gap:8px; }
     .poster-grid.large { gap:12px; }
-    .poster-item { text-align:center; position:relative; }
+    .poster-item { text-align:center; position:relative; padding-bottom: 5px; }
+    .poster-item.pinned { background-color: #fffff0; border-radius: 4px; border: 1px solid #ffd700; }
     .poster-item.small { width:100px; margin-bottom:0 !important; }
     .poster-item.medium { width:160px; }
     .poster-item.large { width:220px; }
@@ -150,7 +214,9 @@ $stmt_all->close();
     .title-he { font-size:12px; color:#555; }
     .imdb-id a {  color: #99999A !important; font-size: 12px; text-decoration: none; }
     .remove-btn { background:#dc3545; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer; margin-top:6px; }
+    .pin-btn { text-decoration:none; font-size:12px; background:#f0f0f0; padding:2px 6px; border-radius:4px; color:#333; margin-top:4px; display:inline-block; }
     .delete-box { display:none; }
+    .pin-box { display:none; }
     .poster-list-sidebar h4 { margin-top:0; font-size:16px; }
     .poster-list-sidebar input { width:100%; padding:8px 14px; border:1px solid #bbb; border-radius:8px; margin-bottom:10px; background:#fafcff; font-size:15px; box-shadow:0 1px 6px #0001; outline:none; transition:.17s; direction: rtl; }
     .poster-list-sidebar ol { list-style-type:decimal !important; direction: rtl; padding-right: 8px; margin: 0; list-style-position: inside !important; }
@@ -162,8 +228,6 @@ $stmt_all->close();
     .form-box button { width: 100%; font-size: 16px; padding: 8px 0; border-radius: 7px; border: none; background: #007bff; color: #fff; margin-top: 6px; cursor: pointer; transition: background 0.2s; }
     .main-search-box { background: #fff; border: 1.5px solid #bbb; border-radius: 11px; padding: 10px 18px; width: 270px; font-size: 16px; box-shadow: 0 2px 10px #e1e6eb50; outline: none; transition: border .2s, box-shadow .2s; margin-left: 0; margin-right: 0; color: #1d1d1d; }
     .main-search-btn { padding: 8px 20px; border-radius: 7px; border: none; background: #1576cc; color: #fff; font-size: 16px; cursor: pointer; }
-    
-    /* --- הוספה: CSS עבור תיבת הסינון --- */
     .sidebar-wrapper {
         flex:none !important; width:305px; min-width:250px; max-width:320px;
         display: flex; flex-direction: column; gap: 20px; align-self: flex-start;
@@ -183,16 +247,16 @@ $stmt_all->close();
       text-align:right; padding:12px 0px;
     }
     .poster-list-sidebar.hide-list { display:none !important; }
-    
     @media (max-width:1000px) {
       .container { padding: 8px 2px; }
       .poster-section { flex-direction:column; gap:0; }
       .sidebar-wrapper { width:100%; max-width:100%; margin-bottom:16px; }
     }
-    .poster-list-sidebar .year {
-    font-size: 10px;
-    color: #555;
-}
+    .poster-list-sidebar .year { font-size: 10px; color: #555; }
+    .controls-bar { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap: 20px; margin-bottom:15px; padding: 0 5px; }
+    .sort-box { display:flex; align-items:center; gap:8px; }
+    .sort-box label { font-weight:bold; font-size:15px; }
+    .sort-box select { padding: 5px 8px; border-radius: 5px; border: 1px solid #ccc; font-size:15px; }
   </style>
 </head>
 <body><br>
@@ -205,15 +269,26 @@ $stmt_all->close();
     <div class="description">📝 <?= nl2br(htmlspecialchars($collection['description'])) ?></div>
   <?php endif; ?>
 
+  
   <div><button type="button" class="name-list-toggle-btn" onclick="toggleNameList()">
       <span class="icon">📄</span> הצג/הסתר רשימה שמית
     </button>
     <a href="edit_collection.php?id=<?= $collection['id'] ?>" class="link-btn">✏️ ערוך</a>
+
+    <?php $return_url = urlencode("collection.php?id=" . $collection['id']); ?>
+    <?php if (!empty($collection['is_pinned'])): ?>
+        <a href="collections.php?unpin=<?= $collection['id'] ?>&return_url=<?= $return_url ?>" class="link-btn" style="background:#fff8ad; font-weight:bold;">📌 הסר נעיצת אוסף</a>
+    <?php else: ?>
+        <a href="collections.php?pin=<?= $collection['id'] ?>&return_url=<?= $return_url ?>" class="link-btn" style="background:#e0ffad;">📌 נעיצת אוסף</a>
+    <?php endif; ?>
+
     <a href="manage_collections.php?delete=<?= $collection['id'] ?>" onclick="return confirm('למחוק את האוסף?')" class="link-btn" style="background:#fdd;">🗑️ מחק</a>
-    <a href="universe.php?collection_id=<?= $collection['id'] ?>" class="link-btn" style="background:#d4edda; color:#155724; font-weight:bold;">🌌 הצג בציר זמן</a>
+    <a href="universe.php?collection_id=<?= $collection['id'] ?>" class="link-btn" style="background:#d4edda; color:#155724;">🌌 הצג בציר זמן</a>
     <a href="collections.php" class="link-btn">⬅ חזרה לרשימת האוספים</a>
-    <a href="#" onclick="toggleDelete()" class="link-btn" style="background:#ffc;">🧹 הצג/הסתר מחיקה</a>
+    <a href="#" onclick="toggleDelete()" class="link-btn" style="background:#ffc1c1;">🧹 הצג/הסתר מחיקה</a>
+    <a href="#" onclick="togglePin()" class="link-btn" style="background:#c1e8ff;">📌 הצג/הסתר נעיצה</a>
   </div>
+
 
   <div style="margin-top:10px;">
     גודל פוסטרים:
@@ -231,13 +306,38 @@ $stmt_all->close();
       <a href="collection.php?id=<?= $id ?>" style="color:#1576cc; margin-right:7px;">נקה חיפוש</a>
     <?php endif; ?>
   </form>
-  <h3>🎬 פוסטרים באוסף: (<?= $total_posters ?> תוצאות)</h3>
+  
+  <div class="controls-bar">
+    <h3>🎬 פוסטרים באוסף: (<?= $total_posters ?> תוצאות)</h3>
+    
+    <div class="sort-box">
+        <form method="get" id="sortForm">
+            <input type="hidden" name="id" value="<?= $id ?>">
+            <?php foreach ($filters as $key => $value): ?>
+                <?php if (!empty($value)): ?>
+                    <input type="hidden" name="<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($value) ?>">
+                <?php endif; ?>
+            <?php endforeach; ?>
+            <label for="sort">מיין לפי:</label>
+            <select name="sort" id="sort" onchange="document.getElementById('sortForm').submit()">
+                <option value="added_desc" <?= ($sort_order == 'added_desc') ? 'selected' : '' ?>>האחרון שהתווסף</option>
+                <option value="added_asc"  <?= ($sort_order == 'added_asc') ? 'selected' : '' ?>>הראשון שהתווסף</option>
+                <option value="year_desc"  <?= ($sort_order == 'year_desc') ? 'selected' : '' ?>>שנה (מהחדש לישן)</option>
+                <option value="year_asc"   <?= ($sort_order == 'year_asc') ? 'selected' : '' ?>>שנה (מהישן לחדש)</option>
+            </select>
+        </form>
+    </div>
+  </div>
   
   <div class="poster-section">
       <div class="poster-grid medium">
         <?php if ($poster_list): ?>
+            <?php
+            // בניית הקישור הבסיסי שישמור על כל הפרמטרים
+            $base_link_params = http_build_query(array_merge($_GET, ['id' => $id]));
+            ?>
             <?php foreach ($poster_list as $p): ?>
-              <div class="poster-item medium">
+              <div class="poster-item medium <?= !empty($p['is_pinned']) ? 'pinned' : '' ?>">
                 <a href="poster.php?id=<?= $p['id'] ?>">
                   <?php $img = trim($p['image_url'] ?? '') ?: 'images/no-poster.png'; ?>
                   <img src="<?= htmlspecialchars($img) ?>" alt="Poster">
@@ -253,6 +353,15 @@ $stmt_all->close();
                     </div>
                   <?php endif; ?>
                 </a>
+                
+                <div class="pin-box">
+                  <?php if (!empty($p['is_pinned'])): ?>
+                    <a href="collection.php?unpin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 הסר נעיצה</a>
+                  <?php else: ?>
+                    <a href="collection.php?pin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 נעיצה</a>
+                  <?php endif; ?>
+                </div>
+
                 <div class="delete-box">
                   <form method="post" action="remove_from_collection.php">
                     <input type="hidden" name="collection_id" value="<?= $collection['id'] ?>">
@@ -273,6 +382,7 @@ $stmt_all->close();
             <form method="get">
                 <input type="hidden" name="id" value="<?= $id ?>">
                 <input type="hidden" name="q" value="<?= htmlspecialchars($filters['q']) ?>">
+                <input type="hidden" name="sort" value="<?= htmlspecialchars($sort_order) ?>">
                 <div class="filter-group">
                     <label for="type_id">סוג</label>
                     <select name="type_id" id="type_id" onchange="this.form.submit()">
@@ -298,7 +408,7 @@ $stmt_all->close();
                 </div>
                 <button type="submit" class="filter-submit-btn">סנן</button>
                  <?php if (!empty(array_filter(array_slice($filters, 1)))): ?>
-                    <a href="collection.php?id=<?= $id ?>&q=<?= urlencode($filters['q']) ?>" style="display: block; text-align: center; margin-top: 10px;">נקה סינון</a>
+                    <a href="collection.php?id=<?= $id ?>&q=<?= urlencode($filters['q']) ?>&sort=<?= urlencode($sort_order) ?>" style="display: block; text-align: center; margin-top: 10px;">נקה סינון</a>
                 <?php endif; ?>
             </form>
           </div>
@@ -345,7 +455,7 @@ $stmt_all->close();
     </div>
   <?php endif; ?>
 
-  <div class="form-box">
+  <div class="form-box" id="add-posters-form">
     <h3>➕ הוספת פוסטרים לפי מזהים</h3>
     <form method="post" action="add_to_collection_batch.php">
       <input type="hidden" name="collection_id" value="<?= $collection['id'] ?>">
@@ -362,6 +472,11 @@ tt1375666
 <script>
   function toggleDelete() {
     document.querySelectorAll('.delete-box').forEach(el => {
+      el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    });
+  }
+  function togglePin() {
+    document.querySelectorAll('.pin-box').forEach(el => {
       el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
     });
   }
