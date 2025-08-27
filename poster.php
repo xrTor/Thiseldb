@@ -10,8 +10,144 @@ if (function_exists('opcache_reset')) { @opcache_reset(); }
 /* ====== תלויות ====== */
 require_once __DIR__ . '/SERVER.php'; // מגדיר $conn ועוד
 include 'header.php'; 
+/* =================== ADD-ONLY BLOCK (poster actions) =================== */
+if (!function_exists('__pa_h')) { function __pa_h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); } }
+if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
+
+$__pa_id = 0;
+if (isset($poster['id'])) $__pa_id = (int)$poster['id'];
+elseif (isset($row['id'])) $__pa_id = (int)$row['id'];
+elseif (isset($id)) $__pa_id = (int)$id;
+elseif (isset($_GET['id']) && ctype_digit($_GET['id'])) $__pa_id = (int)$_GET['id'];
+
+$__pa_msgs = array();
+$__pa_token = session_id();
+
+/* helpers */
+if (!function_exists('__pa_extract_imdb')) {
+  function __pa_extract_imdb($s){ return (preg_match('~tt\d{7,8}~', (string)$s, $m) ? $m[0] : ''); }
+}
+if (!function_exists('__pa_extract_local')) {
+  function __pa_extract_local($s){ return (preg_match('~poster\.php\?id=(\d+)~', (string)$s, $m) ? (int)$m[1] : 0); }
+}
+
+/* votes */
+if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['pv_action']) && $__pa_id>0) {
+  $act = $_POST['pv_action'];
+  if ($act==='remove') {
+    $stmt=$conn->prepare("DELETE FROM poster_votes WHERE poster_id=? AND visitor_token=?");
+    $stmt->bind_param("is", $__pa_id, $__pa_token); $stmt->execute(); $stmt->close();
+    $__pa_msgs[]='הצבעה בוטלה';
+  } elseif ($act==='like' || $act==='dislike') {
+    $stmt=$conn->prepare("SELECT vote_type FROM poster_votes WHERE poster_id=? AND visitor_token=?");
+    $stmt->bind_param("is", $__pa_id, $__pa_token); $stmt->execute(); $res=$stmt->get_result();
+    if ($res && $res->num_rows){
+      $stmt2=$conn->prepare("UPDATE poster_votes SET vote_type=? WHERE poster_id=? AND visitor_token=?");
+      $stmt2->bind_param("sis", $act, $__pa_id, $__pa_token); $stmt2->execute(); $stmt2->close();
+    } else {
+      $stmt2=$conn->prepare("INSERT INTO poster_votes (poster_id, visitor_token, vote_type) VALUES (?,?,?)");
+      $stmt2->bind_param("iss", $__pa_id, $__pa_token, $act); $stmt2->execute(); $stmt2->close();
+    }
+    $stmt->close();
+  }
+}
+$__pa_like=$__pa_dislike=0; $__pa_user_vote='';
+if (isset($conn) && $__pa_id>0){
+  $q=$conn->query("SELECT COUNT(*) c FROM poster_votes WHERE poster_id={$__pa_id} AND vote_type='like'");    if($q){$__pa_like=(int)$q->fetch_assoc()['c'];}
+  $q=$conn->query("SELECT COUNT(*) c FROM poster_votes WHERE poster_id={$__pa_id} AND vote_type='dislike'"); if($q){$__pa_dislike=(int)$q->fetch_assoc()['c'];}
+  $st=$conn->prepare("SELECT vote_type FROM poster_votes WHERE poster_id=? AND visitor_token=?");
+  $st->bind_param("is", $__pa_id, $__pa_token); $st->execute(); $re=$st->get_result();
+  if($re && $re->num_rows){ $__pa_user_vote=(string)$re->fetch_assoc()['vote_type']; } $st->close();
+}
+
+/* user tags */
+if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0){
+  if (isset($_POST['ut_add'])){
+    $__val=trim((string)($_POST['ut_value']??'')); if($__val!==''){
+      $st=$conn->prepare("SELECT 1 FROM user_tags WHERE poster_id=? AND genre=?");
+      $st->bind_param("is", $__pa_id, $__val); $st->execute(); $st->store_result();
+      if($st->num_rows==0){
+        $st2=$conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?,?)");
+        $st2->bind_param("is", $__pa_id, $__val); $st2->execute(); $st2->close();
+        $__pa_msgs[]='תגית נוספה';
+      } else { $__pa_msgs[]='תגית כבר קיימת'; }
+      $st->close();
+    }
+  }
+  if (isset($_POST['ut_remove'])){
+    $__gid=(int)$_POST['ut_remove'];
+    $conn->query("DELETE FROM user_tags WHERE id={$__gid} AND poster_id={$__pa_id}");
+    $__pa_msgs[]='תגית הוסרה';
+  }
+}
+$__pa_user_tags=array();
+if (isset($conn)){
+  $r=$conn->query("SELECT id, genre FROM user_tags WHERE poster_id={$__pa_id} ORDER BY id DESC");
+  while($r && $t=$r->fetch_assoc()){ $__pa_user_tags[]=$t; }
+}
+
+/* similar */
+if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0){
+  if (isset($_POST['sim_add'])){
+    $__in=trim((string)($_POST['sim_value']??'')); $__target=0;
+    if($__in!=='' && ctype_digit($__in)) $__target=(int)$__in;
+    if(!$__target) $__target=__pa_extract_local($__in);
+    if(!$__target){ $__tt=__pa_extract_imdb($__in);
+      if($__tt){ $st=$conn->prepare("SELECT id FROM posters WHERE imdb_id=?"); $st->bind_param("s",$__tt); $st->execute();
+        $rr=$st->get_result(); if($rr && ($rw=$rr->fetch_assoc())) $__target=(int)$rw['id']; $st->close(); } }
+    if($__target>0 && $__target!==$__pa_id){
+      $conn->query("INSERT IGNORE INTO poster_similar (poster_id, similar_id) VALUES ({$__pa_id}, {$__target})");
+      $conn->query("INSERT IGNORE INTO poster_similar (poster_id, similar_id) VALUES ({$__target}, {$__pa_id})");
+      $__pa_msgs[]='נוסף סרט דומה';
+    } else { $__pa_msgs[]='לא נמצא סרט מתאים'; }
+  }
+  if (isset($_POST['sim_remove'])){
+    $__sid=(int)$_POST['sim_remove'];
+    $conn->query("DELETE FROM poster_similar WHERE poster_id={$__pa_id} AND similar_id={$__sid}");
+    $conn->query("DELETE FROM poster_similar WHERE poster_id={$__sid} AND similar_id={$__pa_id}");
+    $__pa_msgs[]='נמחק קשר דומה';
+  }
+}
+$__pa_similar=array();
+if (isset($conn)){
+  $r=$conn->query("SELECT p.id,p.title_en,p.title_he,p.image_url FROM poster_similar ps JOIN posters p ON p.id=ps.similar_id WHERE ps.poster_id={$__pa_id} ORDER BY p.title_en");
+  while($r && $s=$r->fetch_assoc()){ $__pa_similar[]=$s; }
+}
+
+/* collections */
+if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0){
+  if (isset($_POST['col_add'])){
+    $__cid=(int)($_POST['col_value']??0); if($__cid>0){
+      $st=$conn->prepare("INSERT IGNORE INTO poster_collections (poster_id, collection_id) VALUES (?,?)");
+      $st->bind_param("ii", $__pa_id, $__cid); $st->execute(); $st->close();
+      $__pa_msgs[]='נוסף לאוסף';
+    }
+  }
+  if (isset($_POST['col_remove'])){
+    $__cid=(int)$_POST['col_remove'];
+    $conn->query("DELETE FROM poster_collections WHERE poster_id={$__pa_id} AND collection_id={$__cid}");
+    $__pa_msgs[]='הוסר מהאוסף';
+  }
+}
+$__pa_collections=array(); $__pa_collections_all=array();
+if (isset($conn)){
+  $r=$conn->query("SELECT c.id,c.name FROM poster_collections pc JOIN collections c ON c.id=pc.collection_id WHERE pc.poster_id={$__pa_id} ORDER BY c.name");
+  while($r && $c=$r->fetch_assoc()){ $__pa_collections[]=$c; }
+  $r=$conn->query("SELECT id,name FROM collections ORDER BY name ASC");
+  while($r && $c=$r->fetch_assoc()){ $__pa_collections_all[]=$c; }
+}
+
+/* flags (display only) */
+$__pa_langs=$__pa_ctrs=$__pa_genres=array();
+$__pa_src = array();
+if (isset($poster) && is_array($poster)) $__pa_src=$poster; elseif (isset($row) && is_array($row)) $__pa_src=$row;
+if (!empty($__pa_src['languages'])) $__pa_langs = array_filter(array_map('trim', explode(',', (string)$__pa_src['languages'])));
+if (!empty($__pa_src['countries'])) $__pa_ctrs  = array_filter(array_map('trim', explode(',', (string)$__pa_src['countries'])));
+$__line=''; if (!empty($__pa_src['genre'])) $__line=(string)$__pa_src['genre']; elseif (!empty($__pa_src['genres'])) $__line=(string)$__pa_src['genres'];
+if ($__line!=='') $__pa_genres = array_filter(array_map('trim', explode(',', $__line)));
+/* =================== /ADD-ONLY BLOCK =================== */
 /* ====== עזרי תצוגה ====== */
-function flatten_strings($v){$o=[];$st=[$v];while($st){$c=array_pop($st);if(is_array($c)){foreach($c as $x)$st[]=$x;continue;}if(is_object($c))$c=(string)$c;$t=trim((string)$c);if($t!=='')$o[]=$t;}return $o;}
+function flatten_strings($v){$o=[];$st=[$v];while($st){$c=array_pop($st);if(is_array($c)){$st=array_merge($st,$c);continue;}if(is_object($c))$c=(string)$c;$t=trim((string)$c);if($t!=='')$o[]=$t;}return $o;}
 function safeHtml($v){if(is_array($v)||is_object($v))return htmlspecialchars(implode(', ',flatten_strings($v)),ENT_QUOTES,'UTF-8');return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 function safeJoin($arr,$sep=', '){ if($arr===null) return ''; if(!is_array($arr)) $arr = [$arr]; $vals=array_map(fn($t)=>trim((string)$t),flatten_strings($arr)); $vals=array_values(array_filter($vals,fn($x)=>$x!=='')); return htmlspecialchars(implode($sep,$vals),ENT_QUOTES,'UTF-8');}
 function H($v){return (is_array($v)||is_object($v))?safeJoin($v):safeHtml($v);}
@@ -29,7 +165,6 @@ function format_runtime(int $minutes): string {
     if (empty($parts)) return "{$minutes} min";
     return implode(' ', $parts) . " ({$minutes} min)";
 }
-
 
 /* ====== הבאת פוסטר מה-DB ====== */
 $posterRow = null;
@@ -56,7 +191,8 @@ if (!$posterRow) {
 $akas = [];
 $poster_id_for_akas = (int)$posterRow['id'];
 if ($poster_id_for_akas > 0) {
-  $stmt = $conn->prepare("SELECT aka_title FROM poster_akas WHERE poster_id = ? ORDER BY sort_order ASC, id ASC");
+  // ✔ תיקון: בלי sort_order כדי לא לקבל Unknown column 'sort_order'
+  $stmt = $conn->prepare("SELECT aka_title FROM poster_akas WHERE poster_id = ? ORDER BY id ASC");
   $stmt->bind_param("i", $poster_id_for_akas);
   $stmt->execute();
   $res = $stmt->get_result();
@@ -64,8 +200,8 @@ if ($poster_id_for_akas > 0) {
   $stmt->close();
 }
 
-// <<< הוספה: הבאת Connections מה-DB
-$connections = [];
+/* ====== הבאת Connections מה-DB ====== */
+$connections = []; // ['Spin-off' => [ ['title'=>'X','imdb_id'=>'tt123'], ... ], ... ]
 $poster_id_for_conn = (int)$posterRow['id'];
 if ($poster_id_for_conn > 0) {
     $stmt = $conn->prepare("SELECT relation_label, related_title, related_imdb_id FROM poster_connections WHERE poster_id = ? ORDER BY relation_label, id");
@@ -73,11 +209,15 @@ if ($poster_id_for_conn > 0) {
     $stmt->execute();
     $res = $stmt->get_result();
     while ($r = $res->fetch_assoc()) {
-        $connections[$r['relation_label']][] = ['title' => $r['related_title'], 'imdb_id' => $r['related_imdb_id']];
+        $lab = (string)$r['relation_label'];
+        $ttl = trim((string)$r['related_title']);
+        $tid = trim((string)$r['related_imdb_id']);
+        if ($lab !== '' && ($ttl !== '' || $tid !== '')) {
+            $connections[$lab][] = ['title' => ($ttl ?: $tid), 'imdb_id' => $tid];
+        }
     }
     $stmt->close();
 }
-
 
 /* ====== עיבוד שדות לתצוגה ====== */
 $imdb_id        = $posterRow['imdb_id']         ?? '';
@@ -191,6 +331,10 @@ $CAST_LIMIT = 60;
     .white {color: #f1f1f1 !important;}
     .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
   
+     .logo {  filter: saturate(500%) contrast(800%) brightness(500%) 
+      invert(100%) sepia(50%) hue-rotate(120deg); }
+        filter: saturate(500%) contrast(800%) brightness(500%) 
+      invert(80%) sepia(50%) hue-rotate(120deg); } 
   </style>
 </head>
 <body><br>
@@ -221,10 +365,10 @@ $CAST_LIMIT = 60;
         <?php if (!empty($title_he)): ?><p class="kv"><span class="label">שם בעברית:</span> <?= H($title_he) ?></p><?php endif; ?>
         <?php if (!empty($genres)): ?><p class="kv"><span class="label">ז׳אנרים:</span> <?= safeJoin($genres) ?></p><?php endif; ?>
         <div class="section">
-          <div class="ratings">
-            <?php if ($imdb_rating): ?><span class="pill">IMDb: <?= H($imdb_rating) ?>/10<?= $imdb_votes ? ' • '.number_format((int)$imdb_votes).' votes' : '' ?><img src="images/imdb.png" alt="Metacritic Score" title="Metacritic Score" width="24px"></span><?php endif; ?>
-            <?php if ($rt_score): ?><?php if ($rt_url): ?><a class="pill" href="<?= H($rt_url) ?>" target="_blank" rel="noopener">Rotten Tomatoes: <?= H($rt_score) ?>%🍅</a><?php else: ?><span class="pill">Rotten Tomatoes: <?= H($rt_score) ?>%</span><?php endif; ?><?php endif; ?>
-            <?php if ($mc_score): ?><?php if ($mc_url): ?><a class="pill" href="<?= H($mc_url) ?>" target="_blank" rel="noopener">Metacritic: <?= H($mc_score) ?>/100 <img src="images/metacritic.png" alt="Metacritic Score" title="Metacritic Score" width="24px"></a><?php else: ?><span class="pill">Metacritic: <?= H($mc_score) ?>/100</span><?php endif; ?><?php endif; ?>
+          <div class="ratings" >
+            <?php if ($imdb_rating): ?><span class="pill">IMDb: <?= H($imdb_rating) ?>/10<?= $imdb_votes ? ' • '.number_format((int)$imdb_votes).' votes' : '' ?><img src="images/imdb.png" style="vertical-align: middle;" alt="IMDB Score" title="IMDB Score" width="33px"></span><?php endif; ?>
+            <?php if ($rt_score): ?><?php if ($rt_url): ?><a class="pill" href="<?= H($rt_url) ?>" target="_blank" rel="noopener">Rotten Tomatoes: <?= H($rt_score) ?>%&nbsp;<img src="images/rotten-tomatoes.png" style="vertical-align: middle;" alt="Rotten-Tomatoes Score" title="Rotten-Tomatoes Score" width="24px"></a> <?php else: ?><span class="pill">Rotten Tomatoes: <?= H($rt_score) ?>%</span><?php endif; ?><?php endif; ?>
+            <?php if ($mc_score): ?><?php if ($mc_url): ?><a class="pill" href="<?= H($mc_url) ?>" target="_blank" rel="noopener">Metacritic: <?= H($mc_score) ?>/100 <img src="images/metacritic.png" style="vertical-align: middle;" alt="Metacritic Score" title="Metacritic Score" width="28px"></a><?php else: ?><span class="pill">Metacritic: <?= H($mc_score) ?>/100</span><?php endif; ?><?php endif; ?>
           </div>
                  </div>
         <div class="section links">
@@ -236,11 +380,17 @@ $CAST_LIMIT = 60;
           </div>
         </div>
         <?php if ($overview_he || $overview_en): ?>
-          <div class="section">
-            <?php if ($overview_he): ?><p class="kv"><span class="label">תקציר:</span> <?= H($overview_he) ?></p><?php endif; ?>
-            <?php if ($overview_en): ?><p class="kv"><span class="label">תקציר (EN):</span> <?= H($overview_en) ?></p><?php endif; ?>
-          </div>
-        <?php endif; ?>
+  <div class="section">
+    <?php if ($overview_he): ?><p class="kv"><span class="label">תקציר:</span> <?= H($overview_he) ?></p><?php endif; ?>
+    <?php 
+      if ($overview_en) {
+        // ניקוי הסיומת "...Read all" מהתקציר האנגלי לפני ההדפסה
+        $cleaned_overview = preg_replace('~\s*(\.\.\.|…)\s*Read all\s*»?$~iu', '', $overview_en);
+        echo '<p class="kv"><span class="label">תקציר (EN):</span> ' . H($cleaned_overview) . '</p>';
+      }
+    ?>
+  </div>
+<?php endif; ?>
         <div class="section">
           <div class="grid">
             <?php if ($directors): ?><p class="kv"><span class="label">Directors:</span> <?= safeJoin($directors) ?></p><?php endif; ?>
@@ -261,21 +411,44 @@ $CAST_LIMIT = 60;
         <?php if (!empty($akas)): ?>
           <div class="section">
             <p class="kv"><span class="label">AKAs:</span></p>
-            <p class="comma-list" dir="rtl"><?= safeJoin($akas) ?></p>
+            <?php $aid = 'akas-'.(int)$posterRow['id']; ?>
+            <p class="comma-list" dir="rtl">
+              <span class="ellipsis" id="ell-<?= H($aid) ?>">…</span>
+              <span id="<?= H($aid) ?>" class="more hidden"><?= safeJoin($akas) ?></span>
+            </p>
+            <button class="btn-toggle" type="button" data-toggle="<?= H($aid) ?>" data-open="false">הצג הכל</button>
           </div>
         <?php endif; ?>
         
         <?php if (!empty($connections)): ?>
           <div class="section">
             <h4 style="margin:0 0 8px 0">IMDb Connections</h4>
-            <?php foreach ($connections as $label => $items): ?>
-              <p class="kv">
-                <span class="label"><?= H($label) ?>:</span>
-                <span class="conn-list">
-                  <?php $links = []; foreach($items as $item) { $links[] = '<a href="?tt='.H($item['imdb_id']).'">'.H($item['title']).'</a>'; } echo implode(', ', $links); ?>
-                </span>
-              </p>
-            <?php endforeach; ?>
+            <?php
+              // סדר מועדף כמו ב-new-movie
+              $pref = ['Follows','Followed by','Remake of','Remade as','Spin-off','Spin-off from','Version of'];
+              $seen = [];
+              $render_group = function($label, $items){
+                  $links = [];
+                  foreach ($items as $it) {
+                      $tid = trim((string)($it['imdb_id'] ?? ''));
+                      $t   = trim((string)($it['title']   ?? ''));
+                      if ($tid !== '') {
+                          $links[] = '<a href="poster.php?tt='.H($tid).'" target="_blank" rel="noopener">'.H($t ?: $tid).'</a>';
+                      } else {
+                          $links[] = H($t);
+                      }
+                  }
+                  echo '<p class="kv"><span class="label">'.H($label).':</span> <span class="conn-list">'.implode(', ', $links).'</span></p>';
+              };
+              foreach ($pref as $p) {
+                  if (!empty($connections[$p])) { $render_group($p, $connections[$p]); $seen[$p]=1; }
+              }
+              // כל שאר הקטגוריות שלא הופיעו בסדר המועדף
+              foreach ($connections as $lab => $items) {
+                  if (!empty($seen[$lab])) continue;
+                  $render_group($lab, $items);
+              }
+            ?>
           </div>
         <?php endif; ?>
       </div>
@@ -283,9 +456,174 @@ $CAST_LIMIT = 60;
   </div>
 </div>
 <script>
-  function toggleMore(btn){ var id=btn.getAttribute('data-toggle'),more=document.getElementById(id),ell=document.getElementById('ell-'+id),open=btn.getAttribute('data-open')==='true';if(!more)return;if(open){more.classList.add('hidden');if(ell)ell.classList.remove('hidden');btn.textContent='הצג הכל';btn.setAttribute('data-open','false');}else{more.classList.remove('hidden');if(ell)ell.classList.add('hidden');btn.textContent='הצג פחות';btn.setAttribute('data-open','true');}}
-  document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.btn-toggle');if(t)toggleMore(t);});
+  function toggleMore(btn){
+    var id=btn.getAttribute('data-toggle'),
+        more=document.getElementById(id),
+        ell=document.getElementById('ell-'+id),
+        open=btn.getAttribute('data-open')==='true';
+    if(!more) return;
+    if(open){
+      more.classList.add('hidden');
+      if(ell) ell.classList.remove('hidden');
+      btn.textContent='הצג הכל';
+      btn.setAttribute('data-open','false');
+    }else{
+      more.classList.remove('hidden');
+      if(ell) ell.classList.add('hidden');
+      btn.textContent='הצג פחות';
+      btn.setAttribute('data-open','true');
+    }
+  }
+  document.addEventListener('click',function(e){
+    var t=e.target.closest&&e.target.closest('.btn-toggle');
+    if(t) toggleMore(t);
+  });
 </script>
+<!-- ===== ADD-ONLY: poster actions addon ===== -->
+<style>
+  /* ממוקף – לא נוגע בשאר האתר */
+  #poster-actions-addon{margin:24px 0}
+  #poster-actions-addon .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center}
+  #poster-actions-addon .section-title{margin:18px 0 8px;font-weight:700}
+  #poster-actions-addon .btn,
+  #poster-actions-addon input[type=text],
+  #poster-actions-addon select{
+    border-radius:999px;
+    padding:8px 14px;
+    border:1px solid #444;
+    background:rgba(255,255,255,.04);
+    color:#eee;
+    outline:none
+  }
+  #poster-actions-addon .btn{cursor:pointer}
+  #poster-actions-addon .btn:hover{background:rgba(255,255,255,.08)}
+  #poster-actions-addon .btn--solid{background:#2a2a2a;border-color:#555}
+  #poster-actions-addon .btn--liked{background:#1f3b20;border-color:#2e6b35}
+  #poster-actions-addon .btn--disliked{background:#3b1f20;border-color:#6b2e35}
+  #poster-actions-addon .chips{display:flex;flex-wrap:wrap;gap:8px}
+  #poster-actions-addon .chip{display:flex;gap:6px;align-items:center;border:1px solid #444;background:rgba(255,255,255,.04);color:#eee;border-radius:999px;padding:6px 10px}
+  #poster-actions-addon .chip .x{background:transparent;border:0;color:#bbb;cursor:pointer}
+  #poster-actions-addon .msgbox{margin:10px auto 0;max-width:760px;border:1px solid #555;border-radius:10px;background:#1b1b1b;color:#ddd;padding:10px 14px}
+  #poster-actions-addon .stack{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  #poster-actions-addon .ltr{direction:ltr;text-align:left}
+</style>
+
+<div id="poster-actions-addon" dir="rtl">
+  <!-- פעולות על הפוסטר -->
+  <div class="row">
+    <a class="btn" href="report.php?poster_id=<?= (int)$__pa_id ?>">🚨 דווח</a>
+    <a class="btn" href="edit_poster.php?id=<?= (int)$__pa_id ?>">✏️ ערוך</a>
+    <a class="btn" href="delete_poster.php?id=<?= (int)$__pa_id ?>" onclick="return confirm('למחוק את הפוסטר?')">🗑️ מחק</a>
+  </div>
+
+  <!-- אהבתי / לא אהבתי -->
+  <div class="row" style="margin-top:8px">
+    <form method="post" class="stack">
+      <input type="hidden" name="pv_action" value="like">
+      <button type="submit" class="btn <?= ($__pa_user_vote==='like'?'btn--liked':'') ?>">❤️ אהבתי (<?= (int)$__pa_like ?>)</button>
+    </form>
+    <form method="post" class="stack">
+      <input type="hidden" name="pv_action" value="dislike">
+      <button type="submit" class="btn <?= ($__pa_user_vote==='dislike'?'btn--disliked':'') ?>">💔 לא אהבתי (<?= (int)$__pa_dislike ?>)</button>
+    </form>
+    <?php if (!empty($__pa_user_vote)): ?>
+      <form method="post" class="stack">
+        <input type="hidden" name="pv_action" value="remove">
+        <button type="submit" class="btn">❌ בטל הצבעה</button>
+      </form>
+    <?php endif; ?>
+  </div>
+
+  <?php if (!empty($__pa_msgs)): ?>
+    <div class="msgbox">
+      <ul style="margin:0;padding-inline-start:18px">
+        <?php foreach ($__pa_msgs as $__m): ?><li><?= __pa_h($__m) ?></li><?php endforeach; ?>
+      </ul>
+    </div>
+  <?php endif; ?>
+
+  <!-- תגיות משתמש -->
+  <div class="section-title">תגיות משתמש</div>
+  <?php if (!empty($__pa_user_tags)): ?>
+    <div class="chips" style="justify-content:center">
+      <?php foreach ($__pa_user_tags as $__t): ?>
+        <form method="post" class="chip">
+          <span><?= __pa_h($__t['genre']) ?></span>
+          <button class="x" type="submit" name="ut_remove" value="<?= (int)$__t['id'] ?>" title="מחק תגית">✕</button>
+        </form>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <div style="text-align:center;color:#9a9a9a">אין תגיות עדיין</div>
+  <?php endif; ?>
+  <form method="post" class="row" style="margin-top:8px">
+    <input type="text" name="ut_value" placeholder="הוסף תגית" required>
+    <button type="submit" name="ut_add" class="btn btn--solid">➕ הוסף תגית</button>
+  </form>
+
+  <!-- סרטים דומים -->
+  <div class="section-title">סרטים דומים</div>
+  <?php if (!empty($__pa_similar)): ?>
+    <ul style="max-width:760px;margin:0 auto 8px;list-style:disc inside;color:#ddd">
+      <?php foreach ($__pa_similar as $__s): ?>
+        <li style="margin:4px 0;">
+          <a href="poster.php?id=<?= (int)$__s['id'] ?>" style="color:#ffd265"><?= __pa_h($__s['title_en'] ?: $__s['title_he']) ?></a>
+          <form method="post" style="display:inline">
+            <button type="submit" name="sim_remove" value="<?= (int)$__s['id'] ?>" class="btn" title="מחק קישור דומה">✕</button>
+          </form>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php else: ?>
+    <div style="text-align:center;color:#9a9a9a">אין סרטים דומים כרגע</div>
+  <?php endif; ?>
+  <form method="post" class="row">
+    <input class="ltr" type="text" name="sim_value" placeholder="ID מקומי / poster.php?id=XX / tt1234567">
+    <button type="submit" name="sim_add" class="btn btn--solid">➕ הוסף סרט דומה</button>
+  </form>
+
+  <!-- אוספים -->
+  <div class="section-title">אוספים</div>
+  <?php if (!empty($__pa_collections)): ?>
+    <div class="chips" style="justify-content:center">
+      <?php foreach ($__pa_collections as $__c): ?>
+        <form method="post" class="chip">
+          <a href="universe.php?collection_id=<?= (int)$__c['id'] ?>" style="color:#ffd265"><?= __pa_h($__c['name']) ?></a>
+          <button class="x" type="submit" name="col_remove" value="<?= (int)$__c['id'] ?>" title="הסר מהאוסף">✕</button>
+        </form>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <div style="text-align:center;color:#9a9a9a">לא משויך עדיין לאף אוסף</div>
+  <?php endif; ?>
+  <form method="post" class="row" style="margin-top:8px">
+    <select name="col_value">
+      <option value="">בחר אוסף…</option>
+      <?php foreach ($__pa_collections_all as $__opt): ?>
+        <option value="<?= (int)$__opt['id'] ?>"><?= __pa_h($__opt['name']) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <button type="submit" name="col_add" class="btn btn--solid">➕ הוסף לאוסף</button>
+  </form>
+
+  <!-- סיווג דגלים -->
+  <?php if (!empty($__pa_langs) || !empty($__pa_ctrs) || !empty($__pa_genres)): ?>
+    <div class="section-title">סיווג דגלים</div>
+    <div class="chips" style="justify-content:center">
+      <?php foreach ($__pa_langs as $__lng): ?>
+        <a class="chip" href="language_imdb.php?lang_code=<?= urlencode($__lng) ?>"><?= __pa_h($__lng) ?></a>
+      <?php endforeach; ?>
+      <?php foreach ($__pa_ctrs as $__ct): ?>
+        <a class="chip" href="country.php?country=<?= urlencode($__ct) ?>"><?= __pa_h($__ct) ?></a>
+      <?php endforeach; ?>
+      <?php foreach ($__pa_genres as $__g): ?>
+        <a class="chip" href="genre.php?name=<?= urlencode($__g) ?>"><?= __pa_h($__g) ?></a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
+<!-- ===== /ADD-ONLY ===== -->
+
 </body>
 </html>
 <?php include 'footer.php'; ?>

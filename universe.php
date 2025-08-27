@@ -52,14 +52,14 @@ if ($selected_collection_id) {
     }
     
     $sql_movies = "SELECT 
-                        p.id, p.title_he, p.title_en, p.year, p.plot_he, p.image_url, p.youtube_trailer, p.genre,
-                        GROUP_CONCAT(ut.genre SEPARATOR ', ') AS user_tags
-                   FROM posters AS p
-                   JOIN poster_collections AS pc ON p.id = pc.poster_id
-                   LEFT JOIN user_tags AS ut ON p.id = ut.poster_id
-                   WHERE pc.collection_id = ?
-                   GROUP BY p.id
-                   ORDER BY $sort_order_sql";
+                    p.id, p.title_he, p.title_en, p.year, p.overview_he, p.image_url, p.youtube_trailer, p.genres,
+                    GROUP_CONCAT(ut.genre SEPARATOR ', ') AS user_tags
+               FROM posters AS p
+               JOIN poster_collections AS pc ON p.id = pc.poster_id
+               LEFT JOIN user_tags AS ut ON p.id = ut.poster_id
+               WHERE pc.collection_id = ?
+               GROUP BY p.id
+               ORDER BY $sort_order_sql";
     
     $stmt = $conn->prepare($sql_movies);
     $stmt->bind_param("i", $selected_collection_id);
@@ -238,10 +238,10 @@ color:white;
     }
     .white {color: #f1f1f1 !important;}
     .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
-    /* .logo {  filter: saturate(500%) contrast(800%) brightness(500%) 
+    .logo {  filter: saturate(500%) contrast(800%) brightness(500%) 
       invert(100%) sepia(50%) hue-rotate(120deg); }
         filter: saturate(500%) contrast(800%) brightness(500%) 
-      invert(80%) sepia(50%) hue-rotate(120deg); } */
+      invert(80%) sepia(50%) hue-rotate(120deg); }
    </style>
 </head>
 <body style="text-align:center">
@@ -284,30 +284,42 @@ color:white;
                         <img src="<?= htmlspecialchars($movie['image_url'] ?: 'images/no-poster.png') ?>" alt="Poster" class="poster">
                     </a>
                     <div class="text-content">
-                        <div class="year"><?= htmlspecialchars($movie['year']) ?></div>
-                        <h2><?= htmlspecialchars($movie['title_he']) ?></h2>
-                        <div class="title-en"><?= htmlspecialchars($movie['title_en']) ?></div>
+    <div class="year"><?= htmlspecialchars($movie['year']) ?></div>
+    <h2><?= htmlspecialchars($movie['title_he']) ?></h2>
+    <div class="title-en"><?= htmlspecialchars($movie['title_en']) ?></div>
 
-                        <p><?= htmlspecialchars($movie['plot_he']) ?></p>
-                        
-                        <div class="tags-container">
-    <?php if (!empty($movie['genre'])): ?>
-        <span class="genre"><?= htmlspecialchars($movie['genre']) ?></span>
+    <?php // -- כאן התוספת של התקציר -- ?>
+    <?php if (!empty($movie['overview_he'])): ?>
+        <p style="font-size: 14px; color: #ccc; line-height: 1.4; margin-top: 10px;">
+            <?php
+                // מגביל את אורך התקציר ומוסיף "..."
+                if (mb_strlen($movie['overview_he']) > 200) {
+                    echo htmlspecialchars(mb_substr($movie['overview_he'], 0, 200)) . '...';
+                } else {
+                    echo htmlspecialchars($movie['overview_he']);
+                }
+            ?>
+        </p>
     <?php endif; ?>
     
-    <?php if (!empty($movie['user_tags'])): ?>
-        <span class="user-tag"><?= htmlspecialchars($movie['user_tags']) ?></span>
+    <div class="tags-container">
+        <?php // -- כאן התוספת של הז'אנר -- ?>
+        <?php if (!empty($movie['genres'])): ?>
+            <span class="genre"><?= htmlspecialchars($movie['genres']) ?></span>
+        <?php endif; ?>
+        
+        <?php if (!empty($movie['user_tags'])): ?>
+            <span class="user-tag"><?= htmlspecialchars($movie['user_tags']) ?></span>
+        <?php endif; ?>
+    </div>
+
+    <?php
+    $trailer_id = extractYoutubeId($movie['youtube_trailer']);
+    if (!empty($trailer_id)): 
+    ?>
+        <button class="trailer-button" data-videoid="<?= htmlspecialchars($trailer_id) ?>">צפה בטריילר</button>
     <?php endif; ?>
 </div>
-
-                        <?php
-                        // תיקון: חילוץ המזהה לפני הדפסת הכפתור
-                        $trailer_id = extractYoutubeId($movie['youtube_trailer']);
-                        if (!empty($trailer_id)): 
-                        ?>
-                            <button class="trailer-button" data-videoid="<?= htmlspecialchars($trailer_id) ?>">צפה בטריילר</button>
-                        <?php endif; ?>
-                    </div>
                 </div>
             </div>
         <?php endforeach; ?>
