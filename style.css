@@ -53,6 +53,7 @@ transform: scale(1.30);
 
 color:black !important;
     }
+    a {color:black  !important}
 .poster-title b {
   line-height: 1.0;
   display: inline-block;
@@ -74,11 +75,6 @@ display: flex!important;padding: 5px;
 .imdb {width: 50px !important; height: 30px !important; margin-right: 8px !important;}
 
 .imdb-first {display: flex;}
-
-
- a {
-        color:black !important;
-      }
 
 .rtl {
         direction: rtl !important;

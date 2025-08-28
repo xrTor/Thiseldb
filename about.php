@@ -38,7 +38,7 @@
     .about-section h3 {
       font-size: 20px;
       margin-bottom: 10px;
-      color: #5CABED;
+      color: green;
     }
     .about-section p, .about-section li {
       font-size: 15px;
@@ -51,7 +51,9 @@
     body, div {
   direction: rtl;
   text-align: right;
+  font-family: arial;
 }
+* {font-family: Calibri, sans-serif, arial !important;}
 .blue {color: #2d89ef !important;}
   </style>
 </head>
@@ -63,7 +65,7 @@
   <div class="about-section">
 
   <h3><b><u>שלום!</u></h3></b><br>
-  ברוכים הבאים לת'יסל. אז אני מייקל, חובב סרטים וקולנוע מושבע<br>
+  ברוכים הבאים ל<b>ת'יסל</b> - אז אני מייקל, חובב סרטים וקולנוע מושבע.<br>
 תמיד שאני מחפש לדוגמא סרט קומדיה עם אחותי אנחנו מחפשים שעות במה לצפות, אז חשבתי להקים פרוייקט המלצות לתכנים רלוונטים לקהילה.<br><br>
 
     <h3><b><u>מטרת האתר:</u></h3></b>    
@@ -83,7 +85,7 @@
 אם אתם רוצים לקבל את ארכיון האתר כולו אנא בקשו בעמוד '<a class="blue" href="contact.php">צור קשר</a>'.<br>
 הארכיון של האתר משוחרר בחינם לחלוטין וגם האתר עצמו, אתם מוזמנים להוריד ולעשות כל מה שיתחשק לכם עם המאגר או עם קוד המקור של האתר עצמו.<br>
 הדומיין יושב בשירות <a class="blue" href="https://www.namecheap.com/">Namecheap</a>
-והאתר מאוחסן בשרת <a class="blue" href="https://www.hostinger.com/il/1">Hostinger</a>.
+והאתר מאוחסן בשרת <a class="blue" href="https://jetserver.co.il/">Jetserver</a>.
 
 <h3><b><u>כלים:</u></h3></b>
 <a class="blue" href="https://www.omdbapi.com">פרוייקט API של OMDB </a><br>

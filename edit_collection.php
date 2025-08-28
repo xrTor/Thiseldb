@@ -2,6 +2,16 @@
 require_once 'server.php';
 include 'header.php';
 
+if (!function_exists('slugify_collection')) {
+  function slugify_collection(string $name): string {
+    $slug = mb_strtolower($name, 'UTF-8');
+    $slug = preg_replace('~[^\p{L}\p{N}]+~u', '-', $slug);
+    $slug = trim($slug, '-');
+    if ($slug === '') $slug = 'collection-'.time();
+    return $slug;
+  }
+}
+
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $message = '';
 
@@ -24,15 +34,35 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
   $desc = trim($_POST['description'] ?? '');
   $img  = trim($_POST['image_url'] ?? '');
 
+  // אל תייצר נתיב אוטומטי כששדה התמונה ריק; תקן נתיב רק אם המשתמש הזין ערך
+  if ($img !== '') {
+    // אם הוזן רק שם קובץ (ללא URL/נתיב) – הוסף images/logos/
+    if (!preg_match('~^https?://~i', $img) && strpos($img, '/') === false && strpos($img, '\\') === false) {
+      $img = 'images/logos/' . $img;
+    }
+  }
+
   if ($name !== '') {
-    $stmt = $conn->prepare("UPDATE collections SET name=?, description=?, image_url=? WHERE id=?");
-    $stmt->bind_param("sssi", $name, $desc, $img, $id);
+    if ($img === '') {
+      // שמור NULL כדי לא להציג תמונה שבורה
+      $stmt = $conn->prepare("UPDATE collections SET name=?, description=?, image_url=NULL WHERE id=?");
+      $stmt->bind_param("ssi", $name, $desc, $id);
+    } else {
+      $stmt = $conn->prepare("UPDATE collections SET name=?, description=?, image_url=? WHERE id=?");
+      $stmt->bind_param("sssi", $name, $desc, $img, $id);
+    }
     $stmt->execute();
     $stmt->close();
-    $message = "✅ האוסף עודכן בהצלחה";
 
-    $res = $conn->query("SELECT * FROM collections WHERE id = $id");
-    $collection = $res->fetch_assoc();
+    // ניתוב חזרה לעמוד האוסף שנערך
+    $target = "collection.php?id=" . $id;
+    if (!headers_sent()) {
+      header("Location: " . $target);
+      exit;
+    } else {
+      echo "<script>window.location.href=" . json_encode($target) . ";</script>";
+      exit;
+    }
   } else {
     $message = "❌ יש למלא שם לאוסף";
   }
@@ -78,7 +108,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
     <textarea name="description" rows="4"><?= htmlspecialchars($collection['description']) ?></textarea>
 
     <label>🖼️ כתובת לתמונה</label>
-    <input type="text" name="image_url" value="<?= htmlspecialchars($collection['image_url']) ?>" placeholder="https://example.com/image.jpg">
+    <input type="text" name="image_url" value="<?= htmlspecialchars($collection['image_url']) ?>" placeholder="(אפשר להשאיר ריק — לא תוצג תמונה; או להקליד רק filename.png לשמירה תחת images/logos/)">
 
     <button type="submit" name="update_collection">💾 שמור שינויים</button>
   </form>
@@ -90,4 +120,3 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
 </html>
 
 <?php include 'footer.php'; ?>
-<?php $conn->close(); ?>

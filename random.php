@@ -37,8 +37,7 @@ if (isset($_GET['spin'])) {
 
 $where_clause = !empty($sql_conditions) ? 'WHERE ' . implode(' AND ', $sql_conditions) : '';
 
-// שאילתה משודרגת שכוללת תמיד תגיות וז'אנר
-$sql = "SELECT p.*, GROUP_CONCAT(ut.genre SEPARATOR ', ') AS user_tags
+$sql = "SELECT p.*, GROUP_CONCAT(DISTINCT ut.genre SEPARATOR ', ') AS user_tags
         FROM posters p
         LEFT JOIN user_tags ut ON p.id = ut.poster_id
         $where_clause 
@@ -56,7 +55,6 @@ $stmt->close();
 
 // --- שליפת טריילר אקראי נוסף ---
 $random_trailer = null;
-// שאילתה משודרגת שכוללת גם את מזהה הפוסטר
 $trailer_sql = "SELECT id, title_he, title_en, youtube_trailer 
                 FROM posters 
                 WHERE youtube_trailer IS NOT NULL AND youtube_trailer != '' AND youtube_trailer != '0' 
@@ -68,7 +66,8 @@ if ($trailer_res && $trailer_res->num_rows > 0) {
     $random_trailer['video_id'] = extractYoutubeId($random_trailer['youtube_trailer']);
 }
 
-$conn->close();
+// We don't close the connection here if footer.php does it.
+// $conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -81,10 +80,11 @@ $conn->close();
         .roulette-container { max-width: 900px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .filter-form { display: flex; flex-direction: column; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 30px; }
         .filter-row { display: flex; gap: 10px; justify-content: center; width: 100%; }
-        .filter-form input { padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
+        .filter-form input, .filter-form select { padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
         .filter-form input[type="number"] { width: 220px; }
         .type-buttons { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-        .type-btn { padding: 8px 16px; font-size: 1em; border: 1px solid #ccc; border-radius: 20px; background-color: #f0f0f0; color: #333; text-decoration: none; transition: background-color 0.2s, color 0.2s; }
+        /* >> שינוי עיצוב קל מכפתורי קישור לכפתורים רגילים */
+        .type-btn { padding: 8px 16px; font-size: 1em; border: 1px solid #ccc; border-radius: 20px; background-color: #f0f0f0; color: #333; cursor: pointer; transition: background-color 0.2s, color 0.2s; }
         .type-btn.active, .type-btn:hover { background-color: #333; color: white; border-color: #333; }
         .spin-button { padding: 12px 30px; font-size: 1.2em; font-weight: bold; background-color: #e62429; color: white; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }
         .spin-button:hover { transform: scale(1.05); }
@@ -94,11 +94,10 @@ $conn->close();
         .result-details h2, .random-trailer-section h3 { margin-top: 0; font-size: 1.8em; color: #333; }
         .result-details .year { font-weight: bold; color: #e62429; }
         
-        /* עיצובים חדשים לתגיות ולכותרת הטריילר */
         .result-details .tags-container { margin-top: 10px; display:flex; align-items:center; gap: 8px; flex-wrap:wrap; }
         .result-details .tag { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
-        .result-details .genre { background-color: #333; color: #ccc; }
-        .result-details .user-tag { background-color: #4a2d3c; color: white; }
+        .result-details .genre { background-color: #eee; color: #333; border: 1px solid #ccc; }
+        .result-details .user-tag { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         
         .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; border-radius: 8px; margin: 10px auto; }
         .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
@@ -116,11 +115,13 @@ $conn->close();
     
     <form action="random.php" method="GET" class="filter-form">
         <div class="type-buttons">
-            <a href="<?= strtok($_SERVER["REQUEST_URI"],'?') ?>" class="type-btn <?= (!isset($_GET['type_id']) || empty($_GET['type_id'])) ? 'active' : '' ?>">הכל</a>
+            <button type="button" class="type-btn <?= (!isset($_GET['type_id']) || empty($_GET['type_id'])) ? 'active' : '' ?>" data-type-id="">הכל</button>
             <?php foreach ($types_list as $type): ?>
-                <a href="?type_id=<?= $type['id'] ?>" class="type-btn <?= (isset($_GET['type_id']) && $_GET['type_id'] == $type['id']) ? 'active' : '' ?>">
+                <button type="button" 
+                        class="type-btn <?= (isset($_GET['type_id']) && $_GET['type_id'] == $type['id']) ? 'active' : '' ?>" 
+                        data-type-id="<?= $type['id'] ?>">
                     <?= htmlspecialchars($type['label_he']) ?>
-                </a>
+                </button>
             <?php endforeach; ?>
         </div>
         <div class="filter-row">
@@ -128,7 +129,7 @@ $conn->close();
             <input type="number" name="min_year" placeholder="משנה (לדוגמה: 1980)" value="<?= htmlspecialchars($_GET['min_year'] ?? '') ?>">
             <input type="number" name="max_year" placeholder="עד שנה (לדוגמה: 2024)" value="<?= htmlspecialchars($_GET['max_year'] ?? '') ?>">
         </div>
-        <input type="hidden" name="type_id" value="<?= htmlspecialchars($_GET['type_id'] ?? '') ?>">
+        <input type="hidden" name="type_id" id="type_id_hidden" value="<?= htmlspecialchars($_GET['type_id'] ?? '') ?>">
         <button type="submit" name="spin" class="spin-button">סובב את הרולטה!</button>
     </form>
 
@@ -145,8 +146,8 @@ $conn->close();
                     <p><?= htmlspecialchars($random_movie['plot_he'] ?: $random_movie['plot']) ?></p>
                     
                     <div class="tags-container">
-                        <?php if (!empty($random_movie['genre'])): ?>
-                            <span class="tag genre"><?= htmlspecialchars($random_movie['genre']) ?></span>
+                        <?php if (!empty($random_movie['genres'])): // Changed to genres ?>
+                            <span class="tag genre"><?= htmlspecialchars($random_movie['genres']) ?></span>
                         <?php endif; ?>
                         <?php if (!empty($random_movie['user_tags'])): ?>
                             <span class="tag user-tag"><?= htmlspecialchars($random_movie['user_tags']) ?></span>
@@ -181,6 +182,30 @@ $conn->close();
     <?php endif; ?>
     
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const typeButtonsContainer = document.querySelector('.type-buttons');
+    const hiddenTypeInput = document.getElementById('type_id_hidden');
+    
+    typeButtonsContainer.addEventListener('click', function(event) {
+        // ודא שהלחיצה היא על כפתור מסוג type-btn
+        if (event.target.classList.contains('type-btn')) {
+            // הסר את הקלאס 'active' מכל הכפתורים
+            typeButtonsContainer.querySelectorAll('.type-btn').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+
+            // הוסף את הקלאס 'active' לכפתור שנלחץ
+            const clickedButton = event.target;
+            clickedButton.classList.add('active');
+
+            // עדכן את הערך של השדה הנסתר
+            hiddenTypeInput.value = clickedButton.dataset.typeId;
+        }
+    });
+});
+</script>
 
 <?php include 'footer.php'; ?>
 </body>

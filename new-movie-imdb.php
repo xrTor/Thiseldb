@@ -1,4 +1,23 @@
-<?php include 'header.php'; 
+<?php
+// שלב 1: לכידת כל הפלט מהקבצים הבעייתיים
+ob_start();
+include 'header.php'; 
+$html_from_header = ob_get_clean();
+
+// שלב 2: פיצול התוכן לחלק של ה-HEAD ולחלק של ה-BODY
+$body_content_start_tag = '<div class="w3-bar';
+$split_position = strpos($html_from_header, $body_content_start_tag);
+
+if ($split_position !== false) {
+    // כל מה שלפני התפריט שייך ל-HEAD
+    $head_content = substr($html_from_header, 0, $split_position);
+    // כל מה שמהתפריט והלאה שייך ל-BODY
+    $body_nav_content = substr($html_from_header, $split_position);
+} else {
+    // במקרה שלא נמצאה המחרוזת, נשמור את כל התוכן כדי לא לאבד כלום
+    $head_content = '';
+    $body_nav_content = $html_from_header;
+}
 /****************************************************
  * imdb.php — פרטי כותר מרוכזים (RTL, עברית)
  * BUILD: v2025-08-23-b6 "AKA btn + single-block cast + full crew for TV & Movies + Connections + TVDB clean"
@@ -61,7 +80,9 @@ define('IMDB_UNIFIED_FUNCS', 1);
 function flatten_strings($v){$o=[];$st=[$v];while($st){$c=array_pop($st);if(is_array($c)){foreach($c as $x)$st[]=$x;continue;}if(is_object($c))$c=(string)$c;$t=trim((string)$c);if($t!=='')$o[]=$t;}return $o;}
 function safeHtml($v){if(is_array($v)||is_object($v))return htmlspecialchars(implode(', ',flatten_strings($v)),ENT_QUOTES,'UTF-8');return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 function safeJoin($arr,$sep=', '){$vals=array_map(fn($t)=>trim((string)$t),flatten_strings($arr));$vals=array_values(array_filter($vals,fn($x)=>$x!==''));return htmlspecialchars(implode($sep,$vals),ENT_QUOTES,'UTF-8');}
-function H($v){return (is_array($v)||is_object($v))?safeJoin($v):safeHtml($v);}
+if (!function_exists('H')) {
+    function H($v){return (is_array($v)||is_object($v))?safeJoin($v):safeHtml($v);}
+}
 function stripAllTags($v){return is_array($v)?array_map('stripAllTags',$v):trim(strip_tags((string)$v));}
 function imdb_get($IMDB,$method,...$args){try{if(method_exists($IMDB,$method))return $IMDB->$method(...$args);}catch(Throwable $e){}return null;}
 function year_only($s){$s=(string)$s;return(preg_match('~^\d{4}~',$s,$m)?$m[0]:null);}
@@ -1127,103 +1148,11 @@ foreach($imdbIDs as $tt){ if(preg_match('~^tt\d{6,10}$~',$tt)) $movies[]=build_r
   <meta charset="utf-8">
   <title>🎬 פרטי כותר — תצוגה מרוכזת (v2025-08-23-b6)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
-    *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial;direction:rtl;background:var(--bg);color:var(--text);margin:0}
-    header{position:sticky;top:0;background:/*#0f1115*/;padding:14px 24px;border-bottom:0px solid var(--line);z-index:10}
-    .wrap{max-width:1100px;margin:0 auto;padding:24px}
-    h2{margin:0 0 18px;font-weight:700;letter-spacing:.2px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-    .row{display:grid;grid-template-columns:320px 1fr;gap:0}
-    .poster{padding:18px;border-inline-end:1px solid var(--line);background:linear-gradient(180deg,#161b26,#131723)}
-    img.poster-img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line)}
-    .content{padding:20px 20px 10px}
-    .title{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
-    .title h3{margin:0;font-size:24px;line-height:1.25}
-    .subtitle{color:var(--muted)}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-    .chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:13px}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:6px}
-    .section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-    .kv{margin:0;font-size:14px}
-    .label{color:var(--muted)}
-    .links a{color:var(--accent);text-decoration:none}
-    .links a:hover{text-decoration:underline}
-    .ratings{display:flex;flex-wrap:wrap;gap:14px}
-    .pill{background:#121623;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px}
-    .comma-list{margin:0}
-    .hidden{display:none}
-    .btn-toggle{cursor:pointer;background:#121623;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:6px 10px;margin-top:8px}
-    .ellipsis{color:var(--muted)}
-    .debug{margin:10px 0 18px;background:#101522;border:1px dashed #31406a;padding:10px;border-radius:10px;font-size:13px;white-space:pre-wrap}
-    /* search bar */
-    .searchbar{display:flex;gap:8px;max-width:1100px;margin:0 auto;}
-    .searchbar input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:white;} /*#0f1117*/
-    .searchbar button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#1b2130;color:var(--text);cursor:pointer}
-    .searchbar button:hover{background:#232a3b}
-    body {background-color:#161b26 !important; text-align: right !important;}
-    .content {text-align: right !important;}
-    .content a  {color: #6E8BFC !important;}
 
-    /* .w3-bar */
-    .w3-bar {
-        width: 100%;
-        overflow: hidden;
-    }
-    .w3-bar .w3-bar-item {
-        padding: 8px 16px;
-        float: left; /* הדפדפן הופך אוטומטית לימין ב-RTL */
-        width: auto;
-        border: none;
-        display: block;
-        outline: 0;
-    }
-    .w3-bar .w3-button {
-        color: white !important;;
-        white-space: normal;
-    }
-    .w3-bar:before, .w3-bar:after {
-        content: "";
-        display: table;
-        clear: both;
-    }
-
-    /* .w3-padding */
-    .w3-padding {
-        padding: 8px 16px !important;
-    }
-
-    /* .w3-button */
-    .w3-button {
-        border: none;
-        display: inline-block;
-        padding: 8px 16px;
-        vertical-align: middle;
-        overflow: hidden;
-        text-decoration: none;
-        color: inherit;
-        text-align: center;
-        cursor: pointer;
-        white-space: nowrap;
-    }
-    
-
-    /* צבעים */
-    .w3-black, .w3-hover-black:hover {
-        color: #fff !important;
-        background-color: white;
-    }
-    .w3-white, .w3-hover-white:hover {
-        color: #000 !important;
-        background-color: #fff !important;
-    }
-    .white {color: #f1f1f1 !important;}
-    .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
-  </style>
+  <?php echo $head_content; ?>
 </head>
 <body>
-
+<?php echo $body_nav_content; ?>
 <header>
   <form class="searchbar" method="get" action="">
     <input type="text" name="id" placeholder="הדבק מזהה IMDb או קישור, למשל: tt6806448 או https://www.imdb.com/title/tt6806448/?ref_=" value="<?=H(isset($_GET['id'])?$_GET['id']:'')?>">
@@ -1407,7 +1336,100 @@ foreach($imdbIDs as $tt){ if(preg_match('~^tt\d{6,10}$~',$tt)) $movies[]=build_r
     else    { more.classList.remove('hidden'); if(ell) ell.classList.add('hidden'); btn.textContent='הצג פחות'; btn.setAttribute('data-open','true'); }
   });
 </script>
+  <style>
+    :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial;direction:rtl;background:var(--bg);color:var(--text);margin:0}
+    header{position:sticky;top:0;background:/*#0f1115*/;padding:14px 24px;border-bottom:0px solid var(--line);z-index:10}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    h2{margin:0 0 18px;font-weight:700;letter-spacing:.2px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    .row{display:grid;grid-template-columns:320px 1fr;gap:0}
+    .poster{padding:18px;border-inline-end:1px solid var(--line);background:linear-gradient(180deg,#161b26,#131723)}
+    img.poster-img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line)}
+    .content{padding:20px 20px 10px}
+    .title{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+    .title h3{margin:0;font-size:24px;line-height:1.25}
+    .subtitle{color:var(--muted)}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+    .chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:13px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:6px}
+    .section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+    .kv{margin:0;font-size:14px}
+    .label{color:var(--muted)}
+    .links a{color:var(--accent);text-decoration:none}
+    .links a:hover{text-decoration:underline}
+    .ratings{display:flex;flex-wrap:wrap;gap:14px}
+    .pill{background:#121623;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px}
+    .comma-list{margin:0}
+    .hidden{display:none}
+    .btn-toggle{cursor:pointer;background:#121623;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:6px 10px;margin-top:8px}
+    .ellipsis{color:var(--muted)}
+    .debug{margin:10px 0 18px;background:#101522;border:1px dashed #31406a;padding:10px;border-radius:10px;font-size:13px;white-space:pre-wrap}
+    /* search bar */
+    .searchbar{display:flex;gap:8px;max-width:1100px;margin:0 auto;}
+    .searchbar input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:white;} /*#0f1117*/
+    .searchbar button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#1b2130;color:var(--text);cursor:pointer}
+    .searchbar button:hover{background:#232a3b}
+    body {background-color:#161b26 !important; text-align: right !important;}
+    .content {text-align: right !important;}
+    .content a  {color: #6E8BFC !important;}
 
+    /* .w3-bar */
+    .w3-bar {
+        width: 100%;
+        overflow: hidden;
+    }
+    .w3-bar .w3-bar-item {
+        padding: 8px 16px;
+        float: left; /* הדפדפן הופך אוטומטית לימין ב-RTL */
+        width: auto;
+        border: none;
+        display: block;
+        outline: 0;
+    }
+    .w3-bar .w3-button {
+        color: white !important;;
+        white-space: normal;
+    }
+    .w3-bar:before, .w3-bar:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+
+    /* .w3-padding */
+    .w3-padding {
+        padding: 8px 16px !important;
+    }
+
+    /* .w3-button */
+    .w3-button {
+        border: none;
+        display: inline-block;
+        padding: 8px 16px;
+        vertical-align: middle;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        text-align: center;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    
+
+    /* צבעים */
+    .w3-black, .w3-hover-black:hover {
+        color: #fff !important;
+        background-color: white;
+    }
+    .w3-white, .w3-hover-white:hover {
+        color: #000 !important;
+        background-color: #fff !important;
+    }
+    .white {color: #f1f1f1 !important;}
+    .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
+  </style>
 </body>
 </html>
 <?php include 'footer.php'; ?>

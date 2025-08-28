@@ -2,11 +2,10 @@
 require_once 'server.php'; // 1. חיבור למסד הנתונים
 
 // ==========================================================
-// == כל הלוגיקה שכוללת הפנייה (redirect) ממוקמת כאן ==
+// == כל הלוגיקה שכוללת הפנייה (redirect) ממוקמת כאן == 
 // ==========================================================
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id === 0) {
-  // אם אין ID, אפשר להפסיק כאן לפני הדפסת ה-HTML
   echo "<p>❌ אוסף לא צוין</p>";
   exit;
 }
@@ -23,8 +22,8 @@ if (isset($_GET['pin_poster'])) {
   $stmt_pin->bind_param("ii", $id, $poster_to_pin);
   $stmt_pin->execute();
   $stmt_pin->close();
-  header("Location: collection.php?" . $redirect_query_string); // הפנייה מתבצעת כאן
-  exit; // חובה לצאת מהסקריפט אחרי הפנייה
+  header("Location: collection.php?" . $redirect_query_string);
+  exit;
 }
 if (isset($_GET['unpin_poster'])) {
   $poster_to_unpin = (int)$_GET['unpin_poster'];
@@ -32,26 +31,25 @@ if (isset($_GET['unpin_poster'])) {
   $stmt_unpin->bind_param("ii", $id, $poster_to_unpin);
   $stmt_unpin->execute();
   $stmt_unpin->close();
-  header("Location: collection.php?" . $redirect_query_string); // הפנייה מתבצעת כאן
-  exit; // חובה לצאת מהסקריפט אחרי הפנייה
+  header("Location: collection.php?" . $redirect_query_string);
+  exit;
 }
 // ==========================================================
 // == סוף הלוגיקה של ההפניות ==
 // ==========================================================
 
-
-// 2. רק עכשיו, אחרי שסיימנו עם ההפניות, טוענים את ה-HTML
 include 'header.php';
-
 set_time_limit(3000000);
 
 // שולפים את כל נתוני האוסף, כולל סטטוס הנעיצה שלו
 $stmt = $conn->prepare("SELECT * FROM collections WHERE id = ?");
-$stmt->bind_param("i", $id); $stmt->execute();
+$stmt->bind_param("i", $id);
+$stmt->execute();
 $result = $stmt->get_result();
 if ($result->num_rows === 0) {
   echo "<p>❌ האוסף לא נמצא</p>";
-  include 'footer.php'; exit;
+  include 'footer.php';
+  exit;
 }
 $collection = $result->fetch_assoc();
 $stmt->close();
@@ -75,21 +73,26 @@ $filters = [
     'max_year' => $_GET['max_year'] ?? '',
     'min_rating' => $_GET['min_rating'] ?? ''
 ];
-$sort_order = $_GET['sort'] ?? 'added_desc'; // ברירת מחדל 'האחרון שהתווסף'
+$sort_order = $_GET['sort'] ?? 'added_desc';
 
 $where_conditions = ["pc.collection_id = ?"];
 $params = [$id];
 $types = "i";
-$filter_query_string = ''; // מחרוזת שתוצמד לקישורי העמודים
+$filter_query_string = '';
 
-// שמירה על לוגיקת החיפוש המקורית
+// חיפוש טקסטואלי – מותאם לסכימה החדשה + תגיות משתמש
+$join_user_tags = ''; // ייקבע כשה-q לא ריק
 if (!empty($filters['q'])) {
     $keyword = $filters['q'];
     $filter_query_string .= "&q=" . urlencode($keyword);
+
+    // שדות קיימים בסכימה החדשה
     $searchFields = [
-        "p.title_en", "p.title_he", "p.plot", "p.plot_he", "p.actors", "p.genre",
+        "p.title_en", "p.title_he", "p.overview_he",
+        "p.cast", "p.genres",
         "p.directors", "p.writers", "p.producers", "p.composers", "p.cinematographers",
-        "p.languages", "p.countries", "p.imdb_id", "p.year", "p.tvdb_id"
+        "p.languages", "p.countries",
+        "p.imdb_id", "p.year"
     ];
     $like = "%$keyword%";
     $like_parts = [];
@@ -98,29 +101,37 @@ if (!empty($filters['q'])) {
         $params[] = $like;
         $types .= "s";
     }
+    // חיפוש גם בתגיות משתמש
+    $like_parts[] = "ut.genre LIKE ?";
+    $params[] = $like;
+    $types .= "s";
+
     $where_conditions[] = "(" . implode(" OR ", $like_parts) . ")";
+    $join_user_tags = ' LEFT JOIN user_tags ut ON ut.poster_id = p.id ';
 }
 
 // הוספת הפילטרים החדשים
 foreach ($filters as $key => $value) {
-    if ($key !== 'q' && !empty($value)) {
+    if ($key !== 'q' && $value !== '' && $value !== null) {
         $filter_query_string .= "&$key=" . urlencode($value);
         switch ($key) {
             case 'type_id':
                 $where_conditions[] = "p.type_id = ?";
-                $params[] = $value; $types .= "i";
+                $params[] = (int)$value; $types .= "i";
                 break;
             case 'min_year':
                 $where_conditions[] = "p.year >= ?";
-                $params[] = $value; $types .= "i";
+                $params[] = (int)$value; $types .= "i";
                 break;
             case 'max_year':
                 $where_conditions[] = "p.year <= ?";
-                $params[] = $value; $types .= "i";
+                $params[] = (int)$value; $types .= "i";
                 break;
             case 'min_rating':
+                // משאיר כמו שהיה (אם אצלך הדירוג נשמר כמספר טהור זה יעבוד;
+                // אם הוא טקסט "8.1/10" – שקול להמיר ל-Cast כמו בעמודים אחרים)
                 $where_conditions[] = "p.imdb_rating >= ?";
-                $params[] = $value; $types .= "d";
+                $params[] = (float)$value; $types .= "d";
                 break;
         }
     }
@@ -134,25 +145,29 @@ if ($sort_order !== 'added_desc') {
 $where_clause = "WHERE " . implode(" AND ", $where_conditions);
 
 // הגדרת תנאי המיון באופן דינמי, עם עדיפות לפריטים נעוצים
-$order_by_clause = 'ORDER BY pc.is_pinned DESC'; // תמיד נעוצים קודם
+$order_by_clause = 'ORDER BY pc.is_pinned DESC';
 switch ($sort_order) {
-    case 'added_asc': // הראשון שהתווסף
-        $order_by_clause .= ", pc.added_at ASC, p.id ASC"; // מיון משני ליציבות
+    case 'added_asc':
+        $order_by_clause .= ", pc.added_at ASC, p.id ASC";
         break;
-    case 'year_desc': // שנה - חדש לישן
+    case 'year_desc':
         $order_by_clause .= ", p.year DESC, p.id DESC";
         break;
-    case 'year_asc': // שנה - ישן לחדש
+    case 'year_asc':
         $order_by_clause .= ", p.year ASC, p.id ASC";
         break;
-    case 'added_desc': // האחרון שהתווסף (ברירת מחדל)
+    case 'added_desc':
     default:
-        $order_by_clause .= ", pc.added_at DESC, p.id DESC"; // מיון משני ליציבות
+        $order_by_clause .= ", pc.added_at DESC, p.id DESC";
         break;
 }
 
-// ספירת תוצאות כוללת
-$count_sql = "SELECT COUNT(DISTINCT p.id) FROM posters p JOIN poster_collections pc ON p.id = pc.poster_id $where_clause";
+// ספירת תוצאות כוללת (עם JOIN לתגיות רק כשה-q פעיל)
+$count_sql = "SELECT COUNT(DISTINCT p.id)
+              FROM posters p
+              JOIN poster_collections pc ON p.id = pc.poster_id
+              $join_user_tags
+              $where_clause";
 $count_stmt = $conn->prepare($count_sql);
 $count_stmt->bind_param($types, ...$params);
 $count_stmt->execute();
@@ -161,12 +176,16 @@ $total_pages = ceil($total_posters / $per_page);
 $count_stmt->close();
 
 // שליפת הפוסטרים עם המיון הדינמי והמידע על נעיצה
-$posters_sql = "SELECT p.*, pc.is_pinned, pc.added_at FROM posters p JOIN poster_collections pc ON p.id = pc.poster_id $where_clause $order_by_clause LIMIT ? OFFSET ?";
+$posters_sql = "SELECT DISTINCT p.*, pc.is_pinned, pc.added_at
+                FROM posters p
+                JOIN poster_collections pc ON p.id = pc.poster_id
+                $join_user_tags
+                $where_clause
+                $order_by_clause
+                LIMIT ? OFFSET ?";
 $params_with_limit = $params;
-$params_with_limit[] = $per_page;
-$types_with_limit = $types . "i";
-$params_with_limit[] = $offset;
-$types_with_limit .= "i";
+$params_with_limit[] = $per_page; $types_with_limit = $types . "i";
+$params_with_limit[] = $offset;   $types_with_limit .= "i";
 $stmt = $conn->prepare($posters_sql);
 $stmt->bind_param($types_with_limit, ...$params_with_limit);
 $stmt->execute();
@@ -175,11 +194,13 @@ $poster_list = [];
 while ($row = $res->fetch_assoc()) $poster_list[] = $row;
 $stmt->close();
 
-// === התיקון נמצא כאן ===
 // כל הפוסטרים לאוסף (עבור הרשימה השמית בצד)
 $all_posters_for_list = [];
-// שינוי: מיון הרשימה השמית לפי סדר ההוספה, מהישן לחדש
-$sql_all = "SELECT p.* FROM poster_collections pc JOIN posters p ON p.id = pc.poster_id WHERE pc.collection_id = ? ORDER BY pc.added_at ASC";
+$sql_all = "SELECT p.*
+            FROM poster_collections pc
+            JOIN posters p ON p.id = pc.poster_id
+            WHERE pc.collection_id = ?
+            ORDER BY pc.added_at ASC";
 $stmt_all = $conn->prepare($sql_all);
 $stmt_all->bind_param("i", $id);
 $stmt_all->execute();
@@ -268,11 +289,18 @@ $stmt_all->close();
   <?php if (!empty($collection['description'])): ?>
     <div class="description">📝 <?= nl2br(htmlspecialchars($collection['description'])) ?></div>
   <?php endif; ?>
+<div id="csvUploadResult" style="max-width:900px;margin:12px auto 0;display:none;background:#f6fff6;border:1px solid #cde8cd;padding:12px;border-radius:8px;"></div>
 
   
   <div><button type="button" class="name-list-toggle-btn" onclick="toggleNameList()">
       <span class="icon">📄</span> הצג/הסתר רשימה שמית
     </button>
+<form id="csvUploadForm" action="collection_upload_csv_api.php" method="post" enctype="multipart/form-data" style="display:inline;">
+  <input type="hidden" name="collection_id" value="<?= $id ?>">
+  <input type="file" name="ids_file" id="ids_file" accept=".csv,.txt,text/csv,text/plain" style="display:none" onchange="uploadCsvToCollection(this.form)">
+  <button type="button" class="size-btn" onclick="document.getElementById('ids_file').click()" style="margin-right:6px; padding:8px 20px; border-radius:7px; border:none; background:#6f42c1; color:#fff; text-decoration:none !important;">⬆️ העלאת CSV/TXT לאוסף</button>
+</form>
+
     <a href="edit_collection.php?id=<?= $collection['id'] ?>" class="link-btn">✏️ ערוך</a>
 
     <?php $return_url = urlencode("collection.php?id=" . $collection['id']); ?>
@@ -314,7 +342,7 @@ $stmt_all->close();
         <form method="get" id="sortForm">
             <input type="hidden" name="id" value="<?= $id ?>">
             <?php foreach ($filters as $key => $value): ?>
-                <?php if (!empty($value)): ?>
+                <?php if ($value !== '' && $value !== null): ?>
                     <input type="hidden" name="<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($value) ?>">
                 <?php endif; ?>
             <?php endforeach; ?>
@@ -333,7 +361,6 @@ $stmt_all->close();
       <div class="poster-grid medium">
         <?php if ($poster_list): ?>
             <?php
-            // בניית הקישור הבסיסי שישמור על כל הפרמטרים
             $base_link_params = http_build_query(array_merge($_GET, ['id' => $id]));
             ?>
             <?php foreach ($poster_list as $p): ?>
@@ -514,7 +541,60 @@ tt1375666
     sidebar.classList.toggle('hide-list');
   }
 </script>
+<script>
+async function uploadCsvToCollection(form) {
+  const inp = form.querySelector('#ids_file');
+  if (!inp.files || !inp.files.length) return;
+
+  const fd = new FormData(form);
+  fd.set('ids_file', inp.files[0]);
+
+  const box = document.getElementById('csvUploadResult');
+  if (box) {
+    box.style.display = 'block';
+    box.style.background = '#fff';
+    box.style.borderColor = '#cde8cd';
+    box.innerHTML = '⏳ מעלה ומעבד...';
+  }
+
+  try {
+    const res = await fetch(form.action, { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!res.ok || data.error || data.errors) {
+      const errs = (data.errors || [data.error || 'שגיאה לא ידועה']).map(e => `<li>${e}</li>`).join('');
+      if (box) {
+        box.style.background = '#fff5f5';
+        box.style.borderColor = '#f3c0c0';
+        box.innerHTML = `<strong>שגיאה:</strong><ul>${errs}</ul>`;
+      }
+      return;
+    }
+
+    if (box) {
+      box.style.background = '#f6fff6';
+      box.style.borderColor = '#cde8cd';
+      box.innerHTML = `
+        ✅ הועלה ועובד בהצלחה.<br>
+        נוספו לאוסף: <strong>${data.inserted||0}</strong>, כבר היו: <strong>${data.already||0}</strong>.<br>
+        מרענן את העמוד…
+      `;
+    }
+
+    setTimeout(() => { window.location.reload(); }, 600);
+
+  } catch (e) {
+    if (box) {
+      box.style.background = '#fff5f5';
+      box.style.borderColor = '#f3c0c0';
+      box.innerHTML = `❌ תקלה בחיבור לשרת: ${e}`;
+    }
+  } finally {
+    inp.value = '';
+  }
+}
+</script>
+
 </body>
 </html>
 <?php include 'footer.php'; ?>
-<?php $conn->close(); ?>

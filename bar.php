@@ -13,8 +13,8 @@ while ($type = $type_result->fetch_assoc()) {
     ];
 }
 $allowed_limits = [5, 10, 20, 50, 100, 250];
-$limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 20), $allowed_limits)
-    ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 20) : 20;
+$limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50), $allowed_limits)
+    ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50) : 50;
 $_SESSION['limit'] = $limit;
 
 $view = $_SESSION['view_mode'] = $_GET['view'] ?? $_SESSION['view_mode'] ?? 'grid';
@@ -26,22 +26,22 @@ function fieldVal($k) { return htmlspecialchars($_GET[$k] ?? '', ENT_QUOTES); }
 $fields = [
   ['search',            'שם',            '🎬'],
   ['year',              'שנה',           '🗓'],
-  ['min_rating',        'IMDb Rating',     '⭐'],
+  ['min_rating',        'IMDb Rating',   '⭐'],
   ['metacritic',        'Metacritic Rating','🎯'],
-  ['rt_score',          'Rotten Tomatoes Rating',   '🍅'],
+  ['rt_score',          'Rotten Tomatoes Rating', '🍅'],
   ['imdb_id',           'IMDb ID',       '🔗'],
-  ['tvdb_id',           'TVDB ID',       '📺'],
-  ['genre',             'ז׳אנרים',         '🎭'],
-  ['user_tag',          'תגיות',  '🏷️'],
+  ['genre',             'ז׳אנרים',       '🎭'],
+  ['user_tag',          'תגיות',         '🏷️'],
   ['actor',             'שחקנים',        '👥'],
   ['directors',         'במאים',         '🎬'],
   ['producers',         'מפיקים',        '🎥'],
   ['writers',           'תסריטאים',      '✍️'],
   ['composers',         'מלחינים',       '🎼'],
   ['cinematographers',  'צלמים',         '📸'],
-  ['lang_code',         'שפות','🌐'],
-  ['country',           'מדינות',         '🌍'],
-  ['runtime',           'אורך (דקות)',  '⏱️']
+  ['lang_code',         'שפות',          '🌐'],
+  ['country',           'מדינות',        '🌍'],
+  ['runtime',           'אורך (דקות)',  '⏱️'],
+  ['network',           'רשת',           '📡']  // ← הוחזר כשדה חיפוש
 ];
 ?>
 <!DOCTYPE html>

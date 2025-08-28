@@ -84,7 +84,7 @@ if (preg_match('/tt\d+/', $search, $match)) {
 }
 
 $posters = [];
-$limit = 50; // הגבלת תוצאות לביצועים טובים יותר
+$limit = 5000000; // הגבלת תוצאות לביצועים טובים יותר
 
 if ($search !== '') {
   $searchLike = "%$search%";

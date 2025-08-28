@@ -3,8 +3,8 @@ include 'bar.php';
 require_once 'server.php';
 
 $allowed_limits = [5, 10, 20, 50, 100, 250];
-$limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 20), $allowed_limits)
-    ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 20) : 20;
+$limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50), $allowed_limits)
+    ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50) : 50;
 $_SESSION['limit'] = $limit;
 
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -14,10 +14,33 @@ $_SESSION['view_mode'] = $view;
 
 $search_mode = $_GET['search_mode'] ?? 'and';
 
+/* === ADD-ONLY: נורמליזציה קלה של פרמטרים === */
+/* IMDb ID: חילוץ tt מכל קלט "מלוכלך" */
+if (!empty($_GET['imdb_id'])) {
+  if (preg_match('~tt\d{6,10}~i', (string)$_GET['imdb_id'], $m)) {
+    $_GET['imdb_id'] = strtolower($m[0]);
+  } else {
+    $_GET['imdb_id'] = '';
+  }
+}
+/* אם הוכנס מספר בלבד ב-Metacritic – נתייחס כמינימום (>=) דרך addCondition בטווח "N-" */
+if (!empty($_GET['metacritic']) && preg_match('/^\d+$/', (string)$_GET['metacritic'])) {
+  $_GET['metacritic'] = $_GET['metacritic'] . '-';
+}
+
+/* אם הוכנס מספר בלבד ב-Min Rating – נחשב כמינימום (>=) דרך addCondition בטווח "N-" */
+if (!empty($_GET['min_rating']) && preg_match('/^\d+(\.\d+)?$/', (string)$_GET['min_rating'])) {
+  $_GET['min_rating'] = $_GET['min_rating'] . '-';
+}
+
+
+/* === /ADD-ONLY === */
+
 $fields = [
   'search', 'min_rating', 'metacritic', 'rt_score', 'year', 'imdb_id', 'tvdb_id',
   'genre', 'actor', 'user_tag', 'directors', 'producers', 'writers',
-  'composers', 'cinematographers', 'lang_code', 'country', 'runtime'
+  'composers', 'cinematographers', 'lang_code', 'country', 'runtime',
+  /* ADD-ONLY */ 'network' /* תמיכה בסינון רשת */
 ];
 $types_selected = $_GET['type'] ?? [];
 
@@ -61,15 +84,19 @@ function addCondition($col, $val, &$where, &$params, &$bind_types, $mode = 'and'
 foreach ($fields as $f) {
   $val = trim($_GET[$f] ?? '');
   if ($val === '') continue;
+
   $col = match($f) {
     'search'      => '(title_en LIKE ? OR title_he LIKE ? OR imdb_id LIKE ?)',
-    'actor'       => 'actors',
+    /* FIXED: actor => `cast` (reserved word -> backticks) */
+    'actor'       => '`cast`',
     'user_tag'    => '(SELECT GROUP_CONCAT(genre) FROM user_tags WHERE poster_id=posters.id)',
     'runtime'     => 'runtime',
-    'genre'       => 'genre',
+    /* FIXED: genre => genres */
+    'genre'       => 'genres',
     'year'        => 'year',
     'min_rating'  => 'imdb_rating',
-    'metacritic'  => 'metacritic_score',
+    /* FIXED: metacritic => mc_score */
+    'metacritic'  => 'mc_score',
     'rt_score'    => 'rt_score',
     'imdb_id'     => 'imdb_id',
     'tvdb_id'     => 'tvdb_id',
@@ -80,12 +107,14 @@ foreach ($fields as $f) {
     'writers'     => 'writers',
     'composers'   => 'composers',
     'cinematographers' => 'cinematographers',
+    /* ADD-ONLY: network => networks */
+    'network'     => 'networks',
     default       => $f
   };
 
   if ($f === 'search') {
     $v = $_GET['search'];
-    if ($v[0] === '!') {
+    if ($v !== '' && $v[0] === '!') {
       $value = substr($v, 1);
       $where[] = '(title_en NOT LIKE ? AND title_he NOT LIKE ? AND imdb_id NOT LIKE ?)';
       for ($i = 0; $i < 3; $i++) { $params[] = "%$value%"; $bind_types .= 's'; }
@@ -95,7 +124,7 @@ foreach ($fields as $f) {
     }
   } elseif ($f === 'user_tag') {
     $v = $_GET['user_tag'];
-    if ($v[0] === '!') {
+    if ($v !== '' && $v[0] === '!') {
       $where[] = 'id NOT IN (SELECT poster_id FROM user_tags WHERE genre LIKE ?)';
       $params[] = '%' . substr($v, 1) . '%'; $bind_types .= 's';
     } else {

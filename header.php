@@ -71,20 +71,45 @@
         color: #000 !important;
         background-color: #fff !important;
     }
-  </style>
-  <link rel="stylesheet" href="style.css?v=2">
-  <link rel="icon" type="image/x-icon" href="images/favicon.ico?v=4">
-<link rel="script" href="script.js">
-<?php $current = basename($_SERVER['PHP_SELF']); ?>
 
+    /* ===== כפתור גלובלי: חזרה למעלה ===== */
+    #scrollTopBtn {
+      display: none;             /* מוסתר כברירת מחדל */
+      position: fixed;
+      bottom: 20px;
+      right: 30px;
+      z-index: 9999;
+      border: none;
+      outline: none;
+      background-color: #555;
+      color: #fff;
+      cursor: pointer;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 18px;
+      transition: background-color 0.3s, opacity 0.3s;
+    }
+    #scrollTopBtn:hover {
+      background-color: #007bff;
+    }
+  </style>
+  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="icon" type="image/x-icon" href="images/favicon.ico?v=3">
+  <link rel="script" href="script.js">
+  <?php $current = basename($_SERVER['PHP_SELF']); ?>
 </head>
 <body class="rtl" style="text-align: center!important">
 <center>
 <a href="index.php">
   <h1 style="text-align:center;">
-  <img src="images/name.png" class="logo">
+    <img src="images/name.png">   <!-- class="logo" -->
   </h1>
-  <?php include 'nav.php';?>
+</a>
+<?php include 'nav.php';?>
+<?php include 'menu_component.php'; ?>
+
+<!-- כפתור גלובלי: חזרה למעלה -->
+<button id="scrollTopBtn" type="button" title="חזרה למעלה" aria-label="חזרה למעלה">↑</button>
 
 <!-- <b>Thiseldb</b></a> -->
 
@@ -95,7 +120,30 @@
     </div>
   </header>
 
+<script>
+/* גלילה למעלה — גלובלי בכל העמודים */
+(function(){
+  var btn = document.getElementById('scrollTopBtn');
+  if (!btn) return;
 
+  function onScroll(){
+    var y = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    btn.style.display = (y > 20) ? 'block' : 'none';
+  }
+  function goTop(){
+    try {
+      window.scrollTo({top:0, behavior:'smooth'});
+    } catch(e) {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }
+
+  btn.addEventListener('click', goTop);
+  window.addEventListener('scroll', onScroll, {passive:true});
+  document.addEventListener('DOMContentLoaded', onScroll);
+})();
+</script>
 
 <?php
 /*

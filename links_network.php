@@ -1,28 +1,40 @@
 <?php
 require_once 'server.php';
 
-// שליפת ז'אנרים - עודכן שם העמודה ל"genres"
-$res = $conn->query("SELECT genres FROM posters WHERE genres IS NOT NULL AND genres != ''");
+// שליפת רשתות - שימוש בעמודה "networks"
+$res = $conn->query("SELECT networks FROM posters WHERE networks IS NOT NULL AND networks != ''");
 
-$genres = [];
+$networks = [];
 
 while ($row = $res->fetch_assoc()) {
-    // The column name in the result set is now 'genres'
-    $list = explode(',', $row['genres']);
+    // תמיכה גם במחרוזת וגם ב-JSON
+    $raw = $row['networks'];
+    $list = [];
+
+    if (is_string($raw) && strlen($raw)) {
+        $tryJson = json_decode($raw, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($tryJson)) {
+            $list = $tryJson;
+        } else {
+            $list = explode(',', $raw);
+        }
+    }
+
     foreach ($list as $g) {
-        $g = trim($g);
+        $g = trim((string)$g);
         if ($g !== '') {
             $key = mb_strtolower($g);
-            if (!isset($genres[$key])) {
-                $genres[$key] = ['label' => $g, 'count' => 1];
+            if (!isset($networks[$key])) {
+                $networks[$key] = ['label' => $g, 'count' => 1];
             } else {
-                $genres[$key]['count']++;
+                $networks[$key]['count']++;
             }
         }
     }
 }
 
-usort($genres, fn($a, $b) => $b['count'] - $a['count']);
+// מיון לפי כמות יורדת
+usort($networks, fn($a, $b) => $b['count'] - $a['count']);
 
 $colors = [
     "#d1ecf1", "#d4edda", "#fff3cd", "#f8d7da",
@@ -31,9 +43,9 @@ $colors = [
 ];
 
 // כותרת
-echo "<h2 class='text-center my-4'>🎨 כל הז'אנרים</h2>";
+echo "<h2 class='text-center my-4'>📡 כל הרשתות</h2>";
 
-// עיצוב
+// עיצוב (כמו בקובץ המקורי)
 echo "<style>
 .genre-box {
   display: inline-block;
@@ -58,12 +70,12 @@ echo "<table class='mx-auto' style='direction: rtl; max-width: 1000px;'>";
 $cols = 8;
 $i = 0;
 
-foreach ($genres as $g) {
+foreach ($networks as $g) {
     if ($i % $cols === 0) echo "<tr>";
 
-    $name = htmlspecialchars($g['label']);
-    $count = $g['count'];
-    $url = "genre.php?name=" . urlencode($g['label']);
+    $name = htmlspecialchars($g['label'], ENT_QUOTES, 'UTF-8');
+    $count = (int)$g['count'];
+    $url = "network.php?name=" . urlencode($g['label']);
     $color = $colors[$i % count($colors)];
 
     echo "<td style='padding: 4px; text-align: center;'>";
@@ -76,5 +88,3 @@ foreach ($genres as $g) {
 }
 if ($i % $cols !== 0) echo str_repeat("<td></td>", $cols - ($i % $cols)) . "</tr>";
 echo "</table>";
-
-?>

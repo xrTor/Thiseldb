@@ -4,10 +4,30 @@ require_once 'server.php';
 
 $message = '';
 
+if (!function_exists('slugify_collection')) {
+  function slugify_collection(string $name): string {
+    $slug = mb_strtolower($name, 'UTF-8');
+    $slug = preg_replace('~[^\p{L}\p{N}]+~u', '-', $slug);
+    $slug = trim($slug, '-');
+    if ($slug === '') $slug = 'collection-'.time();
+    return $slug;
+  }
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $name = trim($_POST['name'] ?? '');
   $desc = trim($_POST['description'] ?? '');
   $img  = trim($_POST['image_url'] ?? '');
+
+  // ברירת מחדל/תיקון נתיב לתמונה
+  if ($img === '') {
+    $img = 'images/logos/' . slugify_collection($name) . '.png';
+  } else {
+    // אם המשתמש הזין רק שם קובץ ללא נתיב/URL – נוסיף images/logos/
+    if (!preg_match('~^https?://~i', $img) && strpos($img, '/') === false && strpos($img, '\\') === false) {
+      $img = 'images/logos/' . $img;
+    }
+  }
 
   if ($name !== '') {
     $stmt = $conn->prepare("INSERT INTO collections (name, description, image_url) VALUES (?, ?, ?)");
@@ -51,7 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <textarea name="description" rows="4"></textarea>
 
     <label>🖼️ כתובת לתמונה</label>
-    <input type="text" name="image_url" placeholder="https://example.com/image.jpg">
+    <input type="text" name="image_url" placeholder="(אפשר להשאיר ריק — ייווצר images/logos/<name>.png או להקליד רק filename.png)">
 
     <button type="submit">📥 שמור אוסף</button>
   </form>

@@ -1,19 +1,26 @@
 <?php
 
 include 'header.php';
-
- require_once 'server.php';
+require_once 'server.php';
  
-
 $genre = $_GET['name'] ?? '';
 $genre = trim($genre);
 
 if (empty($genre)) {
     echo "<p style='text-align:center;'>❌ לא נבחר ז'אנר</p>";
+    include 'footer.php';
     exit;
 }
 
-$result = $conn->query("SELECT * FROM posters WHERE genre LIKE '%$genre%'");
+// Using a prepared statement to prevent SQL Injection
+$stmt = $conn->prepare("SELECT * FROM posters WHERE genres LIKE ? ORDER BY year DESC");
+$like_genre = "%" . $genre . "%";
+$stmt->bind_param("s", $like_genre);
+$stmt->execute();
+$result = $stmt->get_result();
+
+// >> Get the number of found posters into a variable
+$poster_count = $result->num_rows;
 ?>
 
 <!DOCTYPE html>
@@ -26,7 +33,9 @@ $result = $conn->query("SELECT * FROM posters WHERE genre LIKE '%$genre%'");
 <body>
   <h2 style="text-align:center;">🎭 פוסטרים בז'אנר: <?= htmlspecialchars($genre) ?></h2>
 
-  <?php if ($result->num_rows > 0): ?>
+  <p style="text-align:center;">נמצאו <strong><?= $poster_count ?></strong> פוסטרים</p>
+
+  <?php if ($poster_count > 0): ?>
     <div style="display:flex; flex-wrap:wrap; justify-content:center;">
       <?php while ($row = $result->fetch_assoc()): ?>
         <div style="width:200px; margin:10px; text-align:center;">
@@ -48,7 +57,8 @@ $result = $conn->query("SELECT * FROM posters WHERE genre LIKE '%$genre%'");
 </html>
 
 <?php
+// Close resources properly
+$stmt->close();
+$conn->close();
 include 'footer.php';
 ?>
-
-<?php $conn->close(); ?>

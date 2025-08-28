@@ -50,6 +50,10 @@ if (!isset($stats)) {
     ];
 }
 
+// בדוק אם החיבור קיים ופתוח לפני הסגירה
+if (isset($conn) && $conn instanceof mysqli) {
+    $conn->close();
+}
 ?>
 
 <footer style="text-align:center; margin-top:30px; font-size:14px;">
@@ -63,14 +67,21 @@ if (!isset($stats)) {
   סטטיסטיקה:
   <div class="box center">
     
-    <span><strong>📁 פוסטרים: </strong><?= $total ?> |
-      <span class="white"><a href="collections.php" target="_blank" class="white"><strong>📦אוספים: </strong></span></a><?= $stats['collections'] ?> | 
-  <span class="white"><a href="home.php?type%5B%5D=3" target="_blank" class="white"><strong>🎞️ סרטים: </strong></span></a><?= $count_movies ?> | 
-  <span class="white"><a href="home.php?type%5B%5D=4" target="_blank" class="white"><strong>📺 סדרות: </strong></span><?= $count_series ?></a> | 
+    
 
-  <span class="white"><a href="https://github.com/xrTor/Thiseldb" target="_blank" class="white">קוד מקור</span></a><br>
+
+    <span><strong><img src="images/types/posters.png" alt="Poster" width="30px" style="vertical-align: middle;">
+ פוסטרים: </strong><?= $total ?> |
+      <span class="white"><a href="collections.php" target="_blank" class="white"><strong>  <img style="vertical-align: middle;" src="images/types/archive.png" alt="Archive" width="27px"> אוספים: </strong></span></a><?= $stats['collections'] ?> | 
+  <span class="white"><a href="home.php?type%5B%5D=3" target="_blank" class="white"><strong><img src="images/types/movie.png" alt="Movie" width="35px" style="vertical-align: middle;"> סרטים: </strong></span></a><?= $count_movies ?> | 
+  <span class="white"><a href="home.php?type%5B%5D=4" target="_blank" class="white"><strong><img style="vertical-align: middle;" src="images/types/series.png" alt="Series" width="35px"> סדרות: </strong></span><?= $count_series ?></a> | 
+
+  <span class="white"><a href="https://github.com/xrTor/Thiseldb" target="_blank" class="white">    <img src="images/types/github.png" class="logo" alt="Github" width="35px" style="vertical-align: middle;">קוד מקור</span></a><br>
  </div><br><br>
 </footer>
+
+
+
 
 </body>
 </html>

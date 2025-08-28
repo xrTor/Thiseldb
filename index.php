@@ -1,8 +1,10 @@
-<?php require_once 'server.php';?>
-<?php include 'header.php'; ?>
+<?php
+require_once 'server.php';
+include 'header.php';
+?>
 
 <style>
-   body {background-color:#EDEDEE !important} 
+   body {background-color:#EDEDEE !important}
 </style>
 <?php
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
@@ -88,9 +90,7 @@ while ($row = $result->fetch_assoc()) $rows[] = $row;
 </head>
 <body class="rtl">
 
-<?php $tags = $conn->query("SELECT * FROM categories"); ?>
-
-<div class="poster-wall">
+<div class="poster-wall" id="poster-wall">
 <?php if (empty($rows) && $page === 1): ?>
   <p class="no-results">לא נמצאו תוצאות 😢</p>
 <?php else: ?>
@@ -108,21 +108,12 @@ while ($row = $result->fetch_assoc()) $rows[] = $row;
       </div>
 
       <span class="imdb-first">
-        <?php if ($row['imdb_rating']): // Changed from imdb_link to imdb_rating for consistency ?>
+        <?php if ($row['imdb_rating']): ?>
           <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:1px;">
             <img src="IMDb.png" class="imdb ltr" alt="IMDb" style="height:18px;"> <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
           </a>
         <?php endif; ?>
       </span>
-
-      <?php
-        $lang_icons = [ 'en'=>'', 'he'=>'🇮🇱', 'fr'=>'🇫🇷', 'es'=>'🇪🇸', 'ja'=>'🇯🇵', 'de'=>'🇩🇪' ];
-        $lang_icon = $lang_icons[$row['lang_code'] ?? ''] ?? '';
-        $features = '';
-        if (!empty($row['is_dubbed'])) $features .= ' <span title="מדובב"><img src="hebdub.svg" class="bookmark1"></span>';
-        if (!empty($row['has_subtitles'])) $features .= ' <span title="כתוביות">📝</span>';
-        echo "<div style='margin-top:6px; font-size:16px;'>$lang_icon $features</div>";
-      ?>
 
       <?php
         $label = $row['label_he'] ?? '';
@@ -138,15 +129,6 @@ while ($row = $result->fetch_assoc()) $rows[] = $row;
         <a href="edit.php?id=<?= $row['id'] ?>">✏️ עריכה</a> |
         <a href="delete.php?id=<?= $row['id'] ?>" onclick="return confirm('למחוק את הפוסטר?')">🗑️ מחיקה</a>
       </div>
-
-      <div class="view-link rtl" style="margin-top:10px; text-align:center;">
-        <!-- <a href="poster.php?id=<?= $row['id'] ?>">📄 צפה בפוסטר</a> -->
-        <?php if (($row['code'] ?? '') === 'series' && !empty($row['tvdb_id'])): ?>
-          <!-- <div style="text-align:center; margin-top:6px;">
-            <a href="<?= htmlspecialchars($row['tvdb_id']) ?>" target="_blank">צפה בסדרה ב־TVDB</a>
-          </div> -->
-        <?php endif; ?>
-      </div>
     </div>
   <?php endforeach; ?>
 <?php endif; ?>
@@ -156,10 +138,9 @@ while ($row = $result->fetch_assoc()) $rows[] = $row;
   טוען פריטים נוספים...
 </div>
 
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const posterWall = document.querySelector('.poster-wall');
+    const posterWall = document.getElementById('poster-wall');
     const loadingIndicator = document.getElementById('loading');
     
     let currentPage = 1;
@@ -176,7 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPage++;
         loadingIndicator.style.display = 'block';
 
-        // שמירה על פרמטרים קיימים בכתובת ה-URL (כמו חיפוש, תגית וכו')
         const currentUrlParams = new URLSearchParams(window.location.search);
         currentUrlParams.set('page', currentPage);
 
@@ -187,7 +167,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (newPostersHtml.trim().length > 0) {
                 posterWall.insertAdjacentHTML('beforeend', newPostersHtml);
             } else {
-                // הגענו לסוף, אין יותר מה לטעון
                 currentPage = totalPages; 
             }
         } catch (error) {
@@ -200,7 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // האזנה לאירוע גלילה
     window.addEventListener('scroll', () => {
-        // בודק אם המשתמש קרוב לתחתית העמוד (עם מרווח של 500 פיקסלים)
         if (window.innerHeight + window.scrollY >= document.documentElement.offsetHeight - 500) {
             loadMorePosters();
         }
