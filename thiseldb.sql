@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: אוגוסט 26, 2025 בזמן 01:32 AM
+-- Generation Time: אוגוסט 28, 2025 בזמן 11:52 PM
 -- גרסת שרת: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -68,7 +68,7 @@ CREATE TABLE `collections` (
 --
 
 INSERT INTO `collections` (`id`, `name`, `description`, `created_at`, `image_url`, `pinned`, `is_pinned`) VALUES
-(54, 'Disneynature', 'רשימה של דוקומנטריים בהפקת דיסני', '2025-08-25 16:52:53', 'images/logos/Disneynature.png', 0, 0);
+(1, 'אוסף לדוגמא', '', '2025-08-28 21:46:54', NULL, 0, 0);
 
 -- --------------------------------------------------------
 
@@ -210,6 +210,13 @@ CREATE TABLE `posters` (
   `runtime_pretty` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- הוצאת מידע עבור טבלה `posters`
+--
+
+INSERT INTO `posters` (`id`, `title_en`, `title_he`, `original_title`, `year`, `is_tv`, `imdb_rating`, `imdb_votes`, `poster_url`, `trailer_url`, `tmdb_url`, `tvdb_url`, `imdb_link`, `network`, `image_url`, `plot`, `plot_he`, `lang_code`, `tvdb_id`, `tmdb_id`, `tmdb_type`, `youtube_trailer`, `genre`, `actors`, `metacritic_score`, `rt_score`, `mc_score`, `rt_url`, `mc_url`, `poster`, `metacritic_link`, `rt_link`, `imdb_id`, `pending`, `collection_name`, `created_at`, `updated_at`, `type_id`, `directors`, `writers`, `producers`, `cinematographers`, `composers`, `runtime`, `languages`, `countries`, `genres`, `networks`, `tmdb_collection_id`, `seasons_count`, `episodes_count`, `network_logo`, `has_subtitles`, `is_dubbed`, `overview_he`, `overview_en`, `cast`, `title_kind`, `he_title`, `runtime_minutes`, `connections_count`, `imported_at`, `runtime_pretty`) VALUES
+(1, 'Sample', 'דוגמא', NULL, '2012', 0, 0.0, NULL, NULL, NULL, NULL, NULL, '', NULL, '', '', '', NULL, '0', NULL, NULL, '', '', '', '', '', NULL, NULL, NULL, NULL, '', '', '', 0, NULL, '2025-08-29 00:46:10', '2025-08-28 21:46:10', 0, '', '', '', '', '', 0, '', '', NULL, NULL, NULL, 0, 0, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, '2025-08-28 21:46:10', NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -266,6 +273,13 @@ CREATE TABLE `poster_collections` (
   `is_pinned` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- הוצאת מידע עבור טבלה `poster_collections`
+--
+
+INSERT INTO `poster_collections` (`poster_id`, `collection_id`, `added_at`, `is_pinned`) VALUES
+(1, 1, '2025-08-28 21:51:16', 0);
+
 -- --------------------------------------------------------
 
 --
@@ -316,6 +330,13 @@ CREATE TABLE `poster_languages` (
   `lang_code` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- הוצאת מידע עבור טבלה `poster_languages`
+--
+
+INSERT INTO `poster_languages` (`poster_id`, `lang_code`) VALUES
+(1, 'silent');
+
 -- --------------------------------------------------------
 
 --
@@ -362,27 +383,28 @@ CREATE TABLE `poster_similar` (
 
 CREATE TABLE `poster_types` (
   `id` int(11) NOT NULL,
-  `code` varchar(50) DEFAULT NULL,
-  `label_he` varchar(100) DEFAULT NULL,
-  `label_en` varchar(100) DEFAULT NULL,
-  `icon` varchar(10) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `sort_order` int(11) DEFAULT 0
+  `code` varchar(255) NOT NULL DEFAULT '',
+  `label_he` varchar(255) NOT NULL DEFAULT '',
+  `label_en` varchar(255) NOT NULL DEFAULT '',
+  `icon` varchar(255) NOT NULL DEFAULT '',
+  `description` text NOT NULL,
+  `sort_order` int(11) DEFAULT 0,
+  `image` varchar(255) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- הוצאת מידע עבור טבלה `poster_types`
 --
 
-INSERT INTO `poster_types` (`id`, `code`, `label_he`, `label_en`, `icon`, `description`, `sort_order`) VALUES
-(3, 'movie', 'סרט', 'Movie', '🎬', '0', 1),
-(4, 'series', 'סדרה', 'Series', '📺', '0', 3),
-(5, 'miniseries', 'מיני-סדרה', 'Miniseries', '📺', '0', 4),
-(6, 'short', 'סרט קצר', 'Short Film', '🎞️', '0', 2),
-(11, ' stand-up', 'Stand-up Comedy', ' Stand-up Comedy', '🎞️', '0', 5),
-(12, ' performance', ' Live Performance', ' Live Performance', '🎞️', '0', 6),
-(13, 'special', 'ספיישל', 'Special Episodes', '🎬', '0', 7),
-(14, 'none', ' לא ידוע', 'None', '❓', '0', 8);
+INSERT INTO `poster_types` (`id`, `code`, `label_he`, `label_en`, `icon`, `description`, `sort_order`, `image`) VALUES
+(3, 'movie', 'סרט', 'Movie', '🎬', '0', 1, 'movie.png'),
+(4, 'series', 'סדרה', 'Series', '📺', '0', 3, 'series.png'),
+(5, 'miniseries', 'מיני-סדרה', 'Miniseries', '📺', '0', 4, 'miniseries.png'),
+(6, 'short-film', 'סרט קצר', 'Short Film', '🎞️', '0', 2, 'short.png'),
+(11, ' stand-up', 'Stand-up Comedy', ' Stand-up Comedy', '🎞️', '0', 5, 'stand-up.png'),
+(12, ' performance', ' Live Performance', ' Live Performance', '🎞️', '0', 6, 'performance.png'),
+(13, 'special', 'ספיישל', 'Special Episodes', '🎬', '0', 7, 'special.png'),
+(14, 'none', ' לא ידוע', 'None', '❓', '0', 8, '');
 
 -- --------------------------------------------------------
 
@@ -398,22 +420,6 @@ CREATE TABLE `poster_votes` (
   `vote_type` varchar(10) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- הוצאת מידע עבור טבלה `poster_votes`
---
-
-INSERT INTO `poster_votes` (`id`, `poster_id`, `visitor_token`, `ip_address`, `vote_type`, `created_at`) VALUES
-(26, 1, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-27 00:13:46'),
-(28, 816, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-28 02:37:28'),
-(29, 810, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'dislike', '2025-07-28 02:37:41'),
-(30, 295, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-28 02:43:46'),
-(31, 2109, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-29 00:38:37'),
-(32, 2118, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-29 09:25:48'),
-(33, 18953, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-30 23:00:51'),
-(34, 18981, 'j55r4r2k10r6i009s865dqdj05', NULL, 'like', '2025-07-31 23:24:52'),
-(36, 509, 'mikjfqmmv7s6eckind0jvcle7i', NULL, 'like', '2025-07-31 23:36:22'),
-(37, 34, '', NULL, 'like', '2025-08-25 16:49:45');
 
 -- --------------------------------------------------------
 
@@ -631,7 +637,7 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `collections`
 --
 ALTER TABLE `collections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `collection_items`
@@ -667,13 +673,13 @@ ALTER TABLE `languages`
 -- AUTO_INCREMENT for table `posters`
 --
 ALTER TABLE `posters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `poster_akas`
 --
 ALTER TABLE `poster_akas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2818;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=179173;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
@@ -685,7 +691,7 @@ ALTER TABLE `poster_bookmarks`
 -- AUTO_INCREMENT for table `poster_connections`
 --
 ALTER TABLE `poster_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=133;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8283;
 
 --
 -- AUTO_INCREMENT for table `poster_genres_user`
@@ -709,13 +715,13 @@ ALTER TABLE `poster_reports`
 -- AUTO_INCREMENT for table `poster_types`
 --
 ALTER TABLE `poster_types`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `poster_votes`
 --
 ALTER TABLE `poster_votes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `ratings`
@@ -727,7 +733,7 @@ ALTER TABLE `ratings`
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=115;
 
 --
 -- הגבלות לטבלאות שהוצאו
