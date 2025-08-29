@@ -3,6 +3,7 @@ include 'header.php';
 require_once 'server.php';
 
 $message = '';
+$new_id  = null; // ← יזהה את האוסף שנשמר כדי להציג כפתור דילוג
 
 if (!function_exists('slugify_collection')) {
   function slugify_collection(string $name): string {
@@ -19,22 +20,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $desc = trim($_POST['description'] ?? '');
   $img  = trim($_POST['image_url'] ?? '');
 
-  // ברירת מחדל/תיקון נתיב לתמונה
-  if ($img === '') {
-    $img = 'images/logos/' . slugify_collection($name) . '.png';
-  } else {
-    // אם המשתמש הזין רק שם קובץ ללא נתיב/URL – נוסיף images/logos/
-    if (!preg_match('~^https?://~i', $img) && strpos($img, '/') === false && strpos($img, '\\') === false) {
-      $img = 'images/logos/' . $img;
+  // לא מייצרים נתיב דיפולטי שלא קיים. אם אין תמונה → נשמור NULL.
+  // אם הוזן URL חיצוני (http/https) נשמור אותו כמות שהוא.
+  // אם הוזן שם קובץ בלבד, נוסיף images/logos/ רק אם הקובץ קיים.
+  $imgToSave = null;
+  if ($img !== '') {
+    if (preg_match('~^https?://~i', $img)) {
+      $imgToSave = $img;
+    } else {
+      if (strpos($img, '/') === false && strpos($img, '\\') === false) {
+        $candidate = 'images/logos/' . $img;
+      } else {
+        $candidate = $img;
+      }
+      $fsPath = __DIR__ . '/' . ltrim($candidate, '/');
+      $imgToSave = is_file($fsPath) ? $candidate : null;
     }
   }
 
   if ($name !== '') {
     $stmt = $conn->prepare("INSERT INTO collections (name, description, image_url) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $name, $desc, $img);
+    $stmt->bind_param("sss", $name, $desc, $imgToSave);
     $stmt->execute();
+    $new_id = $conn->insert_id; // ← נשמור את ה-ID החדש
     $stmt->close();
-    $message = "✅ האוסף נוסף בהצלחה!";
+    $message = "✅ האוסף נוסף בהצלחה!" . ($imgToSave === null ? " (ללא תמונה — יוצג פלייסהולדר בעמודי התצוגה)" : "");
   } else {
     $message = "❌ יש למלא שם לאוסף";
   }
@@ -52,6 +62,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     button { padding:10px 16px; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer; }
     button:hover { background:#218838; }
     .message { background:#ffe; padding:10px; border-radius:6px; margin-bottom:10px; border:1px solid #ddc; color:#333; }
+    .hint { font-size:12px; color:#666; margin-top:-6px; }
+    .goto-wrap { text-align:center; margin-top:10px; }
+    .goto-btn { display:inline-block; padding:10px 18px; background:#007bff; color:#fff; text-decoration:none; border-radius:6px; }
+    .goto-btn:hover { background:#0866cc; }
   </style>
 </head>
 <body>
@@ -61,17 +75,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
   <?php if ($message): ?>
     <div class="message"><?= $message ?></div>
+    <?php if (!empty($new_id)): ?>
+      <div class="goto-wrap">
+        <a class="goto-btn" href="collection.php?id=<?= (int)$new_id ?>">➡ עבור לאוסף שנשמר</a>
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
 
   <form method="post">
     <label>📁 שם האוסף</label>
     <input type="text" name="name" required>
 
-    <label>📝 תיאור האוסף</label>
-    <textarea name="description" rows="4"></textarea>
+    <label>📝 תיאור האוסף</label><br>
+     <label>יש למקם את התקציר העברי מעל לאנגלי עם 2 ירידות שורה</label>
 
+
+    <textarea name="description" rows="20"></textarea>
     <label>🖼️ כתובת לתמונה</label>
-    <input type="text" name="image_url" placeholder="(אפשר להשאיר ריק — ייווצר images/logos/<name>.png או להקליד רק filename.png)">
+    <input type="text" name="image_url" placeholder="אפשר להשאיר ריק. אפשר להזין URL מלא או שם קובץ (logo.png)">
+    <div class="hint">
+      אם תזין שם קובץ בלבד, ייבדק קובץ <code>images/logos/&lt;השם&gt;</code> בשרת. אם אינו קיים — לא תישמר כתובת כדי למנוע תמונה שבורה.
+    </div>
 
     <button type="submit">📥 שמור אוסף</button>
   </form>

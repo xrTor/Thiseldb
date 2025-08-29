@@ -52,10 +52,21 @@ if ($keyword !== '') {
   $params[] = $like;
   $types   .= 's';
 
+  // >>> חיפוש גם בתוך AKAS (poster_akas)
+  // נחפש גם בכותרת ה-AKA וגם בשדה ה-aka (שילוב כותרת/כינוי)
+  $where[] = "pa.aka_title LIKE ?";
+  $params[] = $like;
+  $types   .= 's';
+
+  $where[] = "pa.aka LIKE ?";
+  $params[] = $like;
+  $types   .= 's';
+
   $sql = "
     SELECT DISTINCT p.*
     FROM posters p
     LEFT JOIN user_tags ut ON ut.poster_id = p.id
+    LEFT JOIN poster_akas pa ON pa.poster_id = p.id
     WHERE (" . implode(' OR ', $where) . ")
     ORDER BY p.year DESC, p.title_en ASC
     LIMIT 30000
@@ -136,7 +147,7 @@ if ($keyword !== '') {
     <div class="results">
       <?php foreach ($results as $row): ?>
         <div class="card">
-          <a href="poster.php?id=<?= (int)$row['id'] ?>">
+          <a href="poster.php?id="<?= (int)$row['id'] ?>>
             <?php
               $img = trim((string)($row['image_url'] ?? ''));
               if ($img === '' || $img === 'N/A') {

@@ -1,21 +1,23 @@
 <?php
 include 'bar.php';
 require_once 'server.php';
+require_once 'alias.php';
 
+// ----- קביעות בסיס -----
 $allowed_limits = [5, 10, 20, 50, 100, 250];
 $limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50), $allowed_limits)
     ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50) : 50;
 $_SESSION['limit'] = $limit;
 
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$page   = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
+
 $view = $_GET['view'] ?? $_SESSION['view_mode'] ?? 'grid';
 $_SESSION['view_mode'] = $view;
 
 $search_mode = $_GET['search_mode'] ?? 'and';
 
-/* === ADD-ONLY: נורמליזציה קלה של פרמטרים === */
-/* IMDb ID: חילוץ tt מכל קלט "מלוכלך" */
+// ----- נורמליזציה קלה לקלט -----
 if (!empty($_GET['imdb_id'])) {
   if (preg_match('~tt\d{6,10}~i', (string)$_GET['imdb_id'], $m)) {
     $_GET['imdb_id'] = strtolower($m[0]);
@@ -23,35 +25,35 @@ if (!empty($_GET['imdb_id'])) {
     $_GET['imdb_id'] = '';
   }
 }
-/* אם הוכנס מספר בלבד ב-Metacritic – נתייחס כמינימום (>=) דרך addCondition בטווח "N-" */
 if (!empty($_GET['metacritic']) && preg_match('/^\d+$/', (string)$_GET['metacritic'])) {
   $_GET['metacritic'] = $_GET['metacritic'] . '-';
 }
-
-/* אם הוכנס מספר בלבד ב-Min Rating – נחשב כמינימום (>=) דרך addCondition בטווח "N-" */
 if (!empty($_GET['min_rating']) && preg_match('/^\d+(\.\d+)?$/', (string)$_GET['min_rating'])) {
   $_GET['min_rating'] = $_GET['min_rating'] . '-';
 }
 
-
-/* === /ADD-ONLY === */
-
+// ----- שדות אפשריים מהטופס -----
 $fields = [
   'search', 'min_rating', 'metacritic', 'rt_score', 'year', 'imdb_id', 'tvdb_id',
   'genre', 'actor', 'user_tag', 'directors', 'producers', 'writers',
   'composers', 'cinematographers', 'lang_code', 'country', 'runtime',
-  /* ADD-ONLY */ 'network' /* תמיכה בסינון רשת */
+  'network'
 ];
 $types_selected = $_GET['type'] ?? [];
 
-$where = []; $params = []; $bind_types = '';
+// ----- בניית WHERE דינמי -----
+$where = [];
+$params = [];
+$bind_types = '';
+$join_akas = ''; // יתווסף רק כשצריך חיפוש ב-AKAS (בשדה search)
 
 if ($types_selected && is_array($types_selected)) {
   $placeholders = implode(',', array_fill(0, count($types_selected), '?'));
-  $where[] = 'type_id IN (' . $placeholders . ')';
-  foreach ($types_selected as $tid) { $params[] = $tid; $bind_types .= 'i'; }
+  $where[] = 'posters.type_id IN (' . $placeholders . ')';
+  foreach ($types_selected as $tid) { $params[] = (int)$tid; $bind_types .= 'i'; }
 }
 
+// פונקציית עזר להוספת תנאי LIKE/טווחים/NOT
 function addCondition($col, $val, &$where, &$params, &$bind_types, $mode = 'and') {
   if ($val === '') return;
   $parts = array_map('trim', explode(',', $val));
@@ -81,54 +83,72 @@ function addCondition($col, $val, &$where, &$params, &$bind_types, $mode = 'and'
   }
 }
 
+// מעבר על כל שדות החיפוש
 foreach ($fields as $f) {
   $val = trim($_GET[$f] ?? '');
   if ($val === '') continue;
 
+  // מיפוי שם־שדה לטור במסד (עם prefix posters.)
   $col = match($f) {
-    'search'      => '(title_en LIKE ? OR title_he LIKE ? OR imdb_id LIKE ?)',
-    /* FIXED: actor => `cast` (reserved word -> backticks) */
-    'actor'       => '`cast`',
-    'user_tag'    => '(SELECT GROUP_CONCAT(genre) FROM user_tags WHERE poster_id=posters.id)',
-    'runtime'     => 'runtime',
-    /* FIXED: genre => genres */
-    'genre'       => 'genres',
-    'year'        => 'year',
-    'min_rating'  => 'imdb_rating',
-    /* FIXED: metacritic => mc_score */
-    'metacritic'  => 'mc_score',
-    'rt_score'    => 'rt_score',
-    'imdb_id'     => 'imdb_id',
-    'tvdb_id'     => 'tvdb_id',
-    'lang_code'   => 'languages',
-    'country'     => 'countries',
-    'directors'   => 'directors',
-    'producers'   => 'producers',
-    'writers'     => 'writers',
-    'composers'   => 'composers',
-    'cinematographers' => 'cinematographers',
-    /* ADD-ONLY: network => networks */
-    'network'     => 'networks',
-    default       => $f
+    'search'      => '(posters.title_en LIKE ? OR posters.title_he LIKE ? OR posters.imdb_id LIKE ?)', // לא בשימוש ישיר (מטפלים בנפרד)
+    'actor'       => 'posters.`cast`',
+    'user_tag'    => '(SELECT GROUP_CONCAT(genre) FROM user_tags WHERE poster_id = posters.id)',
+    'runtime'     => 'posters.runtime',
+    'genre'       => 'posters.genres',
+    'year'        => 'posters.year',
+    'min_rating'  => 'posters.imdb_rating',
+    'metacritic'  => 'posters.mc_score',
+    'rt_score'    => 'posters.rt_score',
+    'imdb_id'     => 'posters.imdb_id',
+    'tvdb_id'     => 'posters.tvdb_id',
+    'lang_code'   => 'posters.languages',
+    'country'     => 'posters.countries',
+    'directors'   => 'posters.directors',
+    'producers'   => 'posters.producers',
+    'writers'     => 'posters.writers',
+    'composers'   => 'posters.composers',
+    'cinematographers' => 'posters.cinematographers',
+    'network'     => 'posters.networks',
+    default       => 'posters.' . $f
   };
 
   if ($f === 'search') {
     $v = $_GET['search'];
+
+    // אם יש ערך ב־search – נאפשר גם חיפוש ב־AKAS
+    if ($v !== '') {
+      $join_akas = " LEFT JOIN poster_akas pa ON pa.poster_id = posters.id ";
+    }
+
     if ($v !== '' && $v[0] === '!') {
       $value = substr($v, 1);
-      $where[] = '(title_en NOT LIKE ? AND title_he NOT LIKE ? AND imdb_id NOT LIKE ?)';
-      for ($i = 0; $i < 3; $i++) { $params[] = "%$value%"; $bind_types .= 's'; }
+      $where[] =
+        '('
+        . 'posters.title_en NOT LIKE ? AND '
+        . 'posters.title_he NOT LIKE ? AND '
+        . 'posters.imdb_id  NOT LIKE ? AND '
+        . 'COALESCE(pa.aka_title, \'\') NOT LIKE ? AND '
+        . 'COALESCE(pa.aka, \'\')       NOT LIKE ?'
+        . ')';
+      for ($i = 0; $i < 5; $i++) { $params[] = "%$value%"; $bind_types .= 's'; }
     } else {
-      $where[] = $col;
-      for ($i = 0; $i < 3; $i++) { $params[] = "%$v%"; $bind_types .= 's'; }
+      $where[] =
+        '('
+        . 'posters.title_en LIKE ? OR '
+        . 'posters.title_he LIKE ? OR '
+        . 'posters.imdb_id  LIKE ? OR '
+        . 'pa.aka_title LIKE ? OR '
+        . 'pa.aka LIKE ?'
+        . ')';
+      for ($i = 0; $i < 5; $i++) { $params[] = "%$v%"; $bind_types .= 's'; }
     }
   } elseif ($f === 'user_tag') {
     $v = $_GET['user_tag'];
     if ($v !== '' && $v[0] === '!') {
-      $where[] = 'id NOT IN (SELECT poster_id FROM user_tags WHERE genre LIKE ?)';
+      $where[] = 'posters.id NOT IN (SELECT poster_id FROM user_tags WHERE genre LIKE ?)';
       $params[] = '%' . substr($v, 1) . '%'; $bind_types .= 's';
     } else {
-      $where[] = 'id IN (SELECT poster_id FROM user_tags WHERE genre LIKE ?)';
+      $where[] = 'posters.id IN (SELECT poster_id FROM user_tags WHERE genre LIKE ?)';
       $params[] = "%$v%"; $bind_types .= 's';
     }
   } elseif (in_array($f, ['runtime', 'year', 'min_rating', 'metacritic', 'rt_score'])) {
@@ -138,26 +158,31 @@ foreach ($fields as $f) {
   }
 }
 
+// סינון "לא עברית"
 if (isset($_GET['is_foreign_language'])) {
-  $where[] = "NOT (languages LIKE '%Hebrew%' OR languages LIKE '%עברית%')";
+  $where[] = "NOT (posters.languages LIKE '%Hebrew%' OR posters.languages LIKE '%עברית%')";
 }
 
-$logic = strtoupper($search_mode) === 'or' ? 'OR' : 'AND';
+$logic     = strtoupper($search_mode) === 'or' ? 'OR' : 'AND';
 $sql_where = $where ? "WHERE " . implode(" $logic ", $where) : "";
 
-$orderBy = "ORDER BY id DESC";
+// ----- מיון -----
+$orderBy = "ORDER BY posters.id DESC";
 if (!empty($_GET['sort'])) {
   switch ($_GET['sort']) {
-    case 'year_asc': $orderBy = "ORDER BY year ASC"; break;
-    case 'year_desc': $orderBy = "ORDER BY year DESC"; break;
-    case 'rating_desc': $orderBy = "ORDER BY CAST(SUBSTRING_INDEX(imdb_rating, '/', 1) AS DECIMAL(3,1)) DESC"; break;
+    case 'year_asc':    $orderBy = "ORDER BY posters.year ASC"; break;
+    case 'year_desc':   $orderBy = "ORDER BY posters.year DESC"; break;
+    case 'rating_desc': $orderBy = "ORDER BY CAST(SUBSTRING_INDEX(posters.imdb_rating, '/', 1) AS DECIMAL(3,1)) DESC"; break;
   }
 }
 
-$view_modes = ['grid', 'list', 'default'];
-if (!in_array($view, $view_modes)) $view = 'grid';
-
-$sql = "SELECT * FROM posters $sql_where $orderBy LIMIT $limit OFFSET $offset";
+// ----- שליפות -----
+$sql = "SELECT DISTINCT posters.*
+        FROM posters
+        $join_akas
+        $sql_where
+        $orderBy
+        LIMIT $limit OFFSET $offset";
 $stmt = $conn->prepare($sql);
 if ($bind_types) $stmt->bind_param($bind_types, ...$params);
 $stmt->execute();
@@ -166,7 +191,10 @@ $rows = [];
 while ($row = $result->fetch_assoc()) $rows[] = $row;
 $stmt->close();
 
-$count_sql = "SELECT COUNT(*) as c FROM posters $sql_where";
+$count_sql = "SELECT COUNT(DISTINCT posters.id) as c
+              FROM posters
+              $join_akas
+              $sql_where";
 $count_stmt = $conn->prepare($count_sql);
 if ($bind_types) $count_stmt->bind_param($bind_types, ...$params);
 $count_stmt->execute();
@@ -176,9 +204,9 @@ $count_stmt->close();
 
 $total_pages = max(1, ceil($total_rows / $limit));
 $start = $offset + 1;
-$end = $offset + count($rows);
+$end   = $offset + count($rows);
 $uri_base = preg_replace('/([&?])page=\d+/', '', $_SERVER['REQUEST_URI']);
-$uri_sep = (str_contains($uri_base, '?') ? '&' : '?');
+$uri_sep  = (str_contains($uri_base, '?') ? '&' : '?');
 
 ?>
 <!DOCTYPE html>
@@ -241,6 +269,7 @@ $uri_sep = (str_contains($uri_base, '?') ? '&' : '?');
   <div class="results-summary">
     <b>הצגת <?= $start ?>–<?= $end ?> מתוך <?= $total_rows ?> — עמוד <?= $page ?> מתוך <?= $total_pages ?></b>
   </div>
+
   <div class="pager">
     <?php if ($page > 1): ?>
       <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a>
@@ -274,8 +303,8 @@ $uri_sep = (str_contains($uri_base, '?') ? '&' : '?');
             <?php if (!empty($row['title_he'])): ?><div><?= htmlspecialchars($row['title_he']) ?></div><?php endif; ?>
             <div><?= htmlspecialchars($row['year']) ?></div>
           </a>
-          <div class="rating">⭐ <?= $row['imdb_rating'] ?>/10</div>
-          <div class="tags"><?= htmlspecialchars($row['genre']) ?></div>
+          <div class="rating">⭐ <?= htmlspecialchars($row['imdb_rating']) ?>/10</div>
+          <div class="tags"><?= htmlspecialchars($row['genres'] ?? '') ?></div>
         </div>
       <?php endforeach; ?>
     </div>
@@ -287,7 +316,7 @@ $uri_sep = (str_contains($uri_base, '?') ? '&' : '?');
           <b><?= htmlspecialchars($row['title_en']) ?></b>
           <?php if (!empty($row['title_he'])): ?> — <?= htmlspecialchars($row['title_he']) ?><?php endif; ?>
           (<?= htmlspecialchars($row['year']) ?>)
-          ⭐ <?= $row['imdb_rating'] ?>
+          ⭐ <?= htmlspecialchars($row['imdb_rating']) ?>
           <a href="poster.php?id=<?= $row['id'] ?>">📄</a>
         </li>
       <?php endforeach; ?>
@@ -300,9 +329,9 @@ $uri_sep = (str_contains($uri_base, '?') ? '&' : '?');
             <img src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
             <strong><?= htmlspecialchars($row['title_en']) ?></strong><br>
             <?= htmlspecialchars($row['title_he']) ?><br>
-            🗓 <?= $row['year'] ?>
+            🗓 <?= htmlspecialchars($row['year']) ?>
           </a>
-          <div class="rating">⭐ <?= $row['imdb_rating'] ?>/10</div>
+          <div class="rating">⭐ <?= htmlspecialchars($row['imdb_rating']) ?>/10</div>
         </li>
       <?php endforeach; ?>
     </ul>

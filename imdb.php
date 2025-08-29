@@ -1,7 +1,7 @@
 <?php
 /****************************************************
  * imdb.php — פרטי כותר מרוכזים (RTL, עברית)
- * BUILD: v2025-08-26-b10 "headers_sent guards + no-redeclare + AKAs/Connections"
+ * BUILD: v2025-08-28-b15 "FULL VERSION: Corrected Network Logic (API-only) & Full Functions"
  ****************************************************/
 set_time_limit(3000000);
 
@@ -51,12 +51,9 @@ if (!function_exists('extract_imdb_full_plot_from_summary_page')) {
     $html = http_get("https://www.imdb.com/title/" . rawurlencode($tt) . "/plotsummary");
     if (!$html) return null;
     
-    // חיפוש הבלוק המרכזי של התקצירים
     if (preg_match('~<ul[^>]*data-testid="plot-summaries-content"[^>]*>(.*?)</ul>~is', $html, $ul_match)) {
-      // שליפת התקציר הראשון מתוך הבלוק
       if (preg_match('~<li[^>]*class="[^"]*ipc-html-content-inner-div[^"]*"[^>]*>(.*?)</li>~is', $ul_match[1], $li_match)) {
         $plot = trim(strip_tags($li_match[1]));
-        // ודא שהתקציר אינו ריק ואינו מכיל את הטקסט שמרמז על תקציר נוסף
         if ($plot !== '' && stripos($plot, 'It looks like we don\'t have a Synopsis') === false) {
           return $plot;
         }
@@ -487,7 +484,6 @@ if (!function_exists('tvdb_fetch_genres_api')) {
     $tok=tvdb_login($apikey); if(!$tok) return [];
     $core=tvdb_fetch_series_core($id,$tok);
     $ext =tvdb_fetch_series_extended($id,$tok);
-
     $names = [];
     foreach (['genres'] as $key){
       foreach ([$core,$ext] as $blk){
@@ -509,6 +505,25 @@ if (!function_exists('tvdb_fetch_genres_api')) {
       if(!isset($seen[$k])){ $seen[$k]=1; $out[]=$x; }
     }
     return $out;
+  }
+}
+if (!function_exists('tvdb_fetch_akas_api')) {
+  function tvdb_fetch_akas_api($seriesId, $apikey){
+    $tok = tvdb_login($apikey); if (!$tok) return [];
+    $ext = tvdb_fetch_series_extended($seriesId, $tok);
+    $names = [];
+    if (!empty($ext['aliases']) && is_array($ext['aliases'])) {
+        foreach ($ext['aliases'] as $a) {
+            $nm = is_array($a) ? ($a['name'] ?? '') : $a;
+            if (trim((string)$nm) !== '') $names[] = (string)$nm;
+        }
+    }
+    if (!empty($ext['translations']) && is_array($ext['translations'])) {
+        foreach ($ext['translations'] as $t) {
+            if (is_array($t) && !empty($t['name'])) $names[] = $t['name'];
+        }
+    }
+    return normalize_list($names);
   }
 }
 if (!function_exists('tvdb_fetch_networks_api')) {
@@ -905,24 +920,17 @@ if (!function_exists('extract_imdb_english_plot_from_plotpage')) {
 }
 if (!function_exists('extract_imdb_english_plot')) {
   function extract_imdb_english_plot($IMDB, $tt){
-    // עדיפות ראשונה: נסה לשלוף את התקציר המלא מעמוד התקצירים
     $full_plot = extract_imdb_full_plot_from_summary_page($tt);
-    if ($full_plot && mb_strlen($full_plot) > 150) { // אם מצאנו תקציר ארוך, נחזיר אותו מיד
+    if ($full_plot && mb_strlen($full_plot) > 150) {
         return $full_plot;
     }
-
-    // אם לא הצלחנו, נשתמש בשיטות הגיבוי הישנות
     $p = imdb_get($IMDB, 'getPlot');
     $p = is_array($p) ? implode(' ', $p) : $p;
     if (trim((string)$p) !== '') return stripAllTags($p);
-    
     $json = imdb_jsonld($tt);
     $d = $json['description'] ?? '';
     if (trim((string)$d) !== '') return $d;
-
-    // נחזיר את התקציר המלא שמצאנו גם אם הוא קצר, אם אין ברירה אחרת
     if ($full_plot) return $full_plot;
-
     return null;
   }
 }
@@ -946,92 +954,101 @@ if (!function_exists('imdb_collect_akas')) {
   }
 }
 
-/* ========= IMDb Connections ========= */
-if (!function_exists('imdb_connections_url')) {
-  function imdb_connections_url($tt){ return "https://www.imdb.com/title/{$tt}/movieconnections/"; }
-}
+/* ========= IMDb Connections (ROBUST VERSION) ========= */
 if (!function_exists('connections_keep_labels')) {
   function connections_keep_labels(){ return ['Follows','Followed by','Remake of','Remade as','Spin-off','Spin-off from','Version of','Alternate versions']; }
 }
-if (!function_exists('connections_normalize_label')) {
-  function connections_normalize_label($s){
-    $s=trim(preg_replace('~\s+~',' ',$s));
-    $s=preg_replace('~\s*\(.*$~','',$s);
-    $map=[
-      'Follows'=>'Follows','Followed by'=>'Followed by','Remake of'=>'Remake of','Remade as'=>'Remade as',
-      'Spin-off'=>'Spin-off','Spin-off from'=>'Spin-off from','Version of'=>'Version of','Alternate versions'=>'Alternate versions',
-    ];
-    return $map[$s] ?? $s;
+if (!function_exists('http_get_simple')) {
+  function http_get_simple(string $url, int $timeout = 20): ?string {
+    if (!function_exists('curl_init')) return null;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [ CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_HTTPHEADER => [ 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36', 'Accept-Language: en-US,en;q=0.9,he;q=0.6', 'Referer: https://www.imdb.com/', ], ]);
+    $body = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    return ($body === false || $code >= 400) ? null : $body;
   }
 }
-if (!function_exists('connections_dedupe')) {
-  function connections_dedupe($arr){
-    $seen=[];$out=[];
-    foreach($arr as $it){ $id=$it['id']??''; $t=$it['title']??''; $k=$id.'|'.$t; if($k==='|') continue; if(isset($seen[$k])) continue; $seen[$k]=1; $out[]=$it; }
-    return $out;
-  }
-}
-if (!function_exists('imdb_next_parse')) {
-  function imdb_next_parse($html){
-    if (preg_match('#<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>#si',$html,$m)) {
+if (!function_exists('parse_next_data_json')) {
+  function parse_next_data_json(string $html): ?array {
+    if (preg_match('#<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>#si', $html, $m)) {
       $json = html_entity_decode($m[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-      $data = json_decode($json, true);
+      try { $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR); } catch (Throwable $e) { $data = json_decode($json, true); }
       return is_array($data) ? $data : null;
     }
     return null;
   }
 }
+if (!function_exists('imdb_connections_url')) {
+  function imdb_connections_url(string $id): string { return "https://www.imdb.com/title/{$id}/movieconnections/"; }
+}
+if (!function_exists('connections_normalize_label')) {
+  function connections_normalize_label(string $s): string {
+    $s = trim(preg_replace('/\s+/', ' ', $s)); $s = preg_replace('/\s*\(.*$/', '', $s);
+    $map = ['Follows'=>'Follows','Followed by'=>'Followed by','Remake of'=>'Remake of','Remade as'=>'Remade as','Spin-off'=>'Spin-off','Spin-off from'=>'Spin-off from','Version of'=>'Version of','Alternate versions'=>'Alternate versions'];
+    return $map[$s] ?? $s;
+  }
+}
 if (!function_exists('connections_extract_from_next')) {
-  function connections_extract_from_next($data,$keep){
-    $out=[]; foreach($keep as $k) $out[$k]=[];
-    $keepSet=array_flip($keep);
-    $asLabel=function($val)use($keepSet){
-      if(!is_string($val)||$val==='')return null;
-      $lab=connections_normalize_label($val);
-      return isset($keepSet[$lab])?$lab:null;
-    };
-    $push=function($cat,$node)use(&$out){
-      if(!$cat||!is_array($node))return;
+  function connections_extract_from_next(array $data, array $keep): array {
+    $out = []; foreach ($keep as $k) $out[$k] = [];
+    $keepSet = array_flip($keep);
+    $asLabel = fn($s) => (is_string($s)&&$s!=='')?(isset($keepSet[connections_normalize_label($s)])?connections_normalize_label($s):null):null;
+    $pushItem = function($cat, $node) use (&$out) {
+      if (!$cat || !is_array($node)) return;
       $id=null; $title=null;
-      foreach(['id','const'] as $k){ if(!$id && !empty($node[$k]) && preg_match('~^tt\d+~',(string)$node[$k])) $id=$node[$k]; }
-      foreach(['link','canonicalLink','url'] as $k){ if(!$id && !empty($node[$k]) && preg_match('~title/(tt\d+)/~',(string)$node[$k],$m)) $id=$m[1]; }
-      if(isset($node['titleText'])) $title=is_array($node['titleText'])?($node['titleText']['text']??null):$node['titleText'];
-      if(!$title && isset($node['originalTitleText']) && is_array($node['originalTitleText'])) $title=$node['originalTitleText']['text']??null;
-      if(!$title && isset($node['displayableTitle'])) $title=is_string($node['displayableTitle'])?$node['displayableTitle']:null;
-      if(!$title && isset($node['title'])) $title=is_string($node['title'])?$node['title']:null;
-      if($id){ $out[$cat][]= ['id'=>$id,'title'=>($title?:$id)]; }
+      if (!empty($node['id']) && preg_match('/^tt\d+$/', (string)$node['id'])) $id = $node['id'];
+      if (!$id && !empty($node['link']) && preg_match('#/title/(tt\d+)/#', (string)$node['link'], $m)) $id = $m[1];
+      if (isset($node['titleText']['text'])) $title = $node['titleText']['text'];
+      if ($id) $out[$cat][] = ['id'=>$id, 'title'=>$title ?: $id];
     };
-    $walk=function($node,$cur=null)use(&$walk,$asLabel,$push){
-      if(is_array($node)){
-        foreach(['category','header','sectionTitle','title'] as $k){
-          if(isset($node[$k])){
-            $lbl=$asLabel(is_array($node[$k])?($node[$k]['text']??''):$node[$k]);
-            if($lbl){ $cur=$lbl; break; }
-          }
-        }
-        if($cur && (isset($node['titleText'])||isset($node['originalTitleText'])||isset($node['displayableTitle'])||isset($node['id'])||isset($node['const'])||isset($node['link'])||isset($node['canonicalLink'])))
-          $push($cur,$node);
-        foreach($node as $v){ if(is_array($v)) $walk($v,$cur); }
+    $walk = function($node, $cur=null) use (&$walk, $asLabel, $pushItem) {
+      if (is_array($node)) {
+        if (isset($node['sectionTitle']['text'])) { $lbl = $asLabel($node['sectionTitle']['text']); if ($lbl) $cur = $lbl; }
+        if ($cur && isset($node['titleText']['text'])) $pushItem($cur, $node);
+        foreach ($node as $v) if(is_array($v)) $walk($v, $cur);
       }
     };
-    $walk($data,null);
-    foreach($out as $k=>$arr) $out[$k]=connections_dedupe($arr);
+    $walk($data, null);
+    foreach ($out as $k => $arr) { $s=[];$u=[];foreach($arr as $i){$key=$i['id'].'|'.$i['title'];if(!isset($s[$key])){$s[$key]=1;$u[]=$i;}} $out[$k]=$u; }
     return $out;
   }
 }
 if (!function_exists('imdb_connections_all')) {
-  function imdb_connections_all($tt){
-    $keep=connections_keep_labels();
-    $out=[]; foreach($keep as $k) $out[$k]=[];
-    if(!preg_match('~^tt\d+~',$tt)) return $out;
-    foreach ([ imdb_connections_url($tt), imdb_connections_url($tt).'?ref_=tt_trv_cnn' ] as $url){
-      $html=http_get($url); if(!$html) continue;
-      $next=imdb_next_parse($html);
-      if($next){
-        $ex=connections_extract_from_next($next,$keep);
-        $has=false; foreach($ex as $a){ if(!empty($a)){ $has=true; break; } }
-        if($has) return $ex;
+  function imdb_connections_all(string $imdbId): array {
+    $keep = connections_keep_labels();
+    $out = []; foreach ($keep as $k) $out[$k] = [];
+    if (!preg_match('/^tt\d{6,10}$/', $imdbId)) return $out;
+    
+    foreach ([imdb_connections_url($imdbId), imdb_connections_url($imdbId).'?ref_=tt_trv_cnn'] as $url) {
+      $html = http_get_simple($url);
+      if (!$html) continue;
+
+      $next = parse_next_data_json($html);
+      if ($next) {
+        $ex = connections_extract_from_next($next, $keep);
+        $has = false; foreach($ex as $a) if(!empty($a)) {$has=true; break;}
+        if ($has) return $ex;
       }
+      
+      libxml_use_internal_errors(true);
+      $dom = new DOMDocument(); @$dom->loadHTML($html); libxml_clear_errors();
+      $xp = new DOMXPath($dom);
+      $headers = $xp->query("//h4[contains(@class,'ipl-list-title')]");
+      foreach($headers as $h) {
+          $label = connections_normalize_label($h->textContent ?? '');
+          if (!in_array($label, $keep, true)) continue;
+          $list = $h->nextSibling;
+          if ($list && $list->nodeName === 'div') {
+              $items = [];
+              foreach($xp->query(".//a[contains(@href,'/title/tt')]", $list) as $a) {
+                  if (preg_match('#/title/(tt\d+)/#', $a->getAttribute('href'), $m)) {
+                      $items[] = ['id' => $m[1], 'title' => trim($a->textContent)];
+                  }
+              }
+              if ($items) $out[$label] = $items;
+          }
+      }
+      $has = false; foreach($out as $a) if(!empty($a)) {$has=true; break;}
+      if ($has) return $out;
     }
     return $out;
   }
@@ -1163,7 +1180,6 @@ if (!function_exists('build_row')) {
       }
     }catch(Throwable $e){}
 
-    // RapidAPI – IMDb rating/votes בלבד
     $r= [];
     if(!empty($RAPIDAPI_KEY)){
       $url="https://imdb236.p.rapidapi.com/api/imdb/".urlencode($tt);
@@ -1177,10 +1193,8 @@ if (!function_exists('build_row')) {
     }
     if(is_array($r)) $row['rapidapi']=$r;
 
-    // OMDb — RT/MC
     $row['omdb'] = omdb_fetch_by_imdb($tt, $OMDB_KEY);
 
-    // TMDb
     $find=tmdb_find($tt,$TMDB_KEY);
     if(!empty($find['movie_results'][0]['id'])){
       $row['tmdb_type']='movie'; $row['tmdb_id']=$find['movie_results'][0]['id'];
@@ -1239,12 +1253,9 @@ if (!function_exists('unify_details')) {
 
     $he_title = tmdb_pick_he_title($tmdb, $row['tmdb_type']);
     
-    // =========================================================================
-    // === התיקון: התקציר נלקח מ-RapidAPI, עם נפילה לגירוד מ-IMDb בלבד ===
-    // =========================================================================
     $plot_from_rapidapi = $r['plotOutline']['text'] ?? null;
     $plot_from_scraper = $row['_plot_en'] ?? null;
-    $overview_en = first_nonempty($plot_from_rapidapi, $plot_from_scraper);
+    $overview_en = first_nonempty($plot_from_rapidapi, $plot_from_scraper, $tmdb['overview'] ?? null);
     
     $overview_he = tmdb_pick_he_overview($tmdb);
 
@@ -1272,18 +1283,19 @@ if (!function_exists('unify_details')) {
     $cinematographers = clean_people_list($row['cinematographers']);
     $cast             = filter_cast_tv_creators_only($row['imdb'], $row['is_tv'], $row['cast'], $directors, $writers);
 
-    $tvdb_nets = $row['is_tv'] && $tvdb_id ? tvdb_fetch_networks_api($tvdb_id, $TVDB_KEY) : [];
+    $tvdb_nets = ($row['is_tv'] && $tvdb_id) ? tvdb_fetch_networks_api($tvdb_id, $TVDB_KEY) : [];
     $tmdb_nets = [];
     foreach (($tmdb['networks'] ?? []) as $n) {
         $nm = is_array($n) ? ($n['name'] ?? '') : $n;
         if (trim($nm) !== '') $tmdb_nets[] = $nm;
     }
-    $networks = !empty($tvdb_nets) ? $tvdb_nets : normalize_list($tmdb_nets);
-
+    $networks = merge_unique_lists($tvdb_nets, $tmdb_nets);
+    
     $imdb_rating = $r['averageRating'] ?? null;
     $imdb_votes  = isset($r['numVotes']) ? (int)$r['numVotes'] : null;
 
-    $akas_all = merge_unique_lists($row['imdb_akas'] ?? [], $row['tmdb_akas'] ?? []);
+    $tvdb_akas = ($row['is_tv'] && $tvdb_id) ? tvdb_fetch_akas_api($tvdb_id, $TVDB_KEY) : [];
+    $akas_all = merge_unique_lists($row['imdb_akas'] ?? [], $row['tmdb_akas'] ?? [], $tvdb_akas);
 
     $tvdb_links = $row['is_tv'] ? tvdb_build_links($tmdb['name'] ?? ($tmdb['title'] ?? ''), $tvdb_id, $row['imdb'], $GLOBALS['HARDCODE_TVDB'], $TVDB_KEY) : [];
     $tvdb_url = $tvdb_links[0] ?? null;
@@ -1367,7 +1379,7 @@ foreach($imdbIDs as $tt){ if(preg_match('~^tt\d{6,10}$~',$tt)) $movies[]=build_r
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>🎬 פרטי כותר — תצוגה מרוכזת (v2025-08-26-b10)</title>
+  <title>🎬 פרטי כותר — תצוגה מרוכזת (v2025-08-28-b15)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
@@ -1402,12 +1414,11 @@ foreach($imdbIDs as $tt){ if(preg_match('~^tt\d{6,10}$~',$tt)) $movies[]=build_r
 </head>
 <body>
 <div class="wrap">
-  <h2>🎬 פרטי כותר — תצוגה מרוכזת <small style="color:#8a90a2">v2025-08-26-b10</small></h2>
+  <h2>🎬 פרטי כותר — תצוגה מרוכזת <small style="color:#8a90a2">v2025-08-28-b15</small></h2>
 
   <?php foreach($movies as $movie): $u = unify_details($movie, $TMDB_KEY, $TVDB_KEY); $ttid = preg_replace('~\D~','',$u['imdb_id']); ?>
 
     <?php
-      // IMDb Connections (local links to poster.php?tt=tt…)
       $connections = imdb_connections_all($u['imdb_id']);
       $conn_order  = connections_keep_labels();
       $hasConnections = false; foreach ($conn_order as $lab){ if (!empty($connections[$lab])) { $hasConnections = true; break; } }
@@ -1433,7 +1444,7 @@ foreach($imdbIDs as $tt){ if(preg_match('~^tt\d{6,10}$~',$tt)) $movies[]=build_r
             <?php if (!empty($u['runtime'])): ?><span class="chip"><?= H($u['runtime']) ?></span><?php endif; ?>
             <?php if ($u['is_tv'] && !empty($u['seasons'])): ?><span class="chip">Seasons: <?= H($u['seasons']) ?></span><?php endif; ?>
             <?php if ($u['is_tv'] && !empty($u['episodes'])): ?><span class="chip">Episodes: <?= H($u['episodes']) ?></span><?php endif; ?>
-            <?php if ($u['is_tv'] && !empty($u['networks'])): ?><span class="chip"><?= safeJoin($u['networks']) ?></span><?php endif; ?>
+            <?php if (!empty($u['networks'])): ?><span class="chip"><?= safeJoin($u['networks']) ?></span><?php endif; ?>
           </div>
 
           <?php if (!empty($u['he_title'])): ?>

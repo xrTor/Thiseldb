@@ -104,8 +104,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
     <label>📁 שם האוסף</label>
     <input type="text" name="name" value="<?= htmlspecialchars($collection['name']) ?>" required>
 
-    <label>📝 תיאור האוסף</label>
-    <textarea name="description" rows="4"><?= htmlspecialchars($collection['description']) ?></textarea>
+    <label>📝 תיאור האוסף</label><br>
+     <label>יש למקם את התקציר העברי מעל לאנגלי עם 2 ירידות שורה</label>
+    <textarea name="description" rows="20"><?= htmlspecialchars($collection['description']) ?></textarea>
 
     <label>🖼️ כתובת לתמונה</label>
     <input type="text" name="image_url" value="<?= htmlspecialchars($collection['image_url']) ?>" placeholder="(אפשר להשאיר ריק — לא תוצג תמונה; או להקליד רק filename.png לשמירה תחת images/logos/)">

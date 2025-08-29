@@ -87,15 +87,15 @@
 הדומיין יושב בשירות <a class="blue" href="https://www.namecheap.com/">Namecheap</a>
 והאתר מאוחסן בשרת <a class="blue" href="https://jetserver.co.il/">Jetserver</a>.
 
-<h3><b><u>כלים:</u></h3></b>
-<a class="blue" href="https://www.omdbapi.com">פרוייקט API של OMDB </a><br>
-<a class="blue" href="https://developer.themoviedb.org/docs/getting-started">פרוייקט API של TMDB </a>
+<h3><b><u>פרוייקטים/כלים:</u></h3></b>
+<a class="blue" href="https://www.omdbapi.com"> API של OMDB </a><br>
+<a class="blue" href="https://developer.themoviedb.org/docs/getting-started"> API של TMDB </a>
 <br>
-<a class="blue" href="https://www.thetvdb.com/api-information">פרוייקט API של TVDB </a>
+<a class="blue" href="https://www.thetvdb.com/api-information"> API של TVDB </a>
 <br>
-<a class="blue" href="https://github.com/FabianBeiner/PHP-IMDB-Grabber">פרוייקט IMDB-Grabber </a>
+<a class="blue" href="https://github.com/FabianBeiner/PHP-IMDB-Grabber"> IMDB-Grabber </a>
 <br>
-<a class="blue" href="https://rapidapi.com/rapidapi-org1-rapidapi-org-default/api/imdb236">פרוייקט Rapidapi </a><br>
+<a class="blue" href="https://rapidapi.com/rapidapi-org1-rapidapi-org-default/api/imdb236"> Rapidapi </a><br>
 <br>
 <h3><b><u>הצעות לשיפור ודיווח על באגים:</u></h3></b>
 אם חשבתם על דרך לשפר תאתר או נתקלתם בשגיאה או באג או נתון לא נכון, בעמודי הפוסטרים השתמשו בכפתור ה'דיווח', לכל פנייה אחרת נא שלחו טופס דרך עמוד '<a class="blue" href="contact.php">צור קשר</a>'.<br>

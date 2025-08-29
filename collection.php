@@ -80,13 +80,14 @@ $params = [$id];
 $types = "i";
 $filter_query_string = '';
 
-// חיפוש טקסטואלי – מותאם לסכימה החדשה + תגיות משתמש
-$join_user_tags = ''; // ייקבע כשה-q לא ריק
+// חיפוש טקסטואלי – סכימה חדשה + תגיות משתמש + AKAS
+$join_user_tags = '';
+$join_akas = '';
+
 if (!empty($filters['q'])) {
     $keyword = $filters['q'];
     $filter_query_string .= "&q=" . urlencode($keyword);
 
-    // שדות קיימים בסכימה החדשה
     $searchFields = [
         "p.title_en", "p.title_he", "p.overview_he",
         "p.cast", "p.genres",
@@ -101,16 +102,24 @@ if (!empty($filters['q'])) {
         $params[] = $like;
         $types .= "s";
     }
-    // חיפוש גם בתגיות משתמש
+    // תגיות משתמש
     $like_parts[] = "ut.genre LIKE ?";
+    $params[] = $like;
+    $types .= "s";
+    // AKAS
+    $like_parts[] = "pa.aka_title LIKE ?";
+    $params[] = $like;
+    $types .= "s";
+    $like_parts[] = "pa.aka LIKE ?";
     $params[] = $like;
     $types .= "s";
 
     $where_conditions[] = "(" . implode(" OR ", $like_parts) . ")";
     $join_user_tags = ' LEFT JOIN user_tags ut ON ut.poster_id = p.id ';
+    $join_akas      = ' LEFT JOIN poster_akas pa ON pa.poster_id = p.id ';
 }
 
-// הוספת הפילטרים החדשים
+// פילטרים
 foreach ($filters as $key => $value) {
     if ($key !== 'q' && $value !== '' && $value !== null) {
         $filter_query_string .= "&$key=" . urlencode($value);
@@ -128,8 +137,6 @@ foreach ($filters as $key => $value) {
                 $params[] = (int)$value; $types .= "i";
                 break;
             case 'min_rating':
-                // משאיר כמו שהיה (אם אצלך הדירוג נשמר כמספר טהור זה יעבוד;
-                // אם הוא טקסט "8.1/10" – שקול להמיר ל-Cast כמו בעמודים אחרים)
                 $where_conditions[] = "p.imdb_rating >= ?";
                 $params[] = (float)$value; $types .= "d";
                 break;
@@ -137,14 +144,12 @@ foreach ($filters as $key => $value) {
     }
 }
 
-// הוספת פרמטר המיון למחרוזת הקישורים
+// מיון
 if ($sort_order !== 'added_desc') {
     $filter_query_string .= "&sort=" . urlencode($sort_order);
 }
-
 $where_clause = "WHERE " . implode(" AND ", $where_conditions);
 
-// הגדרת תנאי המיון באופן דינמי, עם עדיפות לפריטים נעוצים
 $order_by_clause = 'ORDER BY pc.is_pinned DESC';
 switch ($sort_order) {
     case 'added_asc':
@@ -162,11 +167,12 @@ switch ($sort_order) {
         break;
 }
 
-// ספירת תוצאות כוללת (עם JOIN לתגיות רק כשה-q פעיל)
+// ספירה
 $count_sql = "SELECT COUNT(DISTINCT p.id)
               FROM posters p
               JOIN poster_collections pc ON p.id = pc.poster_id
               $join_user_tags
+              $join_akas
               $where_clause";
 $count_stmt = $conn->prepare($count_sql);
 $count_stmt->bind_param($types, ...$params);
@@ -175,11 +181,12 @@ $total_posters = $count_stmt->get_result()->fetch_row()[0] ?? 0;
 $total_pages = ceil($total_posters / $per_page);
 $count_stmt->close();
 
-// שליפת הפוסטרים עם המיון הדינמי והמידע על נעיצה
+// שליפה
 $posters_sql = "SELECT DISTINCT p.*, pc.is_pinned, pc.added_at
                 FROM posters p
                 JOIN poster_collections pc ON p.id = pc.poster_id
                 $join_user_tags
+                $join_akas
                 $where_clause
                 $order_by_clause
                 LIMIT ? OFFSET ?";
@@ -194,7 +201,7 @@ $poster_list = [];
 while ($row = $res->fetch_assoc()) $poster_list[] = $row;
 $stmt->close();
 
-// כל הפוסטרים לאוסף (עבור הרשימה השמית בצד)
+// רשימה שמית
 $all_posters_for_list = [];
 $sql_all = "SELECT p.*
             FROM poster_collections pc
@@ -249,9 +256,10 @@ $stmt_all->close();
     .form-box button { width: 100%; font-size: 16px; padding: 8px 0; border-radius: 7px; border: none; background: #007bff; color: #fff; margin-top: 6px; cursor: pointer; transition: background 0.2s; }
     .main-search-box { background: #fff; border: 1.5px solid #bbb; border-radius: 11px; padding: 10px 18px; width: 270px; font-size: 16px; box-shadow: 0 2px 10px #e1e6eb50; outline: none; transition: border .2s, box-shadow .2s; margin-left: 0; margin-right: 0; color: #1d1d1d; }
     .main-search-btn { padding: 8px 20px; border-radius: 7px; border: none; background: #1576cc; color: #fff; font-size: 16px; cursor: pointer; }
+
     .sidebar-wrapper {
         flex:none !important; width:305px; min-width:250px; max-width:320px;
-        display: flex; flex-direction: column; gap: 20px; align-self: flex-start;
+        display: flex; flex-direction: column; gap: 20px; alignself: flex-start;
     }
     .filter-panel {
         background: #fdfdfd; border: 1px solid #eee; padding: 15px;
@@ -278,6 +286,27 @@ $stmt_all->close();
     .sort-box { display:flex; align-items:center; gap:8px; }
     .sort-box label { font-weight:bold; font-size:15px; }
     .sort-box select { padding: 5px 8px; border-radius: 5px; border: 1px solid #ccc; font-size:15px; }
+
+    /* ===== תיאור דו-עמודתי ===== */
+    .desc2-wrap{width:100%; text-align:center; margin:14px 0;}
+    .desc2-table{display:inline-table; border-collapse:separate; border-spacing:24px 0; width:auto; max-width:1100px;}
+    .desc2-td{vertical-align:top; padding:0; max-width:520px;}
+    .desc2-col{ text-align:justify; text-justify:inter-word; unicode-bidi:plaintext; line-height:1.45; font-size:15px; }
+    .desc2-col.en{ direction:ltr; text-align-last:left; }
+    .desc2-col.he{ direction:rtl; text-align-last:right; }
+
+    @media (max-width: 860px){
+      .desc2-table{ display:block; max-width:95%; margin:0 auto; border-spacing:0; }
+      .desc2-td{ display:block; width:auto; max-width:none; margin:0 0 12px 0; }
+    }
+
+    .desc2-td {
+  padding: 0 20px;
+}
+.desc2-td:first-child {
+  border-right: 2px solid black; /* קו מפריד */
+}
+
   </style>
 </head>
 <body><br>
@@ -286,20 +315,96 @@ $stmt_all->close();
   <?php if (!empty($collection['image_url'])): ?>
     <img src="<?= htmlspecialchars($collection['image_url']) ?>" alt="תמונה" class="header-img">
   <?php endif; ?>
-  <?php if (!empty($collection['description'])): ?>
-    <div class="description">📝 <?= nl2br(htmlspecialchars($collection['description'])) ?></div>
-  <?php endif; ?>
-<div id="csvUploadResult" style="max-width:900px;margin:12px auto 0;display:none;background:#f6fff6;border:1px solid #cde8cd;padding:12px;border-radius:8px;"></div>
 
-  
-  <div><button type="button" class="name-list-toggle-btn" onclick="toggleNameList()">
+  <?php if (!empty($collection['description'])): ?>
+  <?php
+    // נרמול שורות
+    $raw = str_replace("\r\n", "\n", (string)$collection['description']);
+    $raw = preg_replace("/\n{4,}/", "\n\n\n", $raw); // להגביל מפריד ל-3+
+
+    // פיצול על 3+ ירידות שורה (he|en)
+    $parts = preg_split("/\n{3,}/", $raw, 2);
+    $left_en_raw  = ''; // שמאל = אנגלית
+    $right_he_raw = ''; // ימין = עברית
+
+    $p0 = trim($parts[0] ?? '');
+    $p1 = trim($parts[1] ?? '');
+
+    // פונקציית עזר: האם יש עברית?
+    $hasHeb = static function(string $t): bool {
+      return (bool)preg_match('/\p{Hebrew}/u', $t);
+    };
+
+    if (count($parts) >= 2) {
+      // יש מפריד מפורש (3 שורות):
+      // לפי ההגדרה: לפני המפריד = עברית (ימין), אחרי המפריד = אנגלית (שמאל)
+      $right_he_raw = $p0;
+      $left_en_raw  = $p1;
+
+      // טיפול במקרי קצה – אם צד אחד ריק:
+      if ($right_he_raw === '' && $left_en_raw !== '') {
+        // אנגלית בלבד אחרי המפריד → תישאר בשמאל, ימין ריק
+        // (כבר המצב בפועל, אז אין שינוי)
+      } elseif ($left_en_raw === '' && $right_he_raw !== '') {
+        // עברית בלבד לפני המפריד → תישאר בימין, שמאל ריק
+      } elseif ($right_he_raw !== '' && $left_en_raw !== '') {
+        // שני הצדדים מלאים – נשאיר כרגיל
+      } else {
+        // שניהם ריקים – לא נציג כלום
+        $right_he_raw = $left_en_raw = '';
+      }
+    } else {
+      // אין מפריד מפורש: מנסים לזהות שפה באופן אוטומטי
+      if ($p0 !== '') {
+        if ($hasHeb($p0)) {
+          $right_he_raw = $p0; // עברית → לימין
+        } else {
+          $left_en_raw  = $p0; // אחרת → לשמאל (אנגלית/לטינית)
+        }
+      }
+    }
+
+    // אם אין תוכן באף צד – לא להציג את הקומפוננטה
+    $has_any = ($right_he_raw !== '' || $left_en_raw !== '');
+
+    // המרות ל-HTML (שומרים ירידה אחת כ-<br>)
+    $desc_he_html = nl2br(htmlspecialchars($right_he_raw, ENT_QUOTES, 'UTF-8'));
+    $desc_en_html = nl2br(htmlspecialchars($left_en_raw,  ENT_QUOTES, 'UTF-8'));
+  ?>
+  <?php if ($has_any): ?>
+    <div class="desc2-wrap">
+      <table class="desc2-table" role="presentation" dir="ltr">
+        <tr>
+          <!-- שמאל: אנגלית -->
+          <td class="desc2-td">
+            <div class="desc2-col en">
+              <?= $desc_en_html ?>
+            </div>
+          </td>
+          <!-- ימין: עברית -->
+          <td class="desc2-td">
+            <div class="desc2-col he">
+              <?= $desc_he_html ?>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  <?php endif; ?>
+<?php endif; ?>
+
+
+  <div id="csvUploadResult" style="max-width:900px;margin:12px auto 0;display:none;background:#f6fff6;border:1px solid #cde8cd;padding:12px;border-radius:8px;"></div>
+
+  <div>
+    <button type="button" class="name-list-toggle-btn" onclick="toggleNameList()">
       <span class="icon">📄</span> הצג/הסתר רשימה שמית
     </button>
-<form id="csvUploadForm" action="collection_upload_csv_api.php" method="post" enctype="multipart/form-data" style="display:inline;">
-  <input type="hidden" name="collection_id" value="<?= $id ?>">
-  <input type="file" name="ids_file" id="ids_file" accept=".csv,.txt,text/csv,text/plain" style="display:none" onchange="uploadCsvToCollection(this.form)">
-  <button type="button" class="size-btn" onclick="document.getElementById('ids_file').click()" style="margin-right:6px; padding:8px 20px; border-radius:7px; border:none; background:#6f42c1; color:#fff; text-decoration:none !important;">⬆️ העלאת CSV/TXT לאוסף</button>
-</form>
+    <form id="csvUploadForm" action="collection_upload_csv_api.php" method="post" enctype="multipart/form-data" style="display:inline;">
+      <input type="hidden" name="collection_id" value="<?= $id ?>">
+      <input type="file" name="ids_file" id="ids_file" accept=".csv,.txt,text/csv,text/plain" style="display:none" onchange="uploadCsvToCollection(this.form)">
+      <button type="button" class="size-btn" onclick="document.getElementById('ids_file').click()" style="margin-right:6px; padding:8px 20px; border-radius:7px; border:none; background:#6f42c1; color:#fff; text-decoration:none !important;">⬆️ העלאת CSV/TXT לאוסף</button>
+    </form>
 
     <a href="edit_collection.php?id=<?= $collection['id'] ?>" class="link-btn">✏️ ערוך</a>
 
@@ -317,7 +422,6 @@ $stmt_all->close();
     <a href="#" onclick="togglePin()" class="link-btn" style="background:#c1e8ff;">📌 הצג/הסתר נעיצה</a>
   </div>
 
-
   <div style="margin-top:10px;">
     גודל פוסטרים:
     <button onclick="setSize('small')" class="size-btn" id="size-small">קטן</button>
@@ -334,141 +438,138 @@ $stmt_all->close();
       <a href="collection.php?id=<?= $id ?>" style="color:#1576cc; margin-right:7px;">נקה חיפוש</a>
     <?php endif; ?>
   </form>
-  
+
   <div class="controls-bar">
     <h3>🎬 פוסטרים באוסף: (<?= $total_posters ?> תוצאות)</h3>
-    
     <div class="sort-box">
-        <form method="get" id="sortForm">
-            <input type="hidden" name="id" value="<?= $id ?>">
-            <?php foreach ($filters as $key => $value): ?>
-                <?php if ($value !== '' && $value !== null): ?>
-                    <input type="hidden" name="<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($value) ?>">
-                <?php endif; ?>
-            <?php endforeach; ?>
-            <label for="sort">מיין לפי:</label>
-            <select name="sort" id="sort" onchange="document.getElementById('sortForm').submit()">
-                <option value="added_desc" <?= ($sort_order == 'added_desc') ? 'selected' : '' ?>>האחרון שהתווסף</option>
-                <option value="added_asc"  <?= ($sort_order == 'added_asc') ? 'selected' : '' ?>>הראשון שהתווסף</option>
-                <option value="year_desc"  <?= ($sort_order == 'year_desc') ? 'selected' : '' ?>>שנה (מהחדש לישן)</option>
-                <option value="year_asc"   <?= ($sort_order == 'year_asc') ? 'selected' : '' ?>>שנה (מהישן לחדש)</option>
-            </select>
-        </form>
+      <form method="get" id="sortForm">
+        <input type="hidden" name="id" value="<?= $id ?>">
+        <?php foreach ($filters as $key => $value): ?>
+          <?php if ($value !== '' && $value !== null): ?>
+            <input type="hidden" name="<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($value) ?>">
+          <?php endif; ?>
+        <?php endforeach; ?>
+        <label for="sort">מיין לפי:</label>
+        <select name="sort" id="sort" onchange="document.getElementById('sortForm').submit()">
+          <option value="added_desc" <?= ($sort_order == 'added_desc') ? 'selected' : '' ?>>האחרון שהתווסף</option>
+          <option value="added_asc"  <?= ($sort_order == 'added_asc') ? 'selected' : '' ?>>הראשון שהתווסף</option>
+          <option value="year_desc"  <?= ($sort_order == 'year_desc') ? 'selected' : '' ?>>שנה (מהחדש לישן)</option>
+          <option value="year_asc"   <?= ($sort_order == 'year_asc') ? 'selected' : '' ?>>שנה (מהישן לחדש)</option>
+        </select>
+      </form>
     </div>
   </div>
-  
+
   <div class="poster-section">
-      <div class="poster-grid medium">
-        <?php if ($poster_list): ?>
-            <?php
-            $base_link_params = http_build_query(array_merge($_GET, ['id' => $id]));
-            ?>
-            <?php foreach ($poster_list as $p): ?>
-              <div class="poster-item medium <?= !empty($p['is_pinned']) ? 'pinned' : '' ?>">
-                <a href="poster.php?id=<?= $p['id'] ?>">
-                  <?php $img = trim($p['image_url'] ?? '') ?: 'images/no-poster.png'; ?>
-                  <img src="<?= htmlspecialchars($img) ?>" alt="Poster">
-                  <small><?= htmlspecialchars($p['title_en']) ?></small>
-                  <?php if (!empty($p['title_he'])): ?>
-                    <div class="title-he"><?= htmlspecialchars($p['title_he']) ?></div>
-                  <?php endif; ?>
-                  <?php if (!empty($p['imdb_id'])): ?>
-                    <div class="imdb-id">
-                      <a href="https://www.imdb.com/title/<?= htmlspecialchars($p['imdb_id']) ?>" target="_blank">
-                        IMDb: <?= htmlspecialchars($p['imdb_id']) ?>
-                      </a>
-                    </div>
-                  <?php endif; ?>
-                </a>
-                
-                <div class="pin-box">
-                  <?php if (!empty($p['is_pinned'])): ?>
-                    <a href="collection.php?unpin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 הסר נעיצה</a>
-                  <?php else: ?>
-                    <a href="collection.php?pin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 נעיצה</a>
-                  <?php endif; ?>
-                </div>
-
-                <div class="delete-box">
-                  <form method="post" action="remove_from_collection.php">
-                    <input type="hidden" name="collection_id" value="<?= $collection['id'] ?>">
-                    <input type="hidden" name="poster_id" value="<?= $p['id'] ?>">
-                    <button type="submit" class="remove-btn">🗑️ הסר</button>
-                  </form>
-                </div>
-              </div>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <p>לא נמצאו פוסטרים באוסף זה התואמים לסינון.</p>
-        <?php endif; ?>
-      </div>
-      
-      <aside class="sidebar-wrapper">
-          <div class="filter-panel">
-            <h4>✔️ סנן פוסטרים</h4>
-            <form method="get">
-                <input type="hidden" name="id" value="<?= $id ?>">
-                <input type="hidden" name="q" value="<?= htmlspecialchars($filters['q']) ?>">
-                <input type="hidden" name="sort" value="<?= htmlspecialchars($sort_order) ?>">
-                <div class="filter-group">
-                    <label for="type_id">סוג</label>
-                    <select name="type_id" id="type_id" onchange="this.form.submit()">
-                        <option value="">הכל</option>
-                        <?php foreach ($types_list as $type): ?>
-                            <option value="<?= $type['id'] ?>" <?= ($filters['type_id'] == $type['id']) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($type['label_he']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="min_year">משנה</label>
-                    <input type="number" name="min_year" id="min_year" placeholder="1980" value="<?= htmlspecialchars($filters['min_year']) ?>">
-                </div>
-                 <div class="filter-group">
-                    <label for="max_year">עד שנה</label>
-                    <input type="number" name="max_year" id="max_year" placeholder="2025" value="<?= htmlspecialchars($filters['max_year']) ?>">
-                </div>
-                <div class="filter-group">
-                    <label for="min_rating">דירוג IMDb מינימלי</label>
-                    <input type="number" name="min_rating" id="min_rating" step="0.1" min="1" max="10" placeholder="7.5" value="<?= htmlspecialchars($filters['min_rating']) ?>">
-                </div>
-                <button type="submit" class="filter-submit-btn">סנן</button>
-                 <?php if (!empty(array_filter(array_slice($filters, 1)))): ?>
-                    <a href="collection.php?id=<?= $id ?>&q=<?= urlencode($filters['q']) ?>&sort=<?= urlencode($sort_order) ?>" style="display: block; text-align: center; margin-top: 10px;">נקה סינון</a>
-                <?php endif; ?>
-            </form>
-          </div>
-
-          <div class="poster-list-sidebar" id="name-list-sidebar">
-            <h4>📃 רשימה שמית</h4>
-            <div style="position:relative;">
-              <input type="text" id="poster-search" placeholder="חפש פוסטר...">
-            </div>
-            <ol id="poster-list">
-              <?php foreach ($all_posters_for_list as $i => $p): ?>
-                <li>
-                  <a href="poster.php?id=<?= $p['id'] ?>" style="color:#007bff;">
-                    <?= htmlspecialchars($p['title_en']) ?>
+    <div class="poster-grid medium">
+      <?php if ($poster_list): ?>
+        <?php $base_link_params = http_build_query(array_merge($_GET, ['id' => $id])); ?>
+        <?php foreach ($poster_list as $p): ?>
+          <div class="poster-item medium <?= !empty($p['is_pinned']) ? 'pinned' : '' ?>">
+            <a href="poster.php?id=<?= $p['id'] ?>">
+              <?php $img = trim($p['image_url'] ?? '') ?: 'images/no-poster.png'; ?>
+              <img src="<?= htmlspecialchars($img) ?>" alt="Poster">
+              <small><?= htmlspecialchars($p['title_en']) ?></small>
+              <?php if (!empty($p['title_he'])): ?>
+                <div class="title-he"><?= htmlspecialchars($p['title_he']) ?></div>
+              <?php endif; ?>
+              <?php if (!empty($p['imdb_id'])): ?>
+                <div class="imdb-id">
+                  <a href="https://www.imdb.com/title/<?= htmlspecialchars($p['imdb_id']) ?>" target="_blank">
+                    IMDb: <?= htmlspecialchars($p['imdb_id']) ?>
                   </a>
-                  <?php if (!empty($p['title_he'])): ?>
-                    <div class="title-he"><?= htmlspecialchars($p['title_he']) ?></div>
-                  <?php endif; ?>
-                  <?php if (!empty($p['year'])): ?>
-                    <div class="year">שנה: <?= htmlspecialchars($p['year']) ?></div>
-                  <?php endif; ?>
-                  <?php if (!empty($p['imdb_id'])): ?>
-                    <div class="imdb-id">
-                      <a href="https://www.imdb.com/title/<?= htmlspecialchars($p['imdb_id']) ?>" target="_blank">
-                        <?= htmlspecialchars($p['imdb_id']) ?>
-                      </a>
-                    </div>
-                  <?php endif; ?>
-                </li>
-              <?php endforeach; ?>
-            </ol>
+                </div>
+              <?php endif; ?>
+            </a>
+
+            <div class="pin-box">
+              <?php if (!empty($p['is_pinned'])): ?>
+                <a href="collection.php?unpin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 הסר נעיצה</a>
+              <?php else: ?>
+                <a href="collection.php?pin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 נעיצה</a>
+              <?php endif; ?>
+            </div>
+
+            <div class="delete-box">
+              <form method="post" action="remove_from_collection.php">
+                <input type="hidden" name="collection_id" value="<?= $collection['id'] ?>">
+                <input type="hidden" name="poster_id" value="<?= $p['id'] ?>">
+                <button type="submit" class="remove-btn">🗑️ הסר</button>
+              </form>
+            </div>
           </div>
-      </aside>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <p>לא נמצאו פוסטרים באוסף זה התואמים לסינון.</p>
+      <?php endif; ?>
+    </div>
+
+    <aside class="sidebar-wrapper">
+      <div class="filter-panel">
+        <h4>✔️ סנן פוסטרים</h4>
+        <form method="get">
+          <input type="hidden" name="id" value="<?= $id ?>">
+          <input type="hidden" name="q" value="<?= htmlspecialchars($filters['q']) ?>">
+          <input type="hidden" name="sort" value="<?= htmlspecialchars($sort_order) ?>">
+          <div class="filter-group">
+            <label for="type_id">סוג</label>
+            <select name="type_id" id="type_id" onchange="this.form.submit()">
+              <option value="">הכל</option>
+              <?php foreach ($types_list as $type): ?>
+                <option value="<?= $type['id'] ?>" <?= ($filters['type_id'] == $type['id']) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($type['label_he']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="min_year">משנה</label>
+            <input type="number" name="min_year" id="min_year" placeholder="1980" value="<?= htmlspecialchars($filters['min_year']) ?>">
+          </div>
+          <div class="filter-group">
+            <label for="max_year">עד שנה</label>
+            <input type="number" name="max_year" id="max_year" placeholder="2025" value="<?= htmlspecialchars($filters['max_year']) ?>">
+          </div>
+          <div class="filter-group">
+            <label for="min_rating">דירוג IMDb מינימלי</label>
+            <input type="number" name="min_rating" id="min_rating" step="0.1" min="1" max="10" placeholder="7.5" value="<?= htmlspecialchars($filters['min_rating']) ?>">
+          </div>
+          <button type="submit" class="filter-submit-btn">סנן</button>
+          <?php if (!empty(array_filter(array_slice($filters, 1)))): ?>
+            <a href="collection.php?id=<?= $id ?>&q=<?= urlencode($filters['q']) ?>&sort=<?= urlencode($sort_order) ?>" style="display: block; text-align: center; margin-top: 10px;">נקה סינון</a>
+          <?php endif; ?>
+        </form>
+      </div>
+
+      <div class="poster-list-sidebar" id="name-list-sidebar">
+        <h4>📃 רשימה שמית</h4>
+        <div style="position:relative;">
+          <input type="text" id="poster-search" placeholder="חפש פוסטר...">
+        </div>
+        <ol id="poster-list">
+          <?php foreach ($all_posters_for_list as $i => $p): ?>
+            <li>
+              <a href="poster.php?id=<?= $p['id'] ?>" style="color:#007bff;">
+                <?= htmlspecialchars($p['title_en']) ?>
+              </a>
+              <?php if (!empty($p['title_he'])): ?>
+                <div class="title-he"><?= htmlspecialchars($p['title_he']) ?></div>
+              <?php endif; ?>
+              <?php if (!empty($p['year'])): ?>
+                <div class="year">שנה: <?= htmlspecialchars($p['year']) ?></div>
+              <?php endif; ?>
+              <?php if (!empty($p['imdb_id'])): ?>
+                <div class="imdb-id">
+                  <a href="https://www.imdb.com/title/<?= htmlspecialchars($p['imdb_id']) ?>" target="_blank">
+                    <?= htmlspecialchars($p['imdb_id']) ?>
+                  </a>
+                </div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ol>
+      </div>
+    </aside>
   </div>
 
   <?php if ($total_pages > 1): ?>
@@ -540,59 +641,58 @@ tt1375666
     var sidebar = document.getElementById('name-list-sidebar');
     sidebar.classList.toggle('hide-list');
   }
-</script>
-<script>
-async function uploadCsvToCollection(form) {
-  const inp = form.querySelector('#ids_file');
-  if (!inp.files || !inp.files.length) return;
 
-  const fd = new FormData(form);
-  fd.set('ids_file', inp.files[0]);
+  async function uploadCsvToCollection(form) {
+    const inp = form.querySelector('#ids_file');
+    if (!inp.files || !inp.files.length) return;
 
-  const box = document.getElementById('csvUploadResult');
-  if (box) {
-    box.style.display = 'block';
-    box.style.background = '#fff';
-    box.style.borderColor = '#cde8cd';
-    box.innerHTML = '⏳ מעלה ומעבד...';
-  }
+    const fd = new FormData(form);
+    fd.set('ids_file', inp.files[0]);
 
-  try {
-    const res = await fetch(form.action, { method: 'POST', body: fd });
-    const data = await res.json();
+    const box = document.getElementById('csvUploadResult');
+    if (box) {
+      box.style.display = 'block';
+      box.style.background = '#fff';
+      box.style.borderColor = '#cde8cd';
+      box.innerHTML = '⏳ מעלה ומעבד...';
+    }
 
-    if (!res.ok || data.error || data.errors) {
-      const errs = (data.errors || [data.error || 'שגיאה לא ידועה']).map(e => `<li>${e}</li>`).join('');
+    try {
+      const res = await fetch(form.action, { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (!res.ok || data.error || data.errors) {
+        const errs = (data.errors || [data.error || 'שגיאה לא ידועה']).map(e => `<li>${e}</li>`).join('');
+        if (box) {
+          box.style.background = '#fff5f5';
+          box.style.borderColor = '#f3c0c0';
+          box.innerHTML = `<strong>שגיאה:</strong><ul>${errs}</ul>`;
+        }
+        return;
+      }
+
+      if (box) {
+        box.style.background = '#f6fff6';
+        box.style.borderColor = '#cde8cd';
+        box.innerHTML = `
+          ✅ הועלה ועובד בהצלחה.<br>
+          נוספו לאוסף: <strong>${data.inserted||0}</strong>, כבר היו: <strong>${data.already||0}</strong>.<br>
+          מרענן את העמוד…
+        `;
+      }
+
+      setTimeout(() => { window.location.reload(); }, 600);
+
+    } catch (e) {
       if (box) {
         box.style.background = '#fff5f5';
         box.style.borderColor = '#f3c0c0';
-        box.innerHTML = `<strong>שגיאה:</strong><ul>${errs}</ul>`;
+        box.innerHTML = `❌ תקלה בחיבור לשרת: ${e}`;
       }
-      return;
+    } finally {
+      inp.value = '';
     }
-
-    if (box) {
-      box.style.background = '#f6fff6';
-      box.style.borderColor = '#cde8cd';
-      box.innerHTML = `
-        ✅ הועלה ועובד בהצלחה.<br>
-        נוספו לאוסף: <strong>${data.inserted||0}</strong>, כבר היו: <strong>${data.already||0}</strong>.<br>
-        מרענן את העמוד…
-      `;
-    }
-
-    setTimeout(() => { window.location.reload(); }, 600);
-
-  } catch (e) {
-    if (box) {
-      box.style.background = '#fff5f5';
-      box.style.borderColor = '#f3c0c0';
-      box.innerHTML = `❌ תקלה בחיבור לשרת: ${e}`;
-    }
-  } finally {
-    inp.value = '';
   }
-}
 </script>
 
 </body>

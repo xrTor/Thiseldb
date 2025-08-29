@@ -110,4 +110,3 @@ $result = $conn->query("SELECT * FROM collections ORDER BY created_at DESC");
 </html>
 
 <?php include 'footer.php'; ?>
-<?php $conn->close(); ?>
