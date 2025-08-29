@@ -110,7 +110,7 @@ $original_title = $posterRow['original_title']  ?? '';
 $title_he       = $posterRow['title_he']        ?? '';
 $year           = trim((string)($posterRow['year'] ?? ''));
 $is_tv          = (int)($posterRow['is_tv']     ?? 0);
-$poster_url     = $posterRow['poster_url']      ?? ($posterRow['poster'] ?? '');
+$poster_url     = $posterRow['image_url']       ?? ($posterRow['poster_url'] ?? ($posterRow['poster'] ?? ''));
 $trailer_url    = $posterRow['trailer_url']     ?? '';
 $overview_he    = $posterRow['overview_he']     ?? '';
 $overview_en    = $posterRow['overview_en']     ?? '';
@@ -731,30 +731,48 @@ function chip_links(array $items, string $param, array $extra = []): string {
 </div>
 
 <script>
-  // טוגל יחיד לכל פעולות הניהול + "הצג הכל"
+  // טוגל יחיד לכל פעולות הניהול + "הצג הכל / הסתר הכל"
   document.addEventListener('click', function(e){
     var btn = e.target.closest && e.target.closest('#btn-mgmt-toggle');
     if(btn){
       if(document.body.classList.contains('mgmt-hidden')){
-        document.body.classList.remove('mgmt-hidden'); document.body.classList.add('mgmt-open');
+        document.body.classList.remove('mgmt-hidden'); 
+        document.body.classList.add('mgmt-open');
       } else {
-        document.body.classList.remove('mgmt-open'); document.body.classList.add('mgmt-hidden');
+        document.body.classList.remove('mgmt-open'); 
+        document.body.classList.add('mgmt-hidden');
       }
       return;
     }
+
     var t=e.target.closest && e.target.closest('.btn-toggle[data-target]');
     if(t){
       var targetSel = t.getAttribute('data-target');
       var ellSel    = t.getAttribute('data-ell');
       var box = targetSel && document.querySelector(targetSel);
+
       if (box){
-        var isHidden = box.classList.contains('hidden');
-        box.classList.toggle('hidden');
+        var wasHidden = box.classList.contains('hidden'); // מצב לפני לחיצה
+        box.classList.toggle('hidden');                   // פתח/סגור
+
+        // טיפול באליפסיס (שלוש נקודות)
         if (ellSel) {
           var ell = document.querySelector(ellSel);
-          if (ell) ell.classList.toggle('hidden', !isHidden);
+          if (ell) {
+            ell.classList.toggle('hidden', wasHidden);
+ 
+          }
+        }
+
+        // טקסט הכפתור
+        if (!wasHidden) {
+          t.textContent = 'הצג הכל';
+        } else {
+          t.textContent = 'הסתר הכל';
         }
       }
+      e.preventDefault();
+      return;
     }
   });
 </script>

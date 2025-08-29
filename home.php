@@ -40,6 +40,15 @@ $fields = [
   'network'
 ];
 $types_selected = $_GET['type'] ?? [];
+// --- החל אליאסים על פרמטרי GET (לפני בניית WHERE) ---
+$ALIAS_FIELDS = ['search','country','lang_code','genre','network','user_tag'];
+
+foreach ($ALIAS_FIELDS as $k) {
+  if (!empty($_GET[$k]) && is_string($_GET[$k])) {
+    $_GET[$k] = applyAliases($k, $_GET[$k], $ALIASES);
+  }
+}
+// --- סוף אליאסים ---
 
 // ----- בניית WHERE דינמי -----
 $where = [];
