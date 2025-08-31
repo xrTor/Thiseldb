@@ -231,3 +231,10 @@ display: flex
  a:hover {text-decoration:none!important;}
 
    body {background-color:#EDEDEE !important} 
+.bb-img {
+  max-width: 400px;  /* או 100% אם אתה רוצה שיתאים לרוחב התיבה */
+  height: auto;
+  display: block;
+  margin: 10px auto; /* למרכז */
+  border-radius: 6px;
+}

@@ -11,7 +11,7 @@ while ($row = $type_result->fetch_assoc()) {
 
 $selected_type_id = isset($_GET['type_id']) ? intval($_GET['type_id']) : 0;
 
-/* --- פרמטר סינון חסר: missing=all|title_he|title_en|overview|imdb|image|year|genres|mc|rt --- */
+/* --- פרמטר סינון חסר --- */
 $missing_key = $_GET['missing'] ?? 'all';
 $allowed_missing = [
   'all'      => 'הכול',
@@ -22,8 +22,7 @@ $allowed_missing = [
   'image'    => 'תמונה',
   'year'     => 'שנה',
   'genres'   => 'ז׳אנרים',
-  'mc'       => 'Metacritic',
-  'rt'       => 'Rotten Tomatoes',
+  'tmdb'     => 'TMDb קישור',
 ];
 if (!isset($allowed_missing[$missing_key])) $missing_key = 'all';
 
@@ -31,24 +30,22 @@ if (!isset($allowed_missing[$missing_key])) $missing_key = 'all';
 $cond_map = [
   'title_he' => "(title_he IS NULL OR title_he='')",
   'title_en' => "(title_en IS NULL OR title_en='')",
-  // תקציר חסר: בלי overview_en
   'overview' => "(COALESCE(NULLIF(plot,''), NULLIF(plot_he,''), NULLIF(overview_he,'')) IS NULL)",
   'imdb'     => "(imdb_rating IS NULL OR imdb_rating=0)",
   'image'    => "((image_url IS NULL OR image_url='' OR image_url='N/A') AND (poster_url IS NULL OR poster_url='' OR poster_url='N/A'))",
   'year'     => "(year IS NULL OR year='')",
   'genres'   => "((genre IS NULL OR genre='') AND (genres IS NULL OR genres=''))",
-  'mc'       => "(mc_score IS NULL OR mc_score='' OR mc_score=0)",
-  'rt'       => "(rt_score IS NULL OR rt_score='' OR rt_score=0)",
+  'tmdb'     => "(tmdb_url IS NULL OR tmdb_url='')",
 ];
 $cond_all = implode(" OR ", array_values($cond_map));
 
-/* WHERE סופי לפי סינון */
+/* WHERE סופי */
 $where = ($missing_key === 'all') ? $cond_all : $cond_map[$missing_key];
 if ($selected_type_id > 0) {
   $where = "(type_id = $selected_type_id) AND ($where)";
 }
 
-/* --- מונה לכל כפתור (במכה אחת) --- */
+/* --- מונה לכל כפתור --- */
 $counts_sql =
   "SELECT
      SUM(CASE WHEN {$cond_map['title_he']} THEN 1 ELSE 0 END) AS c_title_he,
@@ -58,8 +55,7 @@ $counts_sql =
      SUM(CASE WHEN {$cond_map['image']} THEN 1 ELSE 0 END)    AS c_image,
      SUM(CASE WHEN {$cond_map['year']} THEN 1 ELSE 0 END)     AS c_year,
      SUM(CASE WHEN {$cond_map['genres']} THEN 1 ELSE 0 END)   AS c_genres,
-     SUM(CASE WHEN {$cond_map['mc']} THEN 1 ELSE 0 END)       AS c_mc,
-     SUM(CASE WHEN {$cond_map['rt']} THEN 1 ELSE 0 END)       AS c_rt,
+     SUM(CASE WHEN {$cond_map['tmdb']} THEN 1 ELSE 0 END)     AS c_tmdb,
      SUM(CASE WHEN ($cond_all) THEN 1 ELSE 0 END)             AS c_all
    FROM posters" . ($selected_type_id > 0 ? " WHERE type_id = $selected_type_id" : "");
 
@@ -74,11 +70,10 @@ $counts = [
   'image'    => (int)($counts_row['c_image']    ?? 0),
   'year'     => (int)($counts_row['c_year']     ?? 0),
   'genres'   => (int)($counts_row['c_genres']   ?? 0),
-  'mc'       => (int)($counts_row['c_mc']       ?? 0),
-  'rt'       => (int)($counts_row['c_rt']       ?? 0),
+  'tmdb'     => (int)($counts_row['c_tmdb']     ?? 0),
 ];
 
-/* --- ספירה לסיכום + שליפה --- */
+/* --- ספירה ושליפה --- */
 $count_result = $conn->query("SELECT COUNT(*) AS total FROM posters WHERE $where");
 $total_missing = $count_result ? (int)$count_result->fetch_assoc()['total'] : 0;
 
@@ -103,20 +98,17 @@ echo <<<STYLE
   .styled-table td:nth-child(3),
   .styled-table td:nth-child(4),
   .styled-table td:nth-child(5),
-  .styled-table td:nth-child(6),
-  .styled-table td:nth-child(7),
-  .styled-table td:nth-child(8) {
+  .styled-table td:nth-child(6) {
     text-align: center;
   }
   .styled-table tr:nth-child(even) { background-color: #f9f9f9; }
 
   .btn { text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
-  .btn-edit { background: /* #FF9800 */; color: white; }
+  .btn-edit { background: #007bff; color: white; }
 
   .filters { text-align: center; margin: 10px 0 6px; font-size: 16px; }
   .filters select { padding: 6px; font-size: 15px; }
 
-  /* פס כפתורי-חסר למעלה */
   .missing-bar { text-align:center; margin: 10px 0 10px; }
   .missing-bar a {
     display:inline-block; margin:4px 5px; padding:6px 10px; border-radius:999px;
@@ -130,7 +122,7 @@ STYLE;
 
 echo '<h2 style="text-align:center; margin:10px;">🎯 פוסטרים עם מידע חסר</h2>';
 
-/* --- פס כפתורים עם מונים --- */
+/* --- פס כפתורים --- */
 echo '<div class="missing-bar">';
 $base_qs = $_GET; unset($base_qs['missing']);
 foreach ($allowed_missing as $key => $label) {
@@ -142,7 +134,7 @@ foreach ($allowed_missing as $key => $label) {
 }
 echo '</div>';
 
-/* --- טופס סינון סוג (שומר missing) --- */
+/* --- סינון סוג --- */
 echo '<form method="get" class="filters">';
 echo '  <label>סוג פוסטר:</label> ';
 echo '  <select name="type_id" onchange="this.form.submit()">';
@@ -160,7 +152,7 @@ echo '</form>';
 $sel_label = $allowed_missing[$missing_key] ?? 'הכול';
 echo "<p class='missing-summary'>מציג: <u>$sel_label</u> — נמצאו <span style='color:darkred;'>$total_missing</span> פריטים</p>";
 
-/* --- טבלה/אין נתונים --- */
+/* --- טבלה --- */
 if ($total_missing === 0) {
   echo "<p style='text-align:center;'>✅ אין פריטים חסרים לפי הסינון.</p>";
 } else {
@@ -170,8 +162,7 @@ if ($total_missing === 0) {
       <th>כותרת</th>
       <th>שנה</th>
       <th>IMDb</th>
-      <th>Metacritic</th>
-      <th>Rotten<br>Tomatoes</th>
+      <th>TMDb</th>
       <th>IMDb ID</th>
       <th>חסרים</th>
       <th>עריכה</th>
@@ -199,11 +190,8 @@ if ($total_missing === 0) {
     $has_genres = !(empty(trim((string)($row['genre'] ?? ''))) && empty(trim((string)($row['genres'] ?? ''))));
     if (!$has_genres) $missing[] = 'ז׳אנרים';
 
-    $mc = $row['mc_score'] ?? '';
-    if ($mc === '' || (string)$mc === '0') $missing[] = 'Metacritic';
-
-    $rt = $row['rt_score'] ?? '';
-    if ($rt === '' || (string)$rt === '0') $missing[] = 'Rotten Tomatoes';
+    $tmdb = $row['tmdb_url'] ?? '';
+    if (empty($tmdb)) $missing[] = 'TMDb קישור';
 
     $id_link = '<a href="poster.php?id=' . (int)$row['id'] . '" target="_blank">' . (int)$row['id'] . '</a>';
 
@@ -215,16 +203,14 @@ if ($total_missing === 0) {
     $imdb_link = $imdb_id ? '<a href="https://www.imdb.com/title/' . $imdb_id . '" target="_blank">' . $imdb_id . '</a>' : '—';
 
     $imdb_show = ($imdb_rating_val > 0) ? htmlspecialchars($row['imdb_rating'], ENT_QUOTES, 'UTF-8') : '—';
-    $mc_show   = (!empty($mc) && (string)$mc !== '0') ? htmlspecialchars((string)$mc, ENT_QUOTES, 'UTF-8') : '—';
-    $rt_show   = (!empty($rt) && (string)$rt !== '0') ? htmlspecialchars((string)$rt, ENT_QUOTES, 'UTF-8') : '—';
+    $tmdb_show = $tmdb ? '<a href="'.htmlspecialchars($tmdb, ENT_QUOTES, 'UTF-8').'" target="_blank">קישור</a>' : '—';
 
     echo '<tr>
       <td>' . $id_link . '</td>
       <td>' . $title_link . '</td>
       <td>' . htmlspecialchars((string)($row['year'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
       <td>' . $imdb_show . '</td>
-      <td>' . $mc_show . '</td>
-      <td>' . $rt_show . '</td>
+      <td>' . $tmdb_show . '</td>
       <td>' . $imdb_link . '</td>
       <td style="color:red;">' . htmlspecialchars(implode(', ', $missing), ENT_QUOTES, 'UTF-8') . '</td>
       <td><a class="btn btn-edit" href="edit.php?id=' . (int)$row['id'] . '" target="_blank">✏ ערוך</a></td>

@@ -389,7 +389,137 @@ function chip_links(array $items, string $param, array $extra = []): string {
         filter: saturate(500%) contrast(800%) brightness(500%) 
       invert(80%) sepia(50%) hue-rotate(120deg); }
 
-      
+      /* ==== Light theme overrides ==== *//* ==== Light theme overrides ==== */
+body.theme-light {
+  --bg:#ffffff;        /* רקע כללי */
+  --card:#ffffff;      /* כרטיסים */
+  --text:#222222;      /* טקסט כהה */
+  --muted:#555555;     /* טקסט משני */
+  --chip:#f5f5f5;      /* שבבים */
+  --accent:#1a73e8;    /* כחול לינקים */
+  --line:#dddddd;      /* גבולות בהירים */
+  background-color:#ffffff !important;
+  color:var(--text) !important;
+}
+
+body.theme-light a { color: var(--accent) !important; }
+body.theme-light .content a { color: var(--accent) !important; }
+
+body.theme-light .poster {
+  background:#ffffff;
+  border-inline-end:1px solid var(--line);
+}
+
+body.theme-light img.poster-img { border-color: var(--line); }
+
+body.theme-light .chip {
+  background: var(--chip);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+body.theme-light .pill {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+body.theme-light .btn {
+  color: var(--text);
+  border-color: var(--line);
+  background:#fff;
+}
+body.theme-light .btn:hover {
+  background:#f1f1f1;
+}
+
+body.theme-light .label { color: var(--muted); }
+body.theme-light .section { border-top:1px solid var(--line); }
+body.theme-light {
+  background-color:#ffffff !important;  /* רקע לבן */
+  color:#222222 !important;             /* טקסט כהה */
+}
+/* תיקון מצב בהיר: לרקע לבן גם בבלוקים כהים עקשנים */
+body.theme-light{
+  --bg:#ffffff; --card:#ffffff; --text:#222; --muted:#555; --chip:#f5f5f5; --accent:#1a73e8; --line:#d9d9d9;
+  background:#ffffff !important;
+  color:#222 !important;
+}
+
+/* הכרטיס/מסגרת הראשית + אזורי משנה */
+body.theme-light .card{ background:#ffffff !important; border-color:var(--line) !important; }
+body.theme-light .row{ background:#ffffff !important; }
+body.theme-light .poster{ background:#ffffff !important; border-inline-end:1px solid var(--line) !important; }
+body.theme-light .content{ background:#ffffff !important; }
+
+/* סרגל עליון וכפתורים */
+body.theme-light .toolbar{ background:#ffffff !important; }
+body.theme-light .btn, 
+body.theme-light .btn-toggle{ background:#ffffff !important; color:var(--text) !important; border-color:var(--line) !important; }
+body.theme-light .btn:hover{ background:#f1f1f1 !important; }
+
+/* צ'יפים/תגיות ופילס */
+body.theme-light .chip{ background:var(--chip) !important; color:var(--text) !important; border-color:var(--line) !important; }
+body.theme-light .pill{ background:#ffffff !important; color:var(--text) !important; border-color:var(--line) !important; }
+
+/* קישורים */
+body.theme-light a, 
+body.theme-light .content a{ color:var(--accent) !important; }
+
+/* תמונת הפוסטר וקווים */
+body.theme-light img.poster-img{ border-color:var(--line) !important; }
+body.theme-light .section{ border-top:1px solid var(--line) !important; }
+
+/* אם יש לך .w3-* כהים בראש הדף – להבהיר */
+body.theme-light .w3-black, 
+body.theme-light .w3-hover-black:hover{ background:#ffffff !important; color:#222 !important; border-color:var(--line) !important; }
+/* מצב בהיר – צבע טקסט שחור בתפריט */
+body.theme-light nav,
+body.theme-light nav a,
+body.theme-light .w3-bar .w3-bar-item,
+body.theme-light .w3-button {
+  color:#000 !important;
+}
+/* במצב בהיר – אל תגע בלוגו */
+body.theme-light .logo {
+  filter: none !important;
+}
+/* מצב פסיקים */
+body.view-commas .chips { display:block; }
+body.view-commas .chips .chip { 
+  display:inline; 
+  background:none; 
+  border:none; 
+  padding:0; 
+  margin:0; 
+  color:var(--text);
+}
+body.view-commas .chips .chip::after { content:", "; }
+body.view-commas .chips .chip:last-child::after { content:""; }
+/* מצב פסיקים */
+body.view-commas .chips { display:block; }
+body.view-commas .chips .chip { 
+  display:inline; 
+  background:none; 
+  border:none; 
+  padding:0; 
+  margin:0; 
+  color:var(--text);
+}
+body.view-commas .chips .chip::after { content:", "; }
+body.view-commas .chips .chip:last-child::after { content:""; }
+
+/* שבבים סטטיים (סוג/Runtime/Seasons/Episodes) */
+.chips-static { margin-top:8px; margin-bottom:8px; }
+body.view-commas .chips-static .chip-static { 
+  display:inline-block !important;
+  background:var(--chip) !important;
+  border:1px solid var(--line) !important;
+  padding:6px 10px !important;
+  margin:2px 4px !important;
+}
+body.view-commas .chips-static .chip-static::after { content:"" !important; }
+
   </style>
 </head>
 <body>
@@ -464,6 +594,9 @@ function chip_links(array $items, string $param, array $extra = []): string {
 
         <!-- פס עליון: ניהול + לייק -->
         <div class="toolbar">
+          <button type="button" id="btn-theme-toggle" class="btn" title="החלף מצב תצוגה">🌞 מצב בהיר</button>
+<button type="button" id="btn-view-toggle" class="btn">🔀 מצב פסיקים</button>
+
           <a class="btn" href="report.php?poster_id=<?= (int)$__pa_id ?>">🚨 דווח</a>
           <a class="btn" href="edit.php?id=<?= (int)$__pa_id ?>">✏️ ערוך</a>
           <a class="btn" href="delete.php?id=<?= (int)$__pa_id ?>" onclick="return confirm('למחוק את הפוסטר?')">🗑️ מחק</a>
@@ -487,40 +620,72 @@ function chip_links(array $items, string $param, array $extra = []): string {
           <?php if (!empty($title_he)): ?><h3><?= H($title_he) ?></h3><?php endif; ?>
         </div>
 
-        <!-- שבבים כלליים -->
-        <div class="chips">
-          <span class="chip"><?= H($title_kind) ?></span>
-
-          <?php if (!empty($languages)): ?>
-            <?= chip_links($languages, 'lang_code') ?>
-          <?php endif; ?>
-
-          <?php if (!empty($countries)): ?>
-            <?= chip_links($countries, 'country') ?>
-          <?php endif; ?>
-
-          <?php if (!empty($runtime_formatted)): ?><span class="chip"><?= H($runtime_formatted) ?></span><?php endif; ?>
-          <?php if ($is_tv && !empty($seasons) && $seasons > 0): ?><span class="chip">Seasons: <?= H($seasons) ?></span><?php endif; ?>
-          <?php if ($is_tv && !empty($episodes) && $episodes > 0): ?><span class="chip">Episodes: <?= H($episodes) ?></span><?php endif; ?>
-
-          <?php if (!empty($networks)): ?>
-            <?php foreach ($networks as $n): ?>
-              <a class="chip" href="network.php?name=<?= urlencode($n) ?>"><?= H($n) ?></a>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </div>
-
         <!-- שיוך לאוספים -->
-        <?php if (!empty($__pa_collections)): ?>
-          <div class="kv" style="margin:6px 0 0">
-            <span class="label">משויך לאוספים:</span>
-            <span>
-              <?php foreach ($__pa_collections as $c): ?>
-                <a class="chip" href="collection.php?id=<?= (int)$c['id'] ?>" style="text-decoration:none;margin-inline-start:6px;display:inline-block;">🧩 <?= __pa_h($c['name']) ?></a>
-              <?php endforeach; ?>
-            </span>
-          </div>
-        <?php endif; ?>
+<?php if (!empty($__pa_collections)): ?>
+  <div class="section">
+    <p class="kv"><span class="label">משויך לאוספים:</span></p>
+    <div class="chips">
+      <?php foreach ($__pa_collections as $c): ?>
+        <a class="chip" href="collection.php?id=<?= (int)$c['id'] ?>">
+          🧩 <?= __pa_h($c['name']) ?>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+<?php endif; ?>
+        
+<!-- פרטים -->
+<div class="section">
+  <p class="kv"><span class="label">פרטים:</span></p>
+  <div class="chips">
+    <span class="chip"><?= H($title_kind) ?></span>
+    <?php if (!empty($runtime_formatted)): ?>
+      <span class="chip"><?= H($runtime_formatted) ?></span>
+    <?php endif; ?>
+    <?php if ($is_tv && !empty($seasons) && $seasons > 0): ?>
+      <span class="chip">Seasons: <?= H($seasons) ?></span>
+    <?php endif; ?>
+    <?php if ($is_tv && !empty($episodes) && $episodes > 0): ?>
+      <span class="chip">Episodes: <?= H($episodes) ?></span>
+    <?php endif; ?>
+  </div>
+</div>
+
+        <!-- שפות -->
+<?php if (!empty($languages)): ?>
+  <div class="section">
+    <p class="kv"><span class="label">שפות:</span></p>
+    <div class="chips">
+      <?= chip_links($languages, 'lang_code') ?>
+    </div>
+  </div>
+<?php endif; ?>
+
+<!-- מדינות -->
+<?php if (!empty($countries)): ?>
+  <div class="section">
+    <p class="kv"><span class="label">מדינות:</span></p>
+    <div class="chips">
+      <?= chip_links($countries, 'country') ?>
+    </div>
+  </div>
+<?php endif; ?>
+
+<!-- רשתות -->
+<?php if (!empty($networks)): ?>
+  <div class="section">
+    <p class="kv"><span class="label">רשתות:</span></p>
+    <div class="chips">
+      <?php foreach ($networks as $n): ?>
+        <a class="chip" href="network.php?name=<?= urlencode($n) ?>"><?= H($n) ?></a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+<?php endif; ?>
+
+
+
+   
 
         <!-- ז'אנרים -->
         <?php if (!empty($genres)): ?>
@@ -775,6 +940,65 @@ function chip_links(array $items, string $param, array $extra = []): string {
       return;
     }
   });
+</script>
+<script>
+(function(){
+  const KEY = 'poster_theme';
+  const btn = document.getElementById('btn-theme-toggle');
+
+  // אתחול: קרא מה-localStorage
+  const saved = localStorage.getItem(KEY);
+  if (saved === 'light') {
+    document.body.classList.add('theme-light');
+  }
+
+  // עדכון טקסט כפתור לפי מצב
+  function refreshLabel(){
+    const light = document.body.classList.contains('theme-light');
+    if (btn){
+      btn.textContent = light ? '🌙 מצב כהה' : '🌞 מצב בהיר';
+      btn.setAttribute('aria-pressed', light ? 'true' : 'false');
+    }
+  }
+  refreshLabel();
+
+  // האזנה לכפתור
+  if (btn){
+    btn.addEventListener('click', () => {
+      document.body.classList.toggle('theme-light');
+      const light = document.body.classList.contains('theme-light');
+      localStorage.setItem(KEY, light ? 'light' : 'dark');
+      refreshLabel();
+    });
+  }
+})();
+</script>
+<script>
+(function(){
+  // טוגל מצב בלוקים / פסיקים
+  const KEY = 'poster_view';
+  const btn = document.getElementById('btn-view-toggle');
+
+  const saved = localStorage.getItem(KEY);
+  if (saved === 'commas') {
+    document.body.classList.add('view-commas');
+  }
+
+  function refreshLabel(){
+    const commas = document.body.classList.contains('view-commas');
+    btn.textContent = commas ? '🔳 מצב בלוקים' : '🔀 מצב פסיקים';
+  }
+  refreshLabel();
+
+  if (btn){
+    btn.addEventListener('click', () => {
+      document.body.classList.toggle('view-commas');
+      const commas = document.body.classList.contains('view-commas');
+      localStorage.setItem(KEY, commas ? 'commas' : 'blocks');
+      refreshLabel();
+    });
+  }
+})();
 </script>
 
 </body>

@@ -21,9 +21,9 @@ if (isset($_POST['bulk_add'])) {
     }
 
     if (is_numeric($id)) {
-      $poster = $conn->query("SELECT id, genre FROM posters WHERE id = $id")->fetch_assoc();
+      $poster = $conn->query("SELECT id, genres FROM posters WHERE id = $id")->fetch_assoc();
     } elseif (preg_match('/^tt\d+$/', $id)) {
-      $stmt = $conn->prepare("SELECT id, genre FROM posters WHERE imdb_id = ?");
+      $stmt = $conn->prepare("SELECT id, genres FROM posters WHERE imdb_id = ?");
       $stmt->bind_param("s", $id);
       $stmt->execute();
       $poster = $stmt->get_result()->fetch_assoc();
@@ -34,7 +34,7 @@ if (isset($_POST['bulk_add'])) {
 
     if ($poster) {
       $pid = intval($poster['id']);
-      $poster_genres = explode(',', strtolower($poster['genre'] ?? ''));
+      $poster_genres = explode(',', strtolower($poster['genres'] ?? ''));
       $poster_genres = array_map('trim', $poster_genres);
 
       $update = false;
@@ -57,7 +57,7 @@ if (isset($_POST['bulk_add'])) {
         $final_genres = array_unique(array_map('trim', $poster_genres));
         $final_genres = array_filter($final_genres, fn($g) => $g !== '');
         $final_str = implode(', ', $final_genres);
-        $stmt = $conn->prepare("UPDATE posters SET genre = ? WHERE id = ?");
+        $stmt = $conn->prepare("UPDATE posters SET genres = ? WHERE id = ?");
         $stmt->bind_param("si", $final_str, $pid);
         $stmt->execute();
         $stmt->close();
@@ -72,13 +72,13 @@ if (isset($_POST['bulk_add'])) {
 if (isset($_GET['delete']) && isset($_GET['pid']) && isset($_GET['genre'])) {
   $pid = intval($_GET['pid']);
   $genre = trim($_GET['genre']);
-  $poster = $conn->query("SELECT genre FROM posters WHERE id = $pid")->fetch_assoc();
+  $poster = $conn->query("SELECT genres FROM posters WHERE id = $pid")->fetch_assoc();
   if ($poster) {
-    $genres = explode(',', $poster['genre']);
+    $genres = explode(',', $poster['genres']);
     $genres = array_map('trim', $genres);
     $genres = array_filter($genres, fn($g) => strtolower($g) !== strtolower($genre));
     $final_str = implode(', ', $genres);
-    $stmt = $conn->prepare("UPDATE posters SET genre = ? WHERE id = ?");
+    $stmt = $conn->prepare("UPDATE posters SET genres = ? WHERE id = ?");
     $stmt->bind_param("si", $final_str, $pid);
     $stmt->execute();
     $stmt->close();
@@ -95,19 +95,19 @@ $posters = [];
 
 if ($search !== '') {
   $searchLike = "%$search%";
-  $stmt = $conn->prepare("SELECT id, title_en, title_he, genre FROM posters WHERE title_en LIKE ? OR imdb_id LIKE ? ORDER BY id DESC");
+  $stmt = $conn->prepare("SELECT id, title_en, title_he, genres FROM posters WHERE title_en LIKE ? OR imdb_id LIKE ? ORDER BY id DESC");
   $stmt->bind_param("ss", $searchLike, $searchLike);
   $stmt->execute();
   $result = $stmt->get_result();
   $posters_raw = $result->fetch_all(MYSQLI_ASSOC);
   $stmt->close();
 } else {
-  $result = $conn->query("SELECT id, title_en, title_he, genre FROM posters ORDER BY id DESC");
+  $result = $conn->query("SELECT id, title_en, title_he, genres FROM posters ORDER BY id DESC");
   $posters_raw = $result->fetch_all(MYSQLI_ASSOC);
 }
 
 foreach ($posters_raw as $p) {
-  $genres = array_map('trim', explode(',', $p['genre'] ?? ''));
+  $genres = array_map('trim', explode(',', $p['genres'] ?? ''));
   $genres = array_filter($genres, fn($g) => $g !== '');
   $posters[] = [
     'id'       => intval($p['id']),
@@ -138,7 +138,7 @@ foreach ($posters_raw as $p) {
     ul.report { list-style:none; padding:0; margin-bottom:30px; max-width:600px; margin:0 auto; }
     ul.report li { margin-bottom:6px; font-size:14px; }
     .bold,td.title a {font-weight: bold; }
-    .back {color:#007bff; display: inline-flex;          align-items: center;    background: #F0F1F2;    color: #495057;    padding: 8px 8px;    border-radius: 12px;    margin: 2px;    font-size: 13px;}
+    .back {color:#007bff; display: inline-flex; align-items: center; background: #F0F1F2; color: #495057; padding: 8px 8px; border-radius: 12px; margin: 2px; font-size: 13px;}
   </style>
 </head>
 <body>

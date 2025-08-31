@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['old_name'], $_POST['n
     $new_name = trim($_POST['new_name']);
     
     if ($old_name !== '' && $new_name !== '') {
-        $stmt_find = $conn->prepare("SELECT id, genre FROM posters WHERE genre LIKE ?");
+        $stmt_find = $conn->prepare("SELECT id, genres FROM posters WHERE genres LIKE ?");
         $like_old = "%$old_name%";
         $stmt_find->bind_param("s", $like_old);
         $stmt_find->execute();
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['old_name'], $_POST['n
             $stmt_tags->close();
             
             // 2. הסר את כל המופעים של הז'אנר הישן
-            $genres_array = array_map('trim', explode(',', $poster['genre']));
+            $genres_array = array_map('trim', explode(',', $poster['genres']));
             $genres_after_removal = [];
             foreach ($genres_array as $genre) {
                 if (strcasecmp($genre, $old_name) !== 0) {
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['old_name'], $_POST['n
             $final_genre_str = implode(', ', $final_genres);
 
             // 5. עדכן את הפוסטר
-            $stmt_update = $conn->prepare("UPDATE posters SET genre = ? WHERE id = ?");
+            $stmt_update = $conn->prepare("UPDATE posters SET genres = ? WHERE id = ?");
             $stmt_update->bind_param("si", $final_genre_str, $poster_id);
             $stmt_update->execute();
             $stmt_update->close();
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['old_name'], $_POST['n
 if (isset($_GET['delete'])) {
     $del = trim($_GET['delete']);
     if ($del !== '') {
-        $stmt_find = $conn->prepare("SELECT id, genre FROM posters WHERE genre LIKE ?");
+        $stmt_find = $conn->prepare("SELECT id, genres FROM posters WHERE genres LIKE ?");
         $like_del = "%$del%";
         $stmt_find->bind_param("s", $like_del);
         $stmt_find->execute();
@@ -90,7 +90,7 @@ if (isset($_GET['delete'])) {
         $stmt_find->close();
 
         foreach($affected_posters as $poster) {
-            $genres_array = array_map('trim', explode(',', $poster['genre']));
+            $genres_array = array_map('trim', explode(',', $poster['genres']));
             $final_genres = [];
             foreach($genres_array as $genre) {
                 if(strcasecmp($genre, $del) !== 0) {
@@ -98,7 +98,7 @@ if (isset($_GET['delete'])) {
                 }
             }
             $final_genre_str = implode(', ', $final_genres);
-            $stmt_update = $conn->prepare("UPDATE posters SET genre = ? WHERE id = ?");
+            $stmt_update = $conn->prepare("UPDATE posters SET genres = ? WHERE id = ?");
             $stmt_update->bind_param("si", $final_genre_str, $poster['id']);
             $stmt_update->execute();
             $stmt_update->close();
@@ -108,12 +108,12 @@ if (isset($_GET['delete'])) {
     }
 }
 
-// שליפת ז'אנרים מתוך posters (ללא שינוי)
-$res = $conn->query("SELECT genre FROM posters WHERE genre IS NOT NULL AND genre != ''");
+// שליפת ז'אנרים מתוך posters
+$res = $conn->query("SELECT genres FROM posters WHERE genres IS NOT NULL AND genres != ''");
 
 $genres = [];
 while ($row = $res->fetch_assoc()) {
-    $list = explode(',', $row['genre']);
+    $list = explode(',', $row['genres']);
     foreach ($list as $g) {
         $g = trim($g);
         if ($g !== '') {

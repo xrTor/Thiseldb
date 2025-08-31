@@ -18,6 +18,7 @@ $ALIASES = [
     'צרפת'        => 'France',
     'יפן'         => 'Japan',
     'ישראל'       => 'Israel',
+    'אוסטרליה'       => 'Australia',
   ],
 
   // שפות (שדה הטופס: lang_code)

@@ -1429,6 +1429,12 @@ foreach($imdbIDs as $tt){ if(preg_match('~^tt\d{6,10}$~',$tt)) $movies[]=build_r
     }
     .white {color: #f1f1f1 !important;}
     .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
+      .logo {  filter: saturate(500%) contrast(800%) brightness(500%) 
+      invert(100%) sepia(50%) hue-rotate(120deg); }
+        filter: saturate(500%) contrast(800%) brightness(500%) 
+      invert(80%) sepia(50%) hue-rotate(120deg); } 
+      
+  
   </style>
 </body>
 </html>

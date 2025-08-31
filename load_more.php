@@ -84,7 +84,7 @@ if (!empty($rows)):
       <span class="imdb-first">
         <?php if ($row['imdb_rating']): ?>
           <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:1px;">
-            <img src="IMDb.png" class="imdb ltr" alt="IMDb" style="height:18px;"> <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
+            <img src="images/imdb.png" class="imdb ltr" alt="IMDb" style="height:18px;"> <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
           </a>
         <?php endif; ?>
       </span>

@@ -67,6 +67,9 @@ $result = $stmt->get_result();
   <img src="<?= htmlspecialchars($lang_flag) ?>" alt="<?= htmlspecialchars($lang_label) ?>" style="height:20px; vertical-align:middle;">
 <?php endif; ?>
 </h1>
+<p style="text-align:center; font-weight:bold;">
+  נמצאו <?= $result->num_rows ?> פוסטרים
+</p>
 
   <?php if ($result->num_rows > 0): ?>
     <div style="display:flex; flex-wrap:wrap; justify-content:center;">

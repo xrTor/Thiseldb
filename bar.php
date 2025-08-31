@@ -180,6 +180,9 @@ $fields = [
 <body>
 <div class="bar-outer">
   <h2>🔍טופס סינון פוסטרים <span style="font-size:22px;"></span></h2>
+<span class="b">
+  הערה: ניתן להשתמש בפסיקים להפרדה, ב-! לשלילה (לדוגמה: !Comedy), ובטווחים מספריים כמו 1990-2000 או 60-
+</span><br><br>
   <form class="bar-form" method="get" action="home.php" autocomplete="off">
     <div class="bar-fields-row">
       <?php foreach ($fields as [$name, $placeholder, $icon]): ?>

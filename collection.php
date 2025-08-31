@@ -1,5 +1,6 @@
 <?php
 require_once 'server.php'; // 1. חיבור למסד הנתונים
+require_once 'bbcode.php'; // המרה של BBCode ל-HTML
 
 // ==========================================================
 // == כל הלוגיקה שכוללת הפנייה (redirect) ממוקמת כאן == 
@@ -218,6 +219,8 @@ $stmt_all->close();
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
+  <link rel="stylesheet" href="bbcode.css">
+
   <meta charset="UTF-8">
   <title>📦 אוסף: <?= htmlspecialchars($collection['name']) ?></title>
   <style>
@@ -306,7 +309,6 @@ $stmt_all->close();
 .desc2-td:first-child {
   border-right: 2px solid black; /* קו מפריד */
 }
-
   </style>
 </head>
 <body><br>
@@ -318,58 +320,56 @@ $stmt_all->close();
 
   <?php if (!empty($collection['description'])): ?>
   <?php
-    // נרמול שורות
-    $raw = str_replace("\r\n", "\n", (string)$collection['description']);
-    $raw = preg_replace("/\n{4,}/", "\n\n\n", $raw); // להגביל מפריד ל-3+
+    // --- עיבוד תיאור עם תמיכה בתגיות [עברית]/[אנגלית] + נפילה אחורה לישן ---
+    $desc_he_html = '';
+    $desc_en_html = '';
+    $has_any = false;
 
-    // פיצול על 3+ ירידות שורה (he|en)
-    $parts = preg_split("/\n{3,}/", $raw, 2);
-    $left_en_raw  = ''; // שמאל = אנגלית
-    $right_he_raw = ''; // ימין = עברית
+    $raw = (string)($collection['description'] ?? '');
 
-    $p0 = trim($parts[0] ?? '');
-    $p1 = trim($parts[1] ?? '');
+    // קודם: ניסיון לחילוץ מפורש לפי תגיות
+    $right_he_raw = '';
+    $left_en_raw  = '';
 
-    // פונקציית עזר: האם יש עברית?
-    $hasHeb = static function(string $t): bool {
-      return (bool)preg_match('/\p{Hebrew}/u', $t);
-    };
-
-    if (count($parts) >= 2) {
-      // יש מפריד מפורש (3 שורות):
-      // לפי ההגדרה: לפני המפריד = עברית (ימין), אחרי המפריד = אנגלית (שמאל)
-      $right_he_raw = $p0;
-      $left_en_raw  = $p1;
-
-      // טיפול במקרי קצה – אם צד אחד ריק:
-      if ($right_he_raw === '' && $left_en_raw !== '') {
-        // אנגלית בלבד אחרי המפריד → תישאר בשמאל, ימין ריק
-        // (כבר המצב בפועל, אז אין שינוי)
-      } elseif ($left_en_raw === '' && $right_he_raw !== '') {
-        // עברית בלבד לפני המפריד → תישאר בימין, שמאל ריק
-      } elseif ($right_he_raw !== '' && $left_en_raw !== '') {
-        // שני הצדדים מלאים – נשאיר כרגיל
-      } else {
-        // שניהם ריקים – לא נציג כלום
-        $right_he_raw = $left_en_raw = '';
-      }
-    } else {
-      // אין מפריד מפורש: מנסים לזהות שפה באופן אוטומטי
-      if ($p0 !== '') {
-        if ($hasHeb($p0)) {
-          $right_he_raw = $p0; // עברית → לימין
-        } else {
-          $left_en_raw  = $p0; // אחרת → לשמאל (אנגלית/לטינית)
-        }
-      }
+    if (preg_match('~\[עברית\](.*?)\[/עברית\]~is', $raw, $mHe)) {
+      $right_he_raw = trim($mHe[1]);
+    }
+    if (preg_match('~\[אנגלית\](.*?)\[/אנגלית\]~is', $raw, $mEn)) {
+      $left_en_raw = trim($mEn[1]);
     }
 
-    // אם אין תוכן באף צד – לא להציג את הקומפוננטה
-    $has_any = ($right_he_raw !== '' || $left_en_raw !== '');
+    if ($right_he_raw !== '' || $left_en_raw !== '') {
+      // יש תגיות מפורשות
+      $desc_he_html = bbcode_to_html($right_he_raw);
+      $desc_en_html = bbcode_to_html($left_en_raw);
+      $has_any = true;
+    } else {
+      // אין תגיות — נפילה אחורה ללוגיקה הישנה (פיצול לפי 3+ ירידות שורה / זיהוי עברית)
+      $rawN = str_replace("\r\n", "\n", trim($raw));
+      $rawN = preg_replace("/\n{4,}/", "\n\n\n", $rawN);
+      $parts = preg_split("/\n{3,}/", $rawN, 2);
 
-    // המרות ל-HTML (שומרים ירידה אחת כ-<br>)
-    $desc_he_html = nl2br(htmlspecialchars($right_he_raw, ENT_QUOTES, 'UTF-8'));
-    $desc_en_html = nl2br(htmlspecialchars($left_en_raw,  ENT_QUOTES, 'UTF-8'));
+      $p0 = trim($parts[0] ?? '');
+      $p1 = trim($parts[1] ?? '');
+
+      $hasHeb = static function(string $t): bool {
+        return (bool)preg_match('/\p{Hebrew}/u', $t);
+      };
+
+      if (count($parts) >= 2) {
+        // לפני המפריד = עברית (ימין), אחרי המפריד = אנגלית (שמאל)
+        $right_he_raw = $p0;
+        $left_en_raw  = $p1;
+      } else {
+        if ($p0 !== '') {
+          if ($hasHeb($p0)) $right_he_raw = $p0; else $left_en_raw = $p0;
+        }
+      }
+
+      $has_any = ($right_he_raw !== '' || $left_en_raw !== '');
+      $desc_he_html = bbcode_to_html($right_he_raw);
+      $desc_en_html = bbcode_to_html($left_en_raw);
+    }
   ?>
   <?php if ($has_any): ?>
     <div class="desc2-wrap">

@@ -8,9 +8,7 @@ if (!defined('IMAGE_BASE_PATH')) {
     define('IMAGE_BASE_PATH', 'images/types/');
 }
 
-/**
- * h(): עטיפה בטוחה ל-htmlspecialchars
- */
+/** h(): עטיפה בטוחה ל-htmlspecialchars */
 if (!function_exists('h')) {
     function h($value) {
         if ($value === null) return '';
@@ -20,9 +18,7 @@ if (!function_exists('h')) {
     }
 }
 
-/**
- * הפניה בטוחה: header אם אפשר, אחרת JS/Meta
- */
+/** הפניה בטוחה: header אם אפשר, אחרת JS/Meta */
 if (!function_exists('safe_redirect')) {
     function safe_redirect($url) {
         if (!headers_sent()) {
@@ -51,7 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_all'])) {
             $label_he    = $_POST['label_he'][$id]    ?? '';
             $label_en    = $_POST['label_en'][$id]    ?? '';
             $icon        = $_POST['icon'][$id]        ?? '';
-            $description = $_POST['description'][$id] ?? '';
             $sort_order  = intval($_POST['sort_order'][$id] ?? 0);
 
             $image_raw   = $_POST['image'][$id] ?? '';
@@ -63,14 +58,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_all'])) {
                        label_he    = ?,
                        label_en    = ?,
                        icon        = ?,
-                       description = ?,
                        sort_order  = ?,
                        image       = ?
                  WHERE id = ?
             ");
             $stmt->bind_param(
-                "sssssisi",
-                $code, $label_he, $label_en, $icon, $description, $sort_order, $image_path, $id_int
+                "ssssisi",
+                $code, $label_he, $label_en, $icon, $sort_order, $image_path, $id_int
             );
             $stmt->execute();
             $stmt->close();
@@ -81,30 +75,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_all'])) {
 
 /* ───────── הוספה ───────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_type'])) {
-    $code        = $_POST['code']        ?? '';
-    $label_he    = $_POST['label_he']    ?? '';
-    $label_en    = $_POST['label_en']    ?? '';
-    $icon        = $_POST['icon']        ?? '';
-    $description = $_POST['description'] ?? '';
-// חדש: קח את המספר הבא אחרי המקסימום בטבלה
-$next = 1;
-if ($res = $conn->query("SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM poster_types")) {
-    if ($row = $res->fetch_assoc()) {
-        $next = (int)$row['next_order'];
+    $code        = $_POST['code']     ?? '';
+    $label_he    = $_POST['label_he'] ?? '';
+    $label_en    = $_POST['label_en'] ?? '';
+    $icon        = $_POST['icon']     ?? '';
+
+    // הבא בתור בסדר הופעה
+    $next = 1;
+    if ($res = $conn->query("SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM poster_types")) {
+        if ($row = $res->fetch_assoc()) {
+            $next = (int)$row['next_order'];
+        }
     }
-}
-$sort_order = $next;
+    $sort_order = $next;
 
     $image_raw   = $_POST['image'] ?? '';
     $image_path  = is_string($image_raw) ? trim($image_raw) : '';
 
     $stmt = $conn->prepare("
-        INSERT INTO poster_types (code, label_he, label_en, icon, description, sort_order, image)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO poster_types (code, label_he, label_en, icon, sort_order, image)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
     $stmt->bind_param(
-        "sssssis",
-        $code, $label_he, $label_en, $icon, $description, $sort_order, $image_path
+        "ssssis",
+        $code, $label_he, $label_en, $icon, $sort_order, $image_path
     );
     $stmt->execute();
     $stmt->close();
@@ -165,7 +159,6 @@ require_once 'header.php';
         <th>אנגלית</th>
         <th>אייקון</th>
         <th>שם קובץ תמונה</th>
-        <th>תיאור</th>
         <th>סדר</th>
         <th>מחיקה</th>
       </tr>
@@ -185,23 +178,17 @@ require_once 'header.php';
         </td>
 
         <td><input type="text" name="code[<?= h($type['id']) ?>]"      value="<?= h($type['code']) ?>"></td>
-        <td><input type="text" name="label_he[<?= h($type['id']) ?>]" value="<?= h($type['label_he']) ?>"></td>
-        <td><input type="text" name="label_en[<?= h($type['id']) ?>]" value="<?= h($type['label_en']) ?>"></td>
-        <td><input type="text" name="icon[<?= h($type['id']) ?>]"     value="<?= h($type['icon']) ?>"></td>
+        <td><input type="text" name="label_he[<?= h($type['id']) ?>]"  value="<?= h($type['label_he']) ?>"></td>
+        <td><input type="text" name="label_en[<?= h($type['id']) ?>]"  value="<?= h($type['label_en']) ?>"></td>
+        <td><input type="text" name="icon[<?= h($type['id']) ?>]"      value="<?= h($type['icon']) ?>"></td>
 
         <td>
           <?php if ($img_str !== '' && file_exists($img_fs)): ?>
             <img src="<?= h(IMAGE_BASE_PATH . $img_str) ?>" alt="תצוגה מקדימה" class="preview">
           <?php endif; ?>
-
-          <?php if ($img_str !== ''): ?>
-            <input type="text" name="image[<?= $id_int ?>]" value="<?= htmlspecialchars($img_str, ENT_QUOTES, 'UTF-8') ?>">
-          <?php else: ?>
-            <input type="text" name="image[<?= $id_int ?>]">
-          <?php endif; ?>
+          <input type="text" name="image[<?= $id_int ?>]" value="<?= htmlspecialchars($img_str, ENT_QUOTES, 'UTF-8') ?>">
         </td>
 
-        <td><textarea name="description[<?= h($type['id']) ?>]" rows="2"><?= h($type['description']) ?></textarea></td>
         <td><input type="number" name="sort_order[<?= h($type['id']) ?>]" value="<?= h($type['sort_order'] ?? 0) ?>"></td>
         <td><a href="?delete=<?= h($type['id']) ?>" onclick="return confirm('למחוק סוג זה?')">🗑️</a></td>
       </tr>
@@ -228,12 +215,8 @@ require_once 'header.php';
   <label>שם קובץ תמונה (מתוך images/types/)</label>
   <input type="text" name="image" placeholder="example.png">
 
-  <label>תיאור הסוג</label>
-  <textarea name="description" rows="2"></textarea>
-
   <label>סדר הופעה בתפריט</label>
-  <!-- חדש: מציג מראש את המספר הבא -->
-<input type="number" name="sort_order" value="<?= $next_sort_order ?>">
+  <input type="number" name="sort_order" value="<?= $next_sort_order ?>">
 
   <button type="submit" name="add_type">✅ הוסף סוג</button>
 </form>
