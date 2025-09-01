@@ -133,6 +133,22 @@ $count_collections = (int)($count_collections_row['c'] ?? 0);
   margin-left: auto;
   margin-right: auto;
 }
+.bar {
+  height: 22px;
+  background:#ddd;
+  border-radius:10px;
+  overflow:hidden;
+  margin:10px 0;
+  display:flex; /* חדש */
+}
+footer .box {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
 
   </style>
 </head>
@@ -200,11 +216,18 @@ $count_collections = (int)($count_collections_row['c'] ?? 0);
   <h2>❤️ אהדה כללית</h2>
   <canvas id="voteChart"></canvas>
 
-  <p>❤️ אהבתי: <?= $count_likes ?> (<?= $percent_likes ?>%)</p>
-  <div class="bar"><div class="bar-inner like-bar"><?= $percent_likes ?>%</div></div>
-  <p>💔 לא אהבתי: <?= $count_dislikes ?> (<?= $percent_dislikes ?>%)</p>
-  <div class="bar"><div class="bar-inner dislike-bar"><?= $percent_dislikes ?>%</div></div>
-  <p>סה"כ הצבעות: <strong><?= $total_votes ?></strong></p>
+  <p>
+  ❤️ אהבתי: <?= $count_likes ?> (<?= $percent_likes ?>%) |
+  💔 לא אהבתי: <?= $count_dislikes ?> (<?= $percent_dislikes ?>%)
+</p>
+
+<div class="bar">
+  <div class="bar-inner like-bar" style="width:<?= $percent_likes ?>%"></div>
+  <div class="bar-inner dislike-bar" style="width:<?= $percent_dislikes ?>%"></div>
+</div>
+
+<p>סה"כ הצבעות: <strong><?= $total_votes ?></strong></p>
+
 </div>
 
 <div class="box">

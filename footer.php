@@ -4,7 +4,6 @@
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) die("Connection failed: " . $conn->connect_error);
 
-
 // ספירה כללית
 $total_query = $conn->query("SELECT COUNT(*) AS total FROM posters");
 $total = $total_query->fetch_assoc()['total'] ?? 0;
@@ -59,29 +58,25 @@ if (isset($conn) && $conn instanceof mysqli) {
 <footer style="text-align:center; margin-top:30px; font-size:14px;">
    <a href="index.php"><img src="images/logo1.png" style="width:100px" alt="Thiseldb" title:"Thiseldb"></a>
    <br> 
-   <p>&copy; <?= date("Y")?>
-</p>
-<a class="white" href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a>
+   <p>&copy; <?= date("Y")?></p>
+   <a class="white" href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a>
 
-<br><br>
-  סטטיסטיקה:
-  <div class="box center">
-    
-    
+   <br><br>
+   סטטיסטיקה:<br><br>
+   <div class="box center">
+     <span><strong><img src="images/types/posters.png" alt="Poster" width="30px" style="vertical-align: middle;">
+     פוסטרים: </strong><?= number_format($total) ?> |
+     <span class="white"><a href="collections.php" target="_blank" class="white"><strong>  
+       <img style="vertical-align: middle;" src="images/types/archive.png" alt="Archive" width="27px"> אוספים: </strong></span></a><?= number_format($stats['collections']) ?> | 
+     <span class="white"><a href="home.php?type%5B%5D=3" target="_blank" class="white"><strong>
+       <img src="images/types/movie.png" alt="Movie" width="35px" style="vertical-align: middle;"> סרטים: </strong></span></a><?= number_format($count_movies) ?> | 
+     <span class="white"><a href="home.php?type%5B%5D=4" target="_blank" class="white"><strong>
+       <img style="vertical-align: middle;" src="images/types/series.png" alt="Series" width="35px"> סדרות: </strong></span><?= number_format($count_series) ?></a> | 
 
-
-    <span><strong><img src="images/types/posters.png" alt="Poster" width="30px" style="vertical-align: middle;">
- פוסטרים: </strong><?= $total ?> |
-      <span class="white"><a href="collections.php" target="_blank" class="white"><strong>  <img style="vertical-align: middle;" src="images/types/archive.png" alt="Archive" width="27px"> אוספים: </strong></span></a><?= $stats['collections'] ?> | 
-  <span class="white"><a href="home.php?type%5B%5D=3" target="_blank" class="white"><strong><img src="images/types/movie.png" alt="Movie" width="35px" style="vertical-align: middle;"> סרטים: </strong></span></a><?= $count_movies ?> | 
-  <span class="white"><a href="home.php?type%5B%5D=4" target="_blank" class="white"><strong><img style="vertical-align: middle;" src="images/types/series.png" alt="Series" width="35px"> סדרות: </strong></span><?= $count_series ?></a> | 
-
-  <span class="white"><a href="https://github.com/xrTor/Thiseldb" target="_blank" class="white">    <img src="images/types/github.png" class="logo" alt="Github" width="35px" style="vertical-align: middle;">קוד מקור</span></a><br>
- </div><br><br>
+     <span class="white"><a href="https://github.com/xrTor/Thiseldb" target="_blank" class="white">
+       <img src="images/types/github.png" class="logo" alt="Github" width="35px" style="vertical-align: middle;">קוד מקור</span></a><br>
+   </div><br><br>
 </footer>
-
-
-
 
 </body>
 </html>

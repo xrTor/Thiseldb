@@ -140,45 +140,44 @@ button, input, select, textarea, optgroup {
     font: inherit;
     margin: 0;
 }
+
+/* כאן יופיע עיצוב כפתור החיפוש */
 .search-container {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-top: 20px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;               /* רווח בין השדה לכפתור */
+  margin: 20px auto;
 }
 
 .search-container input[type="text"] {
   padding: 12px 16px;
   font-size: 16px;
   border: 1px solid #ccc;
-  border-radius: 12px;
-  width: 220px;
+  border-radius: 50px;     /* עגול מלא */
+  width: 260px;
   box-sizing: border-box;
   direction: rtl;
+  outline: none;
 }
 
-.search-button{
-  padding: 12px 16px;
+.search-container button.search-button {
+  padding: 12px 24px;
   font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 12px;
-  width: 120px;
-  box-sizing: border-box;
-  direction: rtl;
+  border: none;
+  border-radius: 50px;     /* עגול מלא */
+  background: linear-gradient(135deg, #53c1f8, #2274bb);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.search-container button:hover  {
-  background: linear-gradient(135deg, #3063c9, #5cb3fd);
+.search-container button.search-button:hover {
+  background: linear-gradient(135deg, #34aad8, #1860aa);
   transform: scale(1.05);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
-  
 }
 
-.search-container button .icon {
-  font-size: 18px;
-}
 </style>
 <div class="search-container" class="search-button">
   <form method="get" action="search.php">

@@ -147,7 +147,7 @@ if ($keyword !== '') {
     <div class="results">
       <?php foreach ($results as $row): ?>
         <div class="card">
-          <a href="poster.php?id="<?= (int)$row['id'] ?>>
+          <a href="poster.php?id=<?= (int)$row['id'] ?>">
             <?php
               $img = trim((string)($row['image_url'] ?? ''));
               if ($img === '' || $img === 'N/A') {

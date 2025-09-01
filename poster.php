@@ -275,250 +275,280 @@ function chip_links(array $items, string $param, array $extra = []): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css">
   <style>
-    a {color: #5587ec !important;}
-    :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
-    *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial;direction:rtl;background:var(--bg);color:var(--text);margin:0;padding:24px}
-    .wrap{max-width:1200px;margin:0 auto}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-    .row{display:grid;grid-template-columns:320px 1fr;gap:0}
-    .poster{padding:18px;border-inline-end:1px solid var(--line);background:linear-gradient(180deg,#161b26,#131723)}
-    img.poster-img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid var(--line)}
-    .content{padding:20px 20px 10px}
-    .title{display:flex;flex-direction:column;gap:2px}
-    .title h3{margin:0;font-size:24px;line-height:1.25}
-    .subtitle{color:var(--muted)}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-    .chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:13px;text-decoration:none;color:inherit}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:6px}
-    .section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-    .kv{margin:0;font-size:14px}
-    .label{color:var(--muted)}
-    .links a,.conn-list a{color:var(--accent);text-decoration:none}
-    .links a:hover,.conn-list a:hover{text-decoration:underline}
-    .ratings{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-    .pill{background:#121623;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;display:inline-block;text-decoration:none;color:inherit}
-    .comma-list{margin:0}
-    .hidden{display:none}
-    .btn, .btn-toggle{ cursor:pointer; border:1px solid var(--line); border-radius:10px; padding:6px 10px; background:transparent; color:inherit; }
-    .btn:hover{ filter:brightness(1.05); }
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px 0}
-    .tag-pill{margin:2px 4px;display:inline-block}
+  a {color: #5587ec !important;}
+:root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial;direction:rtl;background:var(--bg);color:var(--text);margin:0;padding:24px}
+.wrap{max-width:1200px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.row{display:grid;grid-template-columns:320px 1fr;gap:0}
+.poster{padding:18px;border-inline-end:1px solid var(--line);background:linear-gradient(180deg,#161b26,#131723)}
+img.poster-img{display:block;width:100%;height:auto;border-radius:1px;border:1px solid var(--line)}
+.content{padding:20px 20px 10px}
+.title{display:flex;flex-direction:column;gap:2px}
+.title h3{margin:0;font-size:24px;line-height:1.25}
+.subtitle{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:13px;text-decoration:none;color:inherit}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:6px}
+.section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.kv{margin:0;font-size:14px}
+.label{color:var(--muted)}
+.links a,.conn-list a{color:var(--accent);text-decoration:none}
+.links a:hover,.conn-list a:hover{text-decoration:underline}
+.ratings{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.pill{background:#121623;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;display:inline-block;text-decoration:none;color:inherit}
+.comma-list{margin:0}
+.hidden{display:none}
+.btn, .btn-toggle{ cursor:pointer; border:1px solid var(--line); border-radius:10px; padding:6px 10px; background:transparent; color:inherit; }
+.btn:hover{ filter:brightness(1.05); }
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px 0}
+.tag-pill{margin:2px 4px;display:inline-block}
 
-    /* Toggle ניהול יחיד */
-    body.mgmt-hidden .mgmt-only { display:none !important; }
-    body.mgmt-hidden #mgmt-panel { display:none !important; }
-    body.mgmt-open  #mgmt-panel { display:block !important; }
-    #mgmt-panel{ border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; background:transparent; }
-    #mgmt-panel h4{ margin:0 0 8px }
-    #mgmt-panel .row-forms{ display:flex; flex-wrap:wrap; gap:10px; align-items:center }
-    #mgmt-panel input[type=text]{ border:1px solid var(--line); background:transparent; color:inherit; border-radius:8px; padding:6px 10px; }
+/* Toggle ניהול יחיד */
+body.mgmt-hidden .mgmt-only { display:none !important; }
+body.mgmt-hidden #mgmt-panel { display:none !important; }
+body.mgmt-open  #mgmt-panel { display:block !important; }
+#mgmt-panel{ border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; background:transparent; }
+#mgmt-panel h4{ margin:0 0 8px }
+#mgmt-panel .row-forms{ display:flex; flex-wrap:wrap; gap:10px; align-items:center }
+#mgmt-panel input[type=text]{ border:1px solid var(--line); background:transparent; color:inherit; border-radius:8px; padding:6px 10px; }
 
-    body {background-color:#161b26 !important; text-align: right !important;}
-    .content {text-align: right !important;}
-    .content a  {color: #6E8BFC !important;}
+body {background-color:#161b26 !important; text-align: right !important;}
+.content {text-align: right !important;}
+.content a  {color: #6E8BFC !important;}
 
-    /* דגלים – בלי רקע, ול–silent.gif יוחל class="logo" (פילטר כבר אצלך ב-CSS) */
-    .flags-under-poster a{background:transparent !important; border:none !important; color:#fff !important; display:inline-flex; align-items:center; gap:.5rem; padding:.25rem 0; text-decoration:none}
-    .flags-under-poster img{ width:18px;height:12px;object-fit:cover;border-radius:2px; }
-    .flags-under-poster b{ font-weight:600; color:#fff }
+/* דגלים */
+.flags-under-poster a{background:transparent !important; border:none !important; color:#fff !important; display:inline-flex; align-items:center; gap:.5rem; padding:.25rem 0; text-decoration:none}
+.flags-under-poster img{ width:18px;height:12px;object-fit:cover;border-radius:2px; }
+.flags-under-poster b{ font-weight:600; color:#fff }
 
-    /* טריילר */
-    .trailer-wrap{display:flex;justify-content:center}
-    .trailer-embed{position:relative;border-radius:12px;overflow:hidden}
-    .trailer-embed.has-yt{aspect-ratio:16/9;max-width:100%;background:#000;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-    .trailer-embed.has-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-    .no-trailer-box{display:flex;justify-content:center}
-    .no-trailer-box img{display:block;width:500px;max-width:100%;height:auto;border:0}
-    
-    /* .w3-bar */
-    .w3-bar {
-        width: 100%;
-        overflow: hidden;
-    }
-    .w3-bar .w3-bar-item {
-        padding: 8px 16px;
-        float: left; /* הדפדפן הופך אוטומטית לימין ב-RTL */
-        width: auto;
-        border: none;
-        display: block;
-        outline: 0;
-    }
-    .w3-bar .w3-button {
-        color: white !important;;
-        white-space: normal;
-    }
-    .w3-bar:before, .w3-bar:after {
-        content: "";
-        display: table;
-        clear: both;
-    }
+/* טריילר */
+.trailer-wrap{display:flex;justify-content:center}
+.trailer-embed{position:relative;border-radius:12px;overflow:hidden}
+.trailer-embed.has-yt{aspect-ratio:16/9;max-width:100%;background:#000;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.trailer-embed.has-yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.no-trailer-box{display:flex;justify-content:center}
+.no-trailer-box img{display:block;width:500px;max-width:100%;height:auto;border:0}
 
-    /* .w3-padding */
-    .w3-padding {
-        padding: 8px 16px !important;
-    }
+/* .w3-bar */
+.w3-bar { width: 100%; overflow: hidden; }
+.w3-bar .w3-bar-item { padding: 8px 16px; float: left; width: auto; border: none; display: block; outline: 0; }
+.w3-bar .w3-button { color: white !important; white-space: normal; }
+.w3-bar:before, .w3-bar:after { content: ""; display: table; clear: both; }
 
-    /* .w3-button */
-    .w3-button {
-        border: none;
-        display: inline-block;
-        padding: 8px 16px;
-        vertical-align: middle;
-        overflow: hidden;
-        text-decoration: none;
-        color: inherit;
-        text-align: center;
-        cursor: pointer;
-        white-space: nowrap;
-    }
-    
-    /* צבעים */
-    .w3-black, .w3-hover-black:hover {
-        color: #fff !important;
-        background-color: white;
-    }
-    .w3-white, .w3-hover-white:hover {
-        color: #000 !important;
-        background-color: #fff !important;
-    }
-    .white {color: #f1f1f1 !important;}
-    .w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
-    .logo {  filter: saturate(500%) contrast(800%) brightness(500%) 
-      invert(100%) sepia(50%) hue-rotate(120deg); }
-        filter: saturate(500%) contrast(800%) brightness(500%) 
-      invert(80%) sepia(50%) hue-rotate(120deg); }
+/* .w3-padding */
+.w3-padding { padding: 8px 16px !important; }
 
-      /* ==== Light theme overrides ==== *//* ==== Light theme overrides ==== */
-body.theme-light {
-  --bg:#ffffff;        /* רקע כללי */
-  --card:#ffffff;      /* כרטיסים */
-  --text:#222222;      /* טקסט כהה */
-  --muted:#555555;     /* טקסט משני */
-  --chip:#f5f5f5;      /* שבבים */
-  --accent:#1a73e8;    /* כחול לינקים */
-  --line:#dddddd;      /* גבולות בהירים */
-  background-color:#ffffff !important;
-  color:var(--text) !important;
-}
+/* .w3-button */
+.w3-button { border: none; display: inline-block; padding: 8px 16px; vertical-align: middle; overflow: hidden; text-decoration: none; color: inherit; text-align: center; cursor: pointer; white-space: nowrap; }
 
+/* צבעים */
+.w3-black, .w3-hover-black:hover { color: #fff !important; background-color: white; }
+.w3-white, .w3-hover-white:hover { color: #000 !important; background-color: #fff !important; }
+.white {color: #f1f1f1 !important;}
+.w3-light-grey,.w3-hover-light-grey:hover,.w3-light-gray,.w3-hover-light-gray:hover{color:#000!important;background-color:#f1f1f1!important}
+.logo {  filter: saturate(500%) contrast(800%) brightness(500%) invert(100%) sepia(50%) hue-rotate(120deg); }
+
+/* ==== Light theme overrides ==== */
+body.theme-light { --bg:#ffffff; --card:#ffffff; --text:#222; --muted:#555; --chip:#f5f5f5; --accent:#1a73e8; --line:#dddddd; background:#ffffff !important; color:#222 !important; }
 body.theme-light a { color: var(--accent) !important; }
 body.theme-light .content a { color: var(--accent) !important; }
-
-body.theme-light .poster {
-  background:#ffffff;
-  border-inline-end:1px solid var(--line);
-}
-
+body.theme-light .poster { background:#ffffff; border-inline-end:1px solid var(--line); }
 body.theme-light img.poster-img { border-color: var(--line); }
-
-body.theme-light .chip {
-  background: var(--chip);
-  border-color: var(--line);
-  color: var(--text);
-}
-
-body.theme-light .pill {
-  background: #fff;
-  border-color: var(--line);
-  color: var(--text);
-}
-
-body.theme-light .btn {
-  color: var(--text);
-  border-color: var(--line);
-  background:#fff;
-}
-body.theme-light .btn:hover {
-  background:#f1f1f1;
-}
-
+body.theme-light .chip { background: var(--chip); border-color: var(--line); color: var(--text); }
+body.theme-light .pill { background: #fff; border-color: var(--line); color: var(--text); }
+body.theme-light .btn { color: var(--text); border-color: var(--line); background:#fff; }
+body.theme-light .btn:hover { background:#f1f1f1; }
 body.theme-light .label { color: var(--muted); }
 body.theme-light .section { border-top:1px solid var(--line); }
-body.theme-light {
-  background-color:#ffffff !important;  /* רקע לבן */
-  color:#222222 !important;             /* טקסט כהה */
+body.theme-light nav, body.theme-light nav a, body.theme-light .w3-bar .w3-bar-item, body.theme-light .w3-button { color:#000 !important; }
+body.theme-light .logo { filter: none !important; }
+
+/* ------------------------- */
+/* chips כללי (גם מתחת לתמונה וגם רשימות) */
+/* ------------------------- */
+/* ברירת מחדל – מצב בלוקים */
+.chips, .chips-static {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
 }
-/* תיקון מצב בהיר: לרקע לבן גם בבלוקים כהים עקשנים */
-body.theme-light{
-  --bg:#ffffff; --card:#ffffff; --text:#222; --muted:#555; --chip:#f5f5f5; --accent:#1a73e8; --line:#d9d9d9;
-  background:#ffffff !important;
-  color:#222 !important;
+
+.chip, .chip-static {
+  display: inline-block;
+  background: var(--chip);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
 }
 
-/* הכרטיס/מסגרת הראשית + אזורי משנה */
-body.theme-light .card{ background:#ffffff !important; border-color:var(--line) !important; }
-body.theme-light .row{ background:#ffffff !important; }
-body.theme-light .poster{ background:#ffffff !important; border-inline-end:1px solid var(--line) !important; }
-body.theme-light .content{ background:#ffffff !important; }
-
-/* סרגל עליון וכפתורים */
-body.theme-light .toolbar{ background:#ffffff !important; }
-body.theme-light .btn, 
-body.theme-light .btn-toggle{ background:#ffffff !important; color:var(--text) !important; border-color:var(--line) !important; }
-body.theme-light .btn:hover{ background:#f1f1f1 !important; }
-
-/* צ'יפים/תגיות ופילס */
-body.theme-light .chip{ background:var(--chip) !important; color:var(--text) !important; border-color:var(--line) !important; }
-body.theme-light .pill{ background:#ffffff !important; color:var(--text) !important; border-color:var(--line) !important; }
-
-/* קישורים */
-body.theme-light a, 
-body.theme-light .content a{ color:var(--accent) !important; }
-
-/* תמונת הפוסטר וקווים */
-body.theme-light img.poster-img{ border-color:var(--line) !important; }
-body.theme-light .section{ border-top:1px solid var(--line) !important; }
-
-/* אם יש לך .w3-* כהים בראש הדף – להבהיר */
-body.theme-light .w3-black, 
-body.theme-light .w3-hover-black:hover{ background:#ffffff !important; color:#222 !important; border-color:var(--line) !important; }
-/* מצב בהיר – צבע טקסט שחור בתפריט */
-body.theme-light nav,
-body.theme-light nav a,
-body.theme-light .w3-bar .w3-bar-item,
-body.theme-light .w3-button {
-  color:#000 !important;
+/* סוג (Type) תמיד בלי רקע */
+.chip-static.type-chip {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
 }
-/* במצב בהיר – אל תגע בלוגו */
-body.theme-light .logo {
-  filter: none !important;
-}
+
+
 /* מצב פסיקים */
-body.view-commas .chips { display:block; }
-body.view-commas .chips .chip { 
-  display:inline; 
-  background:none; 
-  border:none; 
-  padding:0; 
-  margin:0; 
+body.view-commas .chips,
+body.view-commas .chips-static {
+  display: block;
+}
+
+body.view-commas .chip,
+body.view-commas .chip-static {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--text);
+}
+
+body.view-commas .chip::after,
+body.view-commas .chip-static::after {
+  content: ", ";
+}
+
+body.view-commas .chip:last-child::after,
+body.view-commas .chip-static:last-child::after {
+  content: "";
+}
+
+/* מתחת לתמונה – בלי פסיקים, כל אחד בשורה */
+.poster .chips-static {
+  flex-direction: column;
+  align-items: center;
+}
+
+body.view-commas .poster .chip-static {
+  display: block;
+}
+
+body.view-commas .poster .chip-static::after {
+  content: "";
+}
+
+/* תמונת סוג בתוך chip */
+/* תמונת סוג – לא מתעוותת בשום מצב */
+/* אלמנטים מתחת לתמונה */
+.poster .chips-static {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;              /* ריווח אחיד בין כל אלמנט */
+  margin-top: 10px;
+}
+
+/* כל צ'יפ מתחת לפוסטר */
+.poster .chips-static .chip-static {
+  text-align: center;
+  margin: 0;
+}
+
+/* תמונת סוג */
+.type-chip-img {
+  height: auto !important;
+  width: auto !important;
+  max-height: 48px;      /* מגדיר גובה מקסימלי */
+  max-width: 120px;      /* מגדיר רוחב מקסימלי */
+  object-fit: contain;   /* שמירה על פרופורציות */
+  display: block;
+  margin: 0 auto 4px;    /* מרכז את התמונה ומוסיף רווח קטן מתחתיה */
+}
+
+/* טקסט שם הסוג */
+.type-chip div {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* במצב פסיקים — לא מתעוות ולא מקבל פסיקים */
+body.view-commas .poster .chip-static {
+  display: block !important;
+}
+body.view-commas .poster .chip-static::after {
+  content: "" !important;
+}
+
+
+
+/* ------------------------- */
+/* מצב פסיקים — לכל הצ'יפים */
+/* ------------------------- */
+body.view-commas .chips,
+body.view-commas .chips-static {
+  display:block;
+}
+
+body.view-commas .chip,
+body.view-commas .chip-static {
+  display:inline;
+  background:none;
+  border:none;
+  padding:0;
+  margin:0;
   color:var(--text);
 }
-body.view-commas .chips .chip::after { content:", "; }
-body.view-commas .chips .chip:last-child::after { content:""; }
-/* מצב פסיקים */
-body.view-commas .chips { display:block; }
-body.view-commas .chips .chip { 
-  display:inline; 
-  background:none; 
-  border:none; 
-  padding:0; 
-  margin:0; 
-  color:var(--text);
-}
-body.view-commas .chips .chip::after { content:", "; }
-body.view-commas .chips .chip:last-child::after { content:""; }
 
-/* שבבים סטטיים (סוג/Runtime/Seasons/Episodes) */
-.chips-static { margin-top:8px; margin-bottom:8px; }
-body.view-commas .chips-static .chip-static { 
-  display:inline-block !important;
-  background:var(--chip) !important;
-  border:1px solid var(--line) !important;
-  padding:6px 10px !important;
-  margin:2px 4px !important;
+body.view-commas .chip::after,
+body.view-commas .chip-static::after {
+  content:", ";
 }
-body.view-commas .chips-static .chip-static::after { content:"" !important; }
+
+body.view-commas .chip:last-child::after,
+body.view-commas .chip-static:last-child::after {
+  content:"";
+}
+
+/* לוגו רשת */
+.network-logo {
+  display:block;
+  margin:6px auto;
+  width:auto !important;
+  height:auto !important;
+  max-width:250px;
+  max-height:120px;
+}
+/* ריווח בין האלמנטים מתחת לתמונה */
+.poster .chips-static .chip-static {
+  margin: 6px 0;
+}
+/* 1. ביטול הגדלה בריחוף של כל העמודה */
+.poster, .poster:hover {
+  transform: none !important;
+  transition: none !important;
+}
+
+/* 2. תמונת סוג */
+.type-chip-img {
+  height: auto !important;
+  width: auto !important;
+  max-height: 48px;
+  max-width: 120px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;   /* מרכז בלבד – בלי רווח למטה */
+}
+
+/* 3. טקסט שם סוג – צמוד מתחת לתמונה */
+.type-chip-label {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;        /* אין רווח מלמעלה */
+  text-align: center;
+}
+/* במצב בהיר – שמות הדגלים יהיו שחורים */
+body.theme-light .flags-under-poster b {
+  color: #000 !important;
+}
 
   </style>
 </head>
@@ -532,7 +562,85 @@ body.view-commas .chips-static .chip-static::after { content:"" !important; }
 
       <!-- ===== עמודת תמונת הפוסטר + דגלים + Connections ===== -->
       <div class="poster">
-        <img class="poster-img" src="<?= H($poster_url) ?>" alt="Poster" loading="lazy" decoding="async">
+  <img class="poster-img" src="<?= H($poster_url) ?>" alt="Poster" loading="lazy" decoding="async">
+<!-- סוג פוסטר + פרטים מתחת לתמונה -->
+<div class="chips-static" style="text-align:center; margin-top:8px;">
+
+  <?php if (!empty($runtime_formatted)): ?>
+    <br><div class="chip-static"><b>אורך: </b><?= H($runtime_formatted) ?></div>
+  <?php endif; ?>
+
+
+  <?php if ($is_tv && !empty($seasons) && $seasons > 0): ?>
+    <div class="chip-static"><b>עונות: </b> <?= H($seasons) ?></div>
+  <?php endif; ?>
+
+  <?php if ($is_tv && !empty($episodes) && $episodes > 0): ?>
+    <div class="chip-static"><b>פרקים: </b> <?= H($episodes) ?></div>
+  <?php endif; ?>
+
+  <?php
+  // שליפת סוג הפוסטר מהטבלה poster_types — יוצג בסוף
+  if (!empty($posterRow['type_id'])) {
+      $tid = (int)$posterRow['type_id'];
+      $q = $conn->prepare("SELECT icon, label_he, image FROM poster_types WHERE id=? LIMIT 1");
+      $q->bind_param("i", $tid);
+      $q->execute();
+      $tr = $q->get_result()->fetch_assoc();
+      $q->close();
+
+      if ($tr) {
+    if (!empty($tr['image']) && is_file("images/types/".$tr['image'])) {
+        echo '<div class="chip-static type-chip">';
+        echo '<img src="images/types/'.htmlspecialchars($tr['image'],ENT_QUOTES).'" alt="'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'" class="type-chip-img">';
+        echo '<div class="type-chip-label">'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
+        echo '</div>';
+    } elseif (!empty($tr['icon'])) {
+        echo '<div class="chip-static type-chip">'.$tr['icon'].' '.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
+    } else {
+        echo '<div class="chip-static type-chip">'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
+    }
+}
+}
+  ?>
+</div>
+
+<?php
+// --- NETWORK LOGO מעל הדגלים ---
+if (!empty($networks)) {
+    echo '<div class="network-logos" style="margin:0.5rem 0;text-align:center">';
+    foreach ($networks as $net) {
+        $slug = strtolower(preg_replace('/\s+/', '', $net)); // ניקוי רווחים
+        $extensions = ['png','jpg','jpeg','webp']; // סיומות נתמכות
+        foreach ($extensions as $ext) {
+            $logoPath = "images/networks/{$slug}.{$ext}";
+            if (is_file($logoPath)) {
+                // 🔎 בדיקת ממדים והוספת class
+                $class = 'network-logo';
+                $size = @getimagesize($logoPath);
+                if ($size) {
+                    $w = $size[0];
+                    $h = $size[1];
+                    if ($w > $h * 1.5) {
+                        $class .= ' wide';
+                    } elseif ($h > $w * 1.5) {
+                        $class .= ' tall';
+                    }
+                }
+
+                echo '<img src="'.htmlspecialchars($logoPath, ENT_QUOTES, "UTF-8").'" 
+                           alt="'.htmlspecialchars($net, ENT_QUOTES, "UTF-8").'" 
+                           class="'.$class.'">';
+                break; // מצאנו → מפסיקים לבדוק סיומות נוספות
+            }
+        }
+    }
+    echo '</div>';
+}
+?>
+
+
+
 
         <?php
         /* --- FLAGS מתחת לפוסטר --- */
@@ -634,22 +742,6 @@ body.view-commas .chips-static .chip-static::after { content:"" !important; }
   </div>
 <?php endif; ?>
         
-<!-- פרטים -->
-<div class="section">
-  <p class="kv"><span class="label">פרטים:</span></p>
-  <div class="chips">
-    <span class="chip"><?= H($title_kind) ?></span>
-    <?php if (!empty($runtime_formatted)): ?>
-      <span class="chip"><?= H($runtime_formatted) ?></span>
-    <?php endif; ?>
-    <?php if ($is_tv && !empty($seasons) && $seasons > 0): ?>
-      <span class="chip">Seasons: <?= H($seasons) ?></span>
-    <?php endif; ?>
-    <?php if ($is_tv && !empty($episodes) && $episodes > 0): ?>
-      <span class="chip">Episodes: <?= H($episodes) ?></span>
-    <?php endif; ?>
-  </div>
-</div>
 
         <!-- שפות -->
 <?php if (!empty($languages)): ?>
@@ -815,19 +907,19 @@ body.view-commas .chips-static .chip-static::after { content:"" !important; }
         <div class="section">
           <div class="grid">
             <?php if ($directors): ?>
-              <p class="kv"><span class="label">Directors:</span> <?= make_links($directors, 'person', ['role'=>'director']) ?></p>
+              <p class="kv"><span class="label">במאים:</span> <?= make_links($directors, 'person', ['role'=>'director']) ?></p>
             <?php endif; ?>
             <?php if ($writers): ?>
-              <p class="kv"><span class="label">Writers:</span> <?= make_links($writers, 'person', ['role'=>'writer']) ?></p>
+              <p class="kv"><span class="label">תסריטאים:</span> <?= make_links($writers, 'person', ['role'=>'writer']) ?></p>
             <?php endif; ?>
             <?php if ($producers): ?>
-              <p class="kv"><span class="label">Producers:</span> <?= make_links($producers, 'person', ['role'=>'producer']) ?></p>
+              <p class="kv"><span class="label">מפיקים:</span> <?= make_links($producers, 'person', ['role'=>'producer']) ?></p>
             <?php endif; ?>
             <?php if ($composers): ?>
-              <p class="kv"><span class="label">Composers:</span> <?= make_links($composers, 'person', ['role'=>'composer']) ?></p>
+              <p class="kv"><span class="label">מלחינים:</span> <?= make_links($composers, 'person', ['role'=>'composer']) ?></p>
             <?php endif; ?>
             <?php if ($cinematographers): ?>
-              <p class="kv"><span class="label">Cinematographers:</span> <?= make_links($cinematographers, 'person', ['role'=>'cinematographer']) ?></p>
+              <p class="kv"><span class="label">צלמים:</span> <?= make_links($cinematographers, 'person', ['role'=>'cinematographer']) ?></p>
             <?php endif; ?>
           </div>
         </div>
