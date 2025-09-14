@@ -10,8 +10,7 @@ require_once 'bbcode.php';
 <head>
   <meta charset="UTF-8">
   <title>📘 מדריך BBCode</title>
-  <link rel="stylesheet" href="bbcode.css"> <!-- CSS חיצוני -->
-  <style>
+  <link rel="stylesheet" href="bbcode.css"> <style>
     body {
       font-family: Arial, sans-serif;
       background:#f9f9f9;
@@ -80,6 +79,17 @@ require_once 'bbcode.php';
       white-space:normal;
       overflow-wrap: break-word;
     }
+    /* עיצוב לספוילר בסגנון PTP */
+.bb-preview .spoiler {
+    color: black;
+    background-color: black;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.bb-preview .spoiler:hover {
+    color: white;
+}
   </style>
 </head>
 <body>
@@ -88,7 +98,6 @@ require_once 'bbcode.php';
 העמוד מציג דוגמאות לכל הפקודות הנתמכות. בעמודה השמאלית תראה את קוד ה-BBCode, ובעמודה הימנית איך זה יוצג בפועל באתר.
 <br><br>
 
-<!-- === טקסט === -->
 <?php
 $examples = [
   "[b]מודגש[/b]",
@@ -101,6 +110,7 @@ $examples = [
   "[big]גדול[/big]",
   "[mark]הדגשה[/mark]",
   "[kbd]Ctrl+C[/kbd]",
+  "[indent]טקסט מוזח[/indent]",
 ];
 foreach ($examples as $ex) {
   echo "<div class='bb-block'><h3>".htmlspecialchars($ex)."</h3>
@@ -109,7 +119,6 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === כותרות H1–H6 === -->
 <?php
 for ($i=1;$i<=6;$i++) {
   $ex = "[h{$i}]כותרת H{$i}[/h{$i}]";
@@ -119,7 +128,6 @@ for ($i=1;$i<=6;$i++) {
 }
 ?>
 
-<!-- === יישור === -->
 <?php
 $examples = [
   "[left]שמאל[/left]",
@@ -135,12 +143,12 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === צבע, גודל, גופן === -->
 <?php
 $examples = [
   "[color=red]אדום[/color]",
   "[color=#00f]כחול[/color]",
   "[size=24]גודל 24px[/size]",
+  "[size=4]גודל 4 (סולם 1-10)[/size]",
   "[font=Arial]Arial font[/font]",
 ];
 foreach ($examples as $ex) {
@@ -150,7 +158,6 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === לינקים/מייל === -->
 <?php
 $examples = [
   "[url]https://imdb.com[/url]",
@@ -164,7 +171,6 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === תמונות === -->
 <?php
 
 $examples = [
@@ -181,10 +187,9 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === וידאו/אודיו === -->
 <?php
 $examples = [
-  "[youtube]dQw4w9WgXcQ[/youtube]",
+  "[youtube]YAmA8CdFyKs[/youtube]",
   "[video]https://www.w3schools.com/html/mov_bbb.mp4[/video]",
   "[audio]https://www.w3schools.com/html/horse.mp3[/audio]",
 ];
@@ -195,13 +200,13 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === ציטוטים וספוילר === -->
 <?php
 $examples = [
   "[quote]טקסט מצוטט[/quote]",
   "[quote=משתמש]ציטוט עם מקור[/quote]",
-  "[spoiler]תוכן מוסתר[/spoiler]",
-  "[spoiler=לחץ כאן]תוכן מוסתר עם כותרת[/spoiler]",
+  "[spoiler]ספוילר שחור (עבור עם העכבר)[/spoiler]",
+  "[hide]תוכן מוסתר[/hide]",
+  "[hide=לחץ כאן]תוכן מוסתר עם כותרת[/hide]",
 ];
 foreach ($examples as $ex) {
   echo "<div class='bb-block'><h3>".htmlspecialchars($ex)."</h3>
@@ -210,11 +215,11 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === קוד / noparse === -->
 <?php
 $examples = [
   "[code]<?php echo 'Hello'; ?>[/code]",
   "[code=php]<?php echo 'PHP Highlight'; ?>[/code]",
+  "[pre]טקסט ששומר על רווחים\n    ושורות חדשות.[/pre]",
   "[noparse][b]לא להמיר[/b][/noparse]",
 ];
 foreach ($examples as $ex) {
@@ -224,7 +229,6 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === רשימות === -->
 <?php
 $examples = [
   "[list]\n[*] אחד\n[*] שני\n[/list]",
@@ -238,7 +242,6 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === טבלאות === -->
 <?php
 $examples = [
   "[table][tr][th]A[/th][th]B[/th][/tr][tr][td]1[/td][td]2[/td][/tr][/table]",
@@ -251,7 +254,6 @@ foreach ($examples as $ex) {
 }
 ?>
 
-<!-- === דו-לשוני === -->
 <?php
 $ex = "[עברית]שלום[/עברית]\n[אנגלית]Hello[/אנגלית]";
 echo "<div class='bb-block'><h3>".htmlspecialchars($ex)."</h3>

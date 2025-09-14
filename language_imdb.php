@@ -57,5 +57,4 @@ $result = $conn->query("
 
 <?php
 include 'footer.php';
-$conn->close();
 ?>

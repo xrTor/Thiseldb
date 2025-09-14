@@ -87,7 +87,7 @@ echo "";
     'universe.php' => '🌌 ציר זמן',
     'spotlight.php' => '🎯 זרקור', 
     'top.php' => '🏆 TOP 10',
-    'full-info.php' => '🧪 Index',
+    'full-info.php' => '🧪 מסוף',
      'stats.php' => '📈 סטטיסטיקה',
      'contact.php' => '📩 צור קשר',
      'about.php' => '🎉 אודות',

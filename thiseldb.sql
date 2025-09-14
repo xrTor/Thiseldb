@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: אוגוסט 28, 2025 בזמן 11:52 PM
+-- Generation Time: ספטמבר 09, 2025 בזמן 04:10 PM
 -- גרסת שרת: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -60,15 +60,9 @@ CREATE TABLE `collections` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `image_url` text DEFAULT NULL,
   `pinned` tinyint(1) NOT NULL DEFAULT 0,
-  `is_pinned` tinyint(1) NOT NULL DEFAULT 0
+  `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
+  `poster_image_url` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- הוצאת מידע עבור טבלה `collections`
---
-
-INSERT INTO `collections` (`id`, `name`, `description`, `created_at`, `image_url`, `pinned`, `is_pinned`) VALUES
-(1, 'אוסף לדוגמא', '', '2025-08-28 21:46:54', NULL, 0, 0);
 
 -- --------------------------------------------------------
 
@@ -210,13 +204,6 @@ CREATE TABLE `posters` (
   `runtime_pretty` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- הוצאת מידע עבור טבלה `posters`
---
-
-INSERT INTO `posters` (`id`, `title_en`, `title_he`, `original_title`, `year`, `is_tv`, `imdb_rating`, `imdb_votes`, `poster_url`, `trailer_url`, `tmdb_url`, `tvdb_url`, `imdb_link`, `network`, `image_url`, `plot`, `plot_he`, `lang_code`, `tvdb_id`, `tmdb_id`, `tmdb_type`, `youtube_trailer`, `genre`, `actors`, `metacritic_score`, `rt_score`, `mc_score`, `rt_url`, `mc_url`, `poster`, `metacritic_link`, `rt_link`, `imdb_id`, `pending`, `collection_name`, `created_at`, `updated_at`, `type_id`, `directors`, `writers`, `producers`, `cinematographers`, `composers`, `runtime`, `languages`, `countries`, `genres`, `networks`, `tmdb_collection_id`, `seasons_count`, `episodes_count`, `network_logo`, `has_subtitles`, `is_dubbed`, `overview_he`, `overview_en`, `cast`, `title_kind`, `he_title`, `runtime_minutes`, `connections_count`, `imported_at`, `runtime_pretty`) VALUES
-(1, 'Sample', 'דוגמא', NULL, '2012', 0, 0.0, NULL, NULL, NULL, NULL, NULL, '', NULL, '', '', '', NULL, '0', NULL, NULL, '', '', '', '', '', NULL, NULL, NULL, NULL, '', '', '', 0, NULL, '2025-08-29 00:46:10', '2025-08-28 21:46:10', 0, '', '', '', '', '', 0, '', '', NULL, NULL, NULL, 0, 0, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, 0, '2025-08-28 21:46:10', NULL);
-
 -- --------------------------------------------------------
 
 --
@@ -273,13 +260,6 @@ CREATE TABLE `poster_collections` (
   `is_pinned` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- הוצאת מידע עבור טבלה `poster_collections`
---
-
-INSERT INTO `poster_collections` (`poster_id`, `collection_id`, `added_at`, `is_pinned`) VALUES
-(1, 1, '2025-08-28 21:51:16', 0);
-
 -- --------------------------------------------------------
 
 --
@@ -329,13 +309,6 @@ CREATE TABLE `poster_languages` (
   `poster_id` int(11) NOT NULL,
   `lang_code` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- הוצאת מידע עבור טבלה `poster_languages`
---
-
-INSERT INTO `poster_languages` (`poster_id`, `lang_code`) VALUES
-(1, 'silent');
 
 -- --------------------------------------------------------
 
@@ -432,6 +405,18 @@ CREATE TABLE `ratings` (
   `poster_id` int(11) NOT NULL,
   `rating` int(11) NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- מבנה טבלה עבור טבלה `thiseldb`
+--
+
+CREATE TABLE `thiseldb` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -611,6 +596,12 @@ ALTER TABLE `ratings`
   ADD KEY `poster_id` (`poster_id`);
 
 --
+-- אינדקסים לטבלה `thiseldb`
+--
+ALTER TABLE `thiseldb`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- אינדקסים לטבלה `user_tags`
 --
 ALTER TABLE `user_tags`
@@ -637,7 +628,7 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `collections`
 --
 ALTER TABLE `collections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `collection_items`
@@ -673,13 +664,13 @@ ALTER TABLE `languages`
 -- AUTO_INCREMENT for table `posters`
 --
 ALTER TABLE `posters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `poster_akas`
 --
 ALTER TABLE `poster_akas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=179173;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=599801;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
@@ -691,7 +682,7 @@ ALTER TABLE `poster_bookmarks`
 -- AUTO_INCREMENT for table `poster_connections`
 --
 ALTER TABLE `poster_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8283;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28966;
 
 --
 -- AUTO_INCREMENT for table `poster_genres_user`
@@ -715,7 +706,7 @@ ALTER TABLE `poster_reports`
 -- AUTO_INCREMENT for table `poster_types`
 --
 ALTER TABLE `poster_types`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `poster_votes`
@@ -730,10 +721,16 @@ ALTER TABLE `ratings`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `thiseldb`
+--
+ALTER TABLE `thiseldb`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=115;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=152;
 
 --
 -- הגבלות לטבלאות שהוצאו

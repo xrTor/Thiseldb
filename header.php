@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <html lang="he">
 <head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Arimo&family=Assistant&family=Bellefair&family=David+Libre&family=Fira+Code&family=Frank+Ruhl+Libre&family=Heebo&family=Inter&family=Lato&family=Lobster&family=Merriweather&family=Montserrat&family=Open+Sans&family=Oswald&family=Playfair+Display&family=Roboto&family=Rubik&display=swap" rel="stylesheet">
   <meta charset="UTF-8">
-  <title>Thiseldb</title>
+  <title>Thiseldb :: ת'יסל </title>
   <style>
       /* ============================================== */
     /* ==   סגנונות שנלקחו מהקובץ w3.css   == */

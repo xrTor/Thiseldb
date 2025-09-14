@@ -101,7 +101,13 @@
 אם חשבתם על דרך לשפר תאתר או נתקלתם בשגיאה או באג או נתון לא נכון, בעמודי הפוסטרים השתמשו בכפתור ה'דיווח', לכל פנייה אחרת נא שלחו טופס דרך עמוד '<a class="blue" href="contact.php">צור קשר</a>'.<br>
 או שלחו מייל אל הכתובת <a class="blue" href=mailto:"Thisel.db1@gmail.com">Thisel.db1@gmail.com</a><br>
 
-תהנו : )
+תהנו : )<br><br>
+
+<div class="center"><b>מדריך התקנה:</b><br>
+<a class="blue" href="https://github.com/xrTor/Thiseldb">קוד מקור בGitHub</a><br><br>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/YAmA8CdFyKs?si=6AH1EH8HTtmCvTLT&amp;start=5" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
+
 </div>
 </div>
 <?php include 'footer.php'; ?>

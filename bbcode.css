@@ -1,8 +1,8 @@
 /* === בסיס כללי ל-BBCode === */
 .bbcode {
-  font-family: Arial, sans-serif;
+  font-family: Arial;
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.4; /* צומצם מ-1.6 */
   color: #222;
   word-wrap: break-word;
 }
@@ -14,18 +14,23 @@
 .bbcode s, .bbcode del   { text-decoration: line-through; }
 
 /* === כותרות === */
-.bbcode h1 { font-size: 1.8em; margin: .4em 0; }
-.bbcode h2 { font-size: 1.6em; margin: .4em 0; }
-.bbcode h3 { font-size: 1.4em; margin: .4em 0; }
-.bbcode h4 { font-size: 1.2em; margin: .4em 0; }
-.bbcode h5 { font-size: 1.1em; margin: .4em 0; }
-.bbcode h6 { font-size: 1.0em; margin: .4em 0; }
+.bbcode h1 { font-size: 1.8em; margin: .2em 0; }
+.bbcode h2 { font-size: 1.6em; margin: .2em 0; }
+.bbcode h3 { font-size: 1.4em; margin: .2em 0; }
+.bbcode h4 { font-size: 1.2em; margin: .2em 0; }
+.bbcode h5 { font-size: 1.1em; margin: .2em 0; }
+.bbcode h6 { font-size: 1.0em; margin: .2em 0; }
 
 /* === יישור טקסט === */
 .bb-align-center, .bbcode .center { text-align: center; }
 .bb-align-right, .bbcode .right   { text-align: right; }
 .bb-align-left,  .bbcode .left    { text-align: left; }
 .bb-align-justify                 { text-align: justify; }
+.bb-indent {
+  margin-inline-start: 10px;
+  padding-inline-start: 10px;
+  border-inline-start: 0px solid #e0e0e0;
+}
 
 /* === צבעים (מובנים) === */
 .bbcode .color-red    { color: red; }
@@ -39,17 +44,16 @@
 .bbcode .color-purple { color: purple; }
 
 /* === גדלים (מדרגות מוכנות) === */
-.bbcode .size-8  { font-size: 8px; }
-.bbcode .size-10 { font-size: 10px; }
-.bbcode .size-12 { font-size: 12px; }
-.bbcode .size-14 { font-size: 14px; }
-.bbcode .size-16 { font-size: 16px; }
-.bbcode .size-18 { font-size: 18px; }
-.bbcode .size-20 { font-size: 20px; }
-.bbcode .size-22 { font-size: 22px; }
-.bbcode .size-24 { font-size: 24px; }
-.bbcode .size-28 { font-size: 28px; }
-.bbcode .size-32 { font-size: 32px; }
+.bb-size-1 { font-size: 0.75em; }
+.bb-size-2 { font-size: 1em; }
+.bb-size-3 { font-size: 1.25em; }
+.bb-size-4 { font-size: 1.5em; }
+.bb-size-5 { font-size: 1.75em; }
+.bb-size-6 { font-size: 2em; }
+.bb-size-7 { font-size: 2.25em; }
+.bb-size-8 { font-size: 2.5em; }
+.bb-size-9 { font-size: 2.75em; }
+.bb-size-10 { font-size: 3em; }
 
 /* === קישורים === */
 .bbcode a {
@@ -101,7 +105,7 @@
 .bb-quote {
   border-inline-start: 4px solid #ccc;
   padding: 8px 12px;
-  margin: 10px 0;
+  margin: 8px 0; /* צומצם */
   background: #f7f7f7;
   border-radius: 4px;
   font-style: italic;
@@ -113,7 +117,7 @@
 }
 
 /* === קוד === */
-.bb-code {
+.bb-code, .bb-pre {
   background: #111;
   color: #eee;
   padding: 10px;
@@ -124,6 +128,7 @@
   white-space: pre-wrap;
   line-height: 1.4;
 }
+.bb-pre { white-space: pre; }
 
 /* קוד בתוך preview */
 .bb-preview pre.bb-code {
@@ -138,77 +143,62 @@
   line-height:1.4;
 }
 
-/* === ספוילר === */
-.bb-spoiler { margin: 10px 0; }
+/* === ספוילר (סגנון PTP) === */
+.spoiler {
+    color: black;
+    background-color: black;
+}
+.spoiler:hover {
+    color: white;
+}
 
-.bb-spoiler summary {
+/* === טקסט מתקפל [hide] === */
+.bb-hide { margin: 8px 0; }
+.bb-hide summary {
   cursor: pointer;
   font-weight: bold;
   padding: 4px 8px;
   border-radius: 4px;
-  display: flex;
-  justify-content: flex-start;  /* טקסט וחץ מתחילים מצד ימין */
-  align-items: center;
-  gap: 6px;                     /* רווח בין החץ לטקסט */
-  background: none;
-  list-style: none;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
 }
-.bb-spoiler[open] summary { background: none; }
-
-/* ביטול מרקר מקורי */
-.bb-spoiler summary::marker { content: ''; }
-.bb-spoiler summary::-webkit-details-marker { display: none; }
-
-/* חץ מותאם - בימין לטקסט */
-.bb-spoiler summary::before {
-  content: "◀";  /* חץ סגור שמאלה (בצד ימין של הטקסט) */
-  display: inline-block;
-  transform: translateY(1px);
-}
-.bb-spoiler[open] summary::before {
-  content: "▼";  /* חץ פתוח למטה */
-}
-
-.bb-spoiler > div {
+.bb-hide[open] summary { border-bottom: 1px solid #ccc; }
+.bb-hide > div {
   margin-top: 4px;
-  padding: 0;
-  border: none;
-  background: none;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-top: none;
+  background: #fafafa;
 }
 
 /* === רשימות === */
-/* רשימה עם bullets */
 .bb-list {
   list-style: disc;
-  margin: 0 0 1em 1.5em;
+  margin: 0 0 0.5em 1.5em; /* צומצם */
   padding: 0;
 }
-
-/* רשימה ממוספרת */
 .bb-list[type="1"],
 .bb-list[type="a"],
 .bb-list[type="A"],
 .bb-list[type="i"],
 .bb-list[type="I"] {
   list-style-type: decimal;
-  margin: 0 0 1em 1.5em;
+  margin: 0 0 0.5em 1.5em; /* צומצם */
   padding: 0;
 }
-
-/* סוגי מספור */
 .bb-list[type="a"] { list-style-type: lower-alpha; }
 .bb-list[type="A"] { list-style-type: upper-alpha; }
 .bb-list[type="i"] { list-style-type: lower-roman; }
 .bb-list[type="I"] { list-style-type: upper-roman; }
 .bb-list-alpha { list-style: lower-alpha; }
 .bb-list-roman { list-style: upper-roman; }
-.bbcode li { margin-bottom: 4px; }
+.bbcode li { margin-bottom: 2px; line-height: 1.4; }
 
 /* === טבלאות === */
 .bb-table {
   border-collapse: collapse;
   width: 100%;
-  margin: 10px 0;
+  margin: 8px 0;
   background: #fff;
 }
 .bb-table td, .bb-table th {
@@ -286,7 +276,111 @@
 .bb-box {
   border: 1px solid #bbb;
   padding: 10px;
-  margin: 8px 0;
+  margin: 6px 0; /* צומצם */
   border-radius: 4px;
   background: #fafafa;
+}
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+ul li {
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
+/* תיקון ספציפי לאייקוני FontAwesome */
+i.fa,
+i.fas,
+i.far,
+i.fal,
+i.fad,
+i.fab,
+.fa-solid,
+.fa-regular,
+.fa-brands {
+  font-family: "Font Awesome 6 Free" !important;
+  font-style: normal;
+  font-variant: normal;
+  text-rendering: auto;
+  line-height: 1;
+}
+.fa-solid { font-weight: 900 !important; }
+.fa-regular { font-weight: 400 !important; }
+.fa-brands {
+  font-family: "Font Awesome 6 Brands" !important;
+  font-weight: 400 !important;
+}
+
+/* === טקסט שחור בתיבות === */
+.bb-info, .bb-warning, .bb-error, .bb-success{
+  color:#000 !important;
+  font-weight:600;
+}
+.bb-info a, .bb-warning a, .bb-error a, .bb-success a{
+  color:inherit;
+  text-decoration: underline;
+}
+
+/* === וידאו/אודיו מה-parser === */
+.bb-video, .bb-audio{
+  display:block;
+  max-width:100%;
+  margin:10px auto; /* צומצם */
+}
+
+/* === פריסה דו-לשונית [עברית]/[אנגלית] מה-parser === */
+.desc2-wrap{ margin:8px 0; }
+.desc2-table{ width:100%; border-collapse:collapse; border-spacing:0; }
+.desc2-td{ vertical-align:top; width:50%; padding:6px; }
+.desc2-col.en{ direction:ltr; text-align:left; }
+.desc2-col.he{ direction:rtl; text-align:right; }
+form {
+  margin: 0;
+}
+form .form-group, 
+form .row {
+  margin-bottom: 8px; /* במקום 20-30px */
+}
+.card, .content-box {
+  padding: 12px 16px; /* במקום 30-40px */
+}
+/* מבטל מרווחים מיותרים בכותרות ובפסקאות */
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0.2em !important;
+  margin-bottom: 0.2em !important;
+}
+
+p {
+  margin-top: 0.2em !important;
+  margin-bottom: 0.2em !important;
+}
+
+/* ריווח בתוך תיבת ה-BBCode */
+.bbcode {
+  line-height: 1.4;
+}
+.bbcode p {
+  margin: 0.2em 0 !important;  /* במקום 0.4em */
+}
+.bbcode br {
+  line-height: 1.2; /* שלא יוסיף גובה מוגזם */
+}
+
+/* מרווח תחתון של .details-desc */
+.details-desc {
+  margin-top: 2px !important;
+  margin-bottom: 4px !important;
+}
+/* אובררייד סופי לריווחים מיותרים */
+.bbcode, .details, .form-box, .container-box {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+/* Fix for BBCode list item spacing */
+.bb-list li {
+  margin-bottom: 0px; /* הקטנת הרווח מתחת לפריט */
+  padding-bottom: 0;
 }

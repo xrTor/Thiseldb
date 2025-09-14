@@ -2,22 +2,28 @@
 include 'bar.php';
 require_once 'server.php';
 require_once 'alias.php';
+include 'languages.php';
 
-// ----- קביעות בסיס -----
+// ----- Language to Flag Mapping -----
+$lang_map = [];
+foreach ($languages as $lang) {
+    $lang_data = ['code' => $lang['code'], 'label' => $lang['label'], 'flag' => $lang['flag']];
+    $lang_map[strtolower($lang['code'])] = $lang_data;
+    $lang_map[strtolower($lang['label'])] = $lang_data;
+}
+
+// ----- Base Definitions -----
 $allowed_limits = [5, 10, 20, 50, 100, 250];
 $limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50), $allowed_limits)
     ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50) : 50;
 $_SESSION['limit'] = $limit;
-
 $page   = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
-
-$view = $_GET['view'] ?? $_SESSION['view_mode'] ?? 'grid';
+$view = $_GET['view'] ?? $_SESSION['view_mode'] ?? 'modern_grid';
 $_SESSION['view_mode'] = $view;
-
 $search_mode = $_GET['search_mode'] ?? 'and';
 
-// ----- נורמליזציה קלה לקלט -----
+// ----- Input Normalization -----
 if (!empty($_GET['imdb_id'])) {
   if (preg_match('~tt\d{6,10}~i', (string)$_GET['imdb_id'], $m)) {
     $_GET['imdb_id'] = strtolower($m[0]);
@@ -32,7 +38,7 @@ if (!empty($_GET['min_rating']) && preg_match('/^\d+(\.\d+)?$/', (string)$_GET['
   $_GET['min_rating'] = $_GET['min_rating'] . '-';
 }
 
-// ----- שדות אפשריים מהטופס -----
+// ----- Possible Form Fields -----
 $fields = [
   'search', 'min_rating', 'metacritic', 'rt_score', 'year', 'imdb_id', 'tvdb_id',
   'genre', 'actor', 'user_tag', 'directors', 'producers', 'writers',
@@ -40,21 +46,18 @@ $fields = [
   'network'
 ];
 $types_selected = $_GET['type'] ?? [];
-// --- החל אליאסים על פרמטרי GET (לפני בניית WHERE) ---
 $ALIAS_FIELDS = ['search','country','lang_code','genre','network','user_tag'];
-
 foreach ($ALIAS_FIELDS as $k) {
   if (!empty($_GET[$k]) && is_string($_GET[$k])) {
     $_GET[$k] = applyAliases($k, $_GET[$k], $ALIASES);
   }
 }
-// --- סוף אליאסים ---
 
-// ----- בניית WHERE דינמי -----
+// ----- Dynamic WHERE Clause -----
 $where = [];
 $params = [];
 $bind_types = '';
-$join_akas = ''; // יתווסף רק כשצריך חיפוש ב-AKAS (בשדה search)
+$join_akas = '';
 
 if ($types_selected && is_array($types_selected)) {
   $placeholders = implode(',', array_fill(0, count($types_selected), '?'));
@@ -62,7 +65,6 @@ if ($types_selected && is_array($types_selected)) {
   foreach ($types_selected as $tid) { $params[] = (int)$tid; $bind_types .= 'i'; }
 }
 
-// פונקציית עזר להוספת תנאי LIKE/טווחים/NOT
 function addCondition($col, $val, &$where, &$params, &$bind_types, $mode = 'and') {
   if ($val === '') return;
   $parts = array_map('trim', explode(',', $val));
@@ -92,14 +94,12 @@ function addCondition($col, $val, &$where, &$params, &$bind_types, $mode = 'and'
   }
 }
 
-// מעבר על כל שדות החיפוש
 foreach ($fields as $f) {
   $val = trim($_GET[$f] ?? '');
   if ($val === '') continue;
 
-  // מיפוי שם־שדה לטור במסד (עם prefix posters.)
   $col = match($f) {
-    'search'      => '(posters.title_en LIKE ? OR posters.title_he LIKE ? OR posters.imdb_id LIKE ?)', // לא בשימוש ישיר (מטפלים בנפרד)
+    'search'      => '(posters.title_en LIKE ? OR posters.title_he LIKE ? OR posters.imdb_id LIKE ?)',
     'actor'       => 'posters.`cast`',
     'user_tag'    => '(SELECT GROUP_CONCAT(genre) FROM user_tags WHERE poster_id = posters.id)',
     'runtime'     => 'posters.runtime',
@@ -123,32 +123,15 @@ foreach ($fields as $f) {
 
   if ($f === 'search') {
     $v = $_GET['search'];
-
-    // אם יש ערך ב־search – נאפשר גם חיפוש ב־AKAS
     if ($v !== '') {
       $join_akas = " LEFT JOIN poster_akas pa ON pa.poster_id = posters.id ";
     }
-
     if ($v !== '' && $v[0] === '!') {
       $value = substr($v, 1);
-      $where[] =
-        '('
-        . 'posters.title_en NOT LIKE ? AND '
-        . 'posters.title_he NOT LIKE ? AND '
-        . 'posters.imdb_id  NOT LIKE ? AND '
-        . 'COALESCE(pa.aka_title, \'\') NOT LIKE ? AND '
-        . 'COALESCE(pa.aka, \'\')       NOT LIKE ?'
-        . ')';
+      $where[] = '(posters.title_en NOT LIKE ? AND posters.title_he NOT LIKE ? AND posters.imdb_id  NOT LIKE ? AND COALESCE(pa.aka_title, \'\') NOT LIKE ? AND COALESCE(pa.aka, \'\') NOT LIKE ?)';
       for ($i = 0; $i < 5; $i++) { $params[] = "%$value%"; $bind_types .= 's'; }
     } else {
-      $where[] =
-        '('
-        . 'posters.title_en LIKE ? OR '
-        . 'posters.title_he LIKE ? OR '
-        . 'posters.imdb_id  LIKE ? OR '
-        . 'pa.aka_title LIKE ? OR '
-        . 'pa.aka LIKE ?'
-        . ')';
+      $where[] = '(posters.title_en LIKE ? OR posters.title_he LIKE ? OR posters.imdb_id  LIKE ? OR pa.aka_title LIKE ? OR pa.aka LIKE ?)';
       for ($i = 0; $i < 5; $i++) { $params[] = "%$v%"; $bind_types .= 's'; }
     }
   } elseif ($f === 'user_tag') {
@@ -160,22 +143,17 @@ foreach ($fields as $f) {
       $where[] = 'posters.id IN (SELECT poster_id FROM user_tags WHERE genre LIKE ?)';
       $params[] = "%$v%"; $bind_types .= 's';
     }
-  } elseif (in_array($f, ['runtime', 'year', 'min_rating', 'metacritic', 'rt_score'])) {
-    addCondition($col, $val, $where, $params, $bind_types, $search_mode);
   } else {
     addCondition($col, $val, $where, $params, $bind_types, $search_mode);
   }
 }
-
-// סינון "לא עברית"
 if (isset($_GET['is_foreign_language'])) {
   $where[] = "NOT (posters.languages LIKE '%Hebrew%' OR posters.languages LIKE '%עברית%')";
 }
-
-$logic     = strtoupper($search_mode) === 'or' ? 'OR' : 'AND';
+$logic = strtoupper($search_mode) === 'or' ? 'OR' : 'AND';
 $sql_where = $where ? "WHERE " . implode(" $logic ", $where) : "";
 
-// ----- מיון -----
+// ----- Sorting -----
 $orderBy = "ORDER BY posters.id DESC";
 if (!empty($_GET['sort'])) {
   switch ($_GET['sort']) {
@@ -185,9 +163,10 @@ if (!empty($_GET['sort'])) {
   }
 }
 
-// ----- שליפות -----
-$sql = "SELECT DISTINCT posters.*
+// ----- Main Fetch -----
+$sql = "SELECT DISTINCT posters.*, pt.label_he AS type_label, pt.image AS type_image
         FROM posters
+        LEFT JOIN poster_types pt ON posters.type_id = pt.id
         $join_akas
         $sql_where
         $orderBy
@@ -200,22 +179,73 @@ $rows = [];
 while ($row = $result->fetch_assoc()) $rows[] = $row;
 $stmt->close();
 
-$count_sql = "SELECT COUNT(DISTINCT posters.id) as c
-              FROM posters
-              $join_akas
-              $sql_where";
+// ----- שליפת נתונים נוספים -----
+$user_tags_by_poster_id = [];
+$manual_languages_by_poster_id = [];
+$stickers_by_poster_id = [];
+
+if (!empty($rows)) {
+    $poster_ids = array_column($rows, 'id');
+    $ids_placeholder = implode(',', array_fill(0, count($poster_ids), '?'));
+    $ids_types = str_repeat('i', count($poster_ids));
+    
+    $ut_sql = "SELECT poster_id, genre FROM user_tags WHERE poster_id IN ($ids_placeholder)";
+    $stmt_ut = $conn->prepare($ut_sql);
+    $stmt_ut->bind_param($ids_types, ...$poster_ids);
+    $stmt_ut->execute();
+    $ut_result = $stmt_ut->get_result();
+    while ($ut_row = $ut_result->fetch_assoc()) {
+        $user_tags_by_poster_id[$ut_row['poster_id']][] = $ut_row['genre'];
+    }
+    
+    $lang_sql = "SELECT poster_id, lang_code FROM poster_languages WHERE poster_id IN ($ids_placeholder)";
+    $stmt_lang = $conn->prepare($lang_sql);
+    $stmt_lang->bind_param($ids_types, ...$poster_ids);
+    $stmt_lang->execute();
+    $lang_result = $stmt_lang->get_result();
+    while ($lang_row = $lang_result->fetch_assoc()) {
+        $manual_languages_by_poster_id[$lang_row['poster_id']][] = $lang_row['lang_code'];
+    }
+
+    // --- שליפת סטיקרים של אוספים עבור כל הפוסטרים בעמוד ---
+    if (!empty($poster_ids)) {
+        $sql_stickers = "SELECT pc.poster_id, c.poster_image_url, c.id as collection_id, c.name as collection_name
+                         FROM poster_collections pc
+                         JOIN collections c ON pc.collection_id = c.id
+                         WHERE pc.poster_id IN ($ids_placeholder) AND c.poster_image_url IS NOT NULL AND c.poster_image_url <> ''";
+        
+        $stmt_stickers = $conn->prepare($sql_stickers);
+        $stmt_stickers->bind_param($ids_types, ...$poster_ids);
+        $stmt_stickers->execute();
+        $stickers_result = $stmt_stickers->get_result();
+        while ($sticker_row = $stickers_result->fetch_assoc()) {
+            $stickers_by_poster_id[$sticker_row['poster_id']][] = $sticker_row;
+        }
+        $stmt_stickers->close();
+    }
+}
+
+// ----- Count Total Rows -----
+$count_sql = "SELECT COUNT(DISTINCT posters.id) as c FROM posters $join_akas $sql_where";
 $count_stmt = $conn->prepare($count_sql);
 if ($bind_types) $count_stmt->bind_param($bind_types, ...$params);
 $count_stmt->execute();
-$count_result = $count_stmt->get_result();
-$total_rows = $count_result->fetch_assoc()['c'] ?? 0;
+$total_rows = $count_stmt->get_result()->fetch_assoc()['c'] ?? 0;
 $count_stmt->close();
+
 
 $total_pages = max(1, ceil($total_rows / $limit));
 $start = $offset + 1;
 $end   = $offset + count($rows);
 $uri_base = preg_replace('/([&?])page=\d+/', '', $_SERVER['REQUEST_URI']);
 $uri_sep  = (str_contains($uri_base, '?') ? '&' : '?');
+
+$max_links = 5;
+$start_page = max(1, $page - floor($max_links / 2));
+$end_page = min($total_pages, $start_page + $max_links - 1);
+if ($end_page - $start_page < $max_links - 1) {
+    $start_page = max(1, $end_page - $max_links + 1);
+}
 
 ?>
 <!DOCTYPE html>
@@ -224,6 +254,33 @@ $uri_sep  = (str_contains($uri_base, '?') ? '&' : '?');
   <meta charset="UTF-8">
   <title>ספריית פוסטרים</title>
   <style>
+    .poster-title {
+    font-family: Assistant, "Segoe UI", Arial, sans-serif;
+    line-height: 1.0;
+    margin-top: 4px;
+    font-weight: bold; /* ברירת מחדל לכל הטקסט בכותרת */
+}
+.poster-title b { /* שם באנגלית */
+    font-size: 16px;
+    font-weight: 700;
+    color: #000;
+}
+.poster-title .hebrew-title { /* שם בעברית */
+    font-size: 16px;
+    font-weight: 700; /* משקל רגיל */
+    color: #666;
+    font-family: Arial !important;
+}
+.poster-title .year-link { /* שנה */
+    font-size: 14px;
+    font-weight: 400;
+}
+    .poster:hover {
+    position: relative;
+    z-index: 10;
+    transform: scale(1.25);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
     body { background-color:white; margin:0; }
     h1, .results-summary { text-align:center; margin:10px 0 15px 0; }
     .pager {
@@ -231,136 +288,339 @@ $uri_sep  = (str_contains($uri_base, '?') ? '&' : '?');
       display: flex; justify-content: center; gap: 7px; flex-wrap: wrap;
     }
     .pager a, .pager strong {
-      padding: 6px 12px;
-      border: 1px solid #bbb;
-      border-radius: 6px;
-      text-decoration: none;
-      background: #fff;
-      font-size: 15px;
-      color: #147;
-      margin: 0 1px;
+      padding: 6px 12px; border: 1px solid #bbb; border-radius: 6px;
+      text-decoration: none; background: #fff; font-size: 15px; color: #147; margin: 0 1px;
     }
     .poster-wall {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 18px 12px;
-      justify-content: center;
-      margin: 10px 0 40px 0;
+      display: flex; flex-wrap: wrap; gap: 18px 12px;
+      justify-content: center; margin: 10px 0 40px 0;
     }
     .poster {
-      width: 190px;
-      background: #fff;
-      border: 1px solid #eee;
-      border-radius: 7px;
-      padding: 7px;
-      text-align: center;
-      box-shadow: 0 0 6px rgba(0,0,0,0.07);
+      width: 205px;
+      background: #fff; border: 1px solid #eee; border-radius: 7px;
+      padding: 8px; text-align: center; box-shadow: 0 0 6px rgba(0,0,0,0.07);
+      display: flex; flex-direction: column;
+      position: relative;
     }
-    .poster img {
-      width: 100%; border-radius: 4px; object-fit: cover;
+    .poster-title { font-weight:bold; margin-top: 4px;}
+    .title-link { text-decoration: none; color: inherit; }
+    .imdb-container {
+        display: flex; justify-content: center; align-items: center;
+        gap: 5px; padding: 5px 0; text-decoration: none; color: inherit;
     }
-    .poster .rating { font-size:14px; color:#666; margin-top: 3px;}
-    .poster .tags { font-size:12px; color:#888; margin:2px 0;}
-    .poster-title { color:#1567c0; font-weight:bold; }
-    .poster-regular li, .poster-list li {
-      background: #fff; border-radius: 7px; margin-bottom: 8px; padding: 8px 6px;
+    .imdb-container span { white-space: nowrap; }
+    .imdb-container img {
+        height: 50px;
+        width: auto;
+        object-fit: contain;
     }
-    .poster-list { list-style:none; padding:0; width:93%; margin:24px auto;}
-    .poster-list li { display:flex; align-items:center; gap:10px;}
-    .poster-list img { height:60px; border-radius:5px;}
-    .poster-regular { list-style:none; padding:0; margin:25px auto; width:95%;}
-    .poster-regular li { display:inline-block; width:178px; margin:10px; vertical-align:top; text-align:center;}
-    .poster-regular img { height:150px; border-radius:4px; margin-bottom:6px;}
+    .poster-type-link { text-decoration: none; }
+    .poster-type-display {
+        font-size: 12px; color: #555; display: flex; align-items: center; justify-content: center;
+        gap: 8px; padding: 4px 0;
+    }
+    .poster-tags { text-align: center; padding: 4px 0; }
+    .tag-badge {
+        display: inline-block; background: linear-gradient(to bottom, #f7f7f7, #e0e0e0); color: #333;
+        padding: 4px 12px; border-radius: 16px; font-size: 12px; margin: 3px;
+        text-decoration: none; font-weight: 500; border: 1px solid #ccc;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out;
+    }
+    .user-tag { background: linear-gradient(to bottom, #e3f2fd, #bbdefb); border-color: #90caf9; }
+    .tag-badge:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .network-logo-container { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 0;}
+    .flags-container { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0; }
+    .poster-actions {
+        margin-top: auto; padding-top: 8px;
+        display: flex; justify-content: center; align-items: center;
+        direction: rtl;
+    }
+    .poster-actions a, .poster-actions button { text-decoration: none; font-size: 18px; margin: 0 3px; display: inline-flex; align-items: center; }
+    .trailer-btn { background-color: #d92323; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; }
+    
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); }
+    .modal-content { position: relative; background-color: #181818; margin: 60px auto auto; padding: 0; width: 90%; max-width: 800px; }
+    .close-btn { color: white; float: left; font-size: 38px; font-weight: bold; }
+    .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
+    .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    
+    .poster-list, .poster-regular { list-style:none; padding:0; width:95%; margin:24px auto; }
+    .poster-list li { display:flex; align-items:center; gap:12px; background: #fff; border-radius: 7px; margin-bottom: 8px; padding: 8px; }
+    .poster-list img { height:60px; border-radius:5px; }
+    .poster-regular li { display:inline-block; width:178px; margin:10px; vertical-align:top; text-align:center; background: #fff; border-radius: 7px; padding: 8px; }
+    .poster-regular img { height:150px; border-radius:4px; margin-bottom:6px; }
+    .poster-list-item { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 7px; margin-bottom: 8px; padding: 8px; }
+    .poster-list-item .list-thumb { width: 50px; height: 75px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+    .poster-list-item .list-details { flex-grow: 1; text-align: right; }
+    
+    .network-logo-container:empty,
+    .poster-tags:empty,
+    .flags-container:empty {
+        display: none;
+    }
+    .flag-row { width: 100%; display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .flag-row + .flag-row { margin-top: 4px; }
+
+    .collection-sticker-container {
+        padding: 8px 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .collection-sticker-image:hover {
+        transform: scale(1.1);
+    }
+    
   </style>
 </head>
 <body>
   <h1>🎬 ספריית פוסטרים</h1>
   <div class="results-summary">
-    <b>הצגת <?= $start ?>–<?= $end ?> מתוך <?= $total_rows ?> — עמוד <?= $page ?> מתוך <?= $total_pages ?></b>
+    <b>הצגת <?= $start ?>-<?= $end ?> מתוך <?= $total_rows ?> — עמוד <?= $page ?> מתוך <?= $total_pages ?></b>
   </div>
 
   <div class="pager">
-    <?php if ($page > 1): ?>
-      <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a>
-    <?php endif; ?>
-    <?php
-      $max_links = 5;
-      $start_page = max(1, $page - floor($max_links / 2));
-      $end_page = min($total_pages, $start_page + $max_links - 1);
-      if ($end_page - $start_page < $max_links - 1) $start_page = max(1, $end_page - $max_links + 1);
-      for ($i = $start_page; $i <= $end_page; $i++): ?>
-      <?php if ($i == $page): ?>
-        <strong><?= $i ?></strong>
-      <?php else: ?>
-        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) ?>"><?= $i ?></a>
-      <?php endif; ?>
-    <?php endfor; ?>
-    <?php if ($page < $total_pages): ?>
-      <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">הבא ➡</a>
-    <?php endif; ?>
+    <?php if ($page > 1): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a><?php endif; ?>
+    <?php for ($i = $start_page; $i <= $end_page; $i++): echo ($i == $page) ? "<strong>$i</strong>" : "<a href='" . htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) . "'>$i</a>"; endfor; ?>
+    <?php if ($page < $total_pages): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">הבא ➡</a><?php endif; ?>
   </div>
 
   <?php if (empty($rows)): ?>
     <p style="text-align:center; color:#888;">😢 לא נמצאו תוצאות</p>
-  <?php elseif ($view === 'grid'): ?>
+
+  <?php elseif ($view === 'modern_grid'): ?>
     <div class="poster-wall">
       <?php foreach ($rows as $row): ?>
-        <div class="poster">
+        <div class="poster ltr">
           <a href="poster.php?id=<?= $row['id'] ?>">
-            <img src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
-            <div class="poster-title"><?= htmlspecialchars($row['title_en']) ?></div>
-            <?php if (!empty($row['title_he'])): ?><div><?= htmlspecialchars($row['title_he']) ?></div><?php endif; ?>
-            <div><?= htmlspecialchars($row['year']) ?></div>
+            <img src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר" loading="lazy" style="width: 100%; height: auto; object-fit: cover;">
+          </a> 
+          
+          <div class="poster-title">
+  <a href="poster.php?id=<?= $row['id'] ?>" class="title-link">
+      <b><?= htmlspecialchars($row['title_en']) ?></b>
+      <?php if (!empty($row['title_he'])): ?><br><span class="hebrew-title"><?= htmlspecialchars($row['title_he']) ?></span><?php endif; ?>
+  </a>
+  <br><span class="year-link">[<a href="home.php?year=<?= htmlspecialchars($row['year']) ?>"><?= $row['year'] ?></a>]</span>
+</div>
+
+          <a class="imdb-container" href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank">
+            <img src="images/imdb.png" alt="IMDb"> 
+            <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
           </a>
-          <div class="rating">⭐ <?= htmlspecialchars($row['imdb_rating']) ?>/10</div>
-          <div class="tags"><?= htmlspecialchars($row['genres'] ?? '') ?></div>
+
+          <?php if (!empty($row['type_label'])): ?>
+            <a href="home.php?type[]=<?= htmlspecialchars($row['type_id']) ?>" class="poster-type-link">
+                <div class="poster-type-display">
+                    <span><?= htmlspecialchars($row['type_label']) ?></span>
+                    <?php if (!empty($row['type_image'])): ?>
+                        <img src="images/types/<?= htmlspecialchars($row['type_image']) ?>" alt="" style="max-height: 32px; width: auto; vertical-align: middle;">
+                    <?php endif; ?>
+                </div>
+            </a>
+          <?php endif; ?>
+          
+          <div class="network-logo-container">
+              <?php
+                $networks = array_filter(array_map('trim', explode(',', $row['networks'] ?? '')));
+                foreach ($networks as $net) {
+                    $slug = strtolower(preg_replace('/\s+/', '', $net));
+                    foreach (['png','jpg','jpeg','webp','svg'] as $ext) {
+                        $logoPath = "images/networks/{$slug}.{$ext}";
+                        if (is_file($logoPath)) {
+                            echo "<a href='home.php?network=" . urlencode($net) . "'><img src='" . htmlspecialchars($logoPath) . "' alt='" . htmlspecialchars($net) . "' style='max-width: 80px; max-height: 35px; width: auto; height: auto; object-fit: contain;'></a>";
+                            break;
+                        }
+                    }
+                }
+              ?>
+          </div>
+          
+          <?php if (isset($stickers_by_poster_id[$row['id']])): ?>
+            <div class="collection-sticker-container">
+                <?php foreach ($stickers_by_poster_id[$row['id']] as $sticker): ?>
+                    <a href="collection.php?id=<?= (int)$sticker['collection_id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($sticker['collection_name']) ?>">
+                        <img src="<?= htmlspecialchars($sticker['poster_image_url']) ?>" class="collection-sticker-image" alt="<?= htmlspecialchars($sticker['collection_name']) ?>" style="width: 50px; height: 50px; object-fit: contain;">
+                    </a>
+                <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+          <div class="poster-tags">
+              <?php
+                $official_genres = array_filter(array_map('trim', explode(',', $row['genres'] ?? '')));
+                foreach ($official_genres as $genre): ?>
+                    <a href="home.php?genre=<?= urlencode($genre) ?>" class="tag-badge"><?= htmlspecialchars($genre) ?></a>
+              <?php endforeach; ?>
+              <?php if (isset($user_tags_by_poster_id[$row['id']])): ?>
+                  <?php foreach ($user_tags_by_poster_id[$row['id']] as $utag): ?>
+                    <a href="home.php?user_tag=<?= urlencode($utag) ?>" class="tag-badge user-tag"><?= htmlspecialchars($utag) ?></a>
+                  <?php endforeach; ?>
+              <?php endif; ?>
+          </div>
+
+          <div class="flags-container">
+                <?php
+                  $manual_langs = $manual_languages_by_poster_id[$row['id']] ?? [];
+                  $auto_langs = array_filter(array_map('trim', explode(',', $row['languages'] ?? '')));
+                  $auto_langs_unique = array_diff($auto_langs, $manual_langs); // הצג דגלי IMDb רק אם הם לא הוגדרו ידנית
+                ?>
+                <?php if (!empty($manual_langs)): ?>
+                    <div class="flag-row">
+                    <?php foreach ($manual_langs as $lang_name): ?>
+                        <?php
+                            $lang_key = strtolower($lang_name);
+                            if (isset($lang_map[$lang_key])):
+                                $flag_data = $lang_map[$lang_key];
+                        ?>
+                            <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
+                                <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                            </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($auto_langs_unique)): ?>
+                    <div class="flag-row">
+                    <?php foreach ($auto_langs_unique as $lang_name): ?>
+                        <?php
+                            $lang_key = strtolower($lang_name);
+                            if (isset($lang_map[$lang_key])):
+                                $flag_data = $lang_map[$lang_key];
+                        ?>
+                            <a href="home.php?lang_code=<?= urlencode($flag_data['label']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
+                                 <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                            </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+          </div>
+      
+          <div class="poster-actions">
+            <?php if (!empty($row['trailer_url'])): ?>
+                <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
+                <span style="margin: 0 4px;">|</span>
+            <?php endif; ?>
+            <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
+            <span style="margin: 0 4px;">|</span>
+            <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
+          </div>
         </div>
       <?php endforeach; ?>
     </div>
-  <?php elseif ($view === 'list'): ?>
-    <ul class="poster-list">
+    
+  <?php elseif ($view === 'grid'): ?>
+    <div class="poster-wall">
       <?php foreach ($rows as $row): ?>
-        <li>
-          <img src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
-          <b><?= htmlspecialchars($row['title_en']) ?></b>
-          <?php if (!empty($row['title_he'])): ?> — <?= htmlspecialchars($row['title_he']) ?><?php endif; ?>
-          (<?= htmlspecialchars($row['year']) ?>)
-          ⭐ <?= htmlspecialchars($row['imdb_rating']) ?>
-          <a href="poster.php?id=<?= $row['id'] ?>">📄</a>
-        </li>
-      <?php endforeach; ?>
-    </ul>
-  <?php else: ?>
-    <ul class="poster-regular">
-      <?php foreach ($rows as $row): ?>
-        <li>
+        <div class="poster" style="width:190px;">
           <a href="poster.php?id=<?= $row['id'] ?>">
             <img src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
-            <strong><?= htmlspecialchars($row['title_en']) ?></strong><br>
-            <?= htmlspecialchars($row['title_he']) ?><br>
-            🗓 <?= htmlspecialchars($row['year']) ?>
+            <div class="poster-title" style="color:#1567c0;"><?= htmlspecialchars($row['title_en']) ?></div>
+            <?php if (!empty($row['title_he'])): ?><div><?= htmlspecialchars($row['title_he']) ?></div><?php endif; ?>
+            <div><?= htmlspecialchars($row['year']) ?></div>
           </a>
-          <div class="rating">⭐ <?= htmlspecialchars($row['imdb_rating']) ?>/10</div>
-        </li>
+          <div class="rating" style="font-size:14px; color:#666; margin-top: 3px;">
+            <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="text-decoration:none; color:inherit;">
+                ⭐ <?= htmlspecialchars($row['imdb_rating']) ?>/10
+            </a>
+          </div>
+          <div class="tags" style="font-size:12px; color:#888; margin:2px 0;"><?= htmlspecialchars($row['genres'] ?? '') ?></div>
+        </div>
       <?php endforeach; ?>
-    </ul>
+    </div>
+    
+  <?php else: ?>
+    <ul class="<?= $view === 'list' ? 'poster-list' : 'poster-regular' ?>">
+  <?php foreach ($rows as $row): ?>
+    <?php if ($view === 'list'): ?>
+        <li class="poster-list-item">
+            <a href="poster.php?id=<?= $row['id'] ?>">
+                <img class="list-thumb" src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
+            </a>
+            <div class="list-details">
+                <a href="poster.php?id=<?= $row['id'] ?>" style="text-decoration: none; color: inherit; font-weight: bold; font-size: 16px;">
+                    <?= htmlspecialchars($row['title_en']) ?>
+                    <?php if (!empty($row['title_he'])): ?> — <?= htmlspecialchars($row['title_he']) ?><?php endif; ?>
+                    (<?= htmlspecialchars($row['year']) ?>)
+                </a>
+                <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="text-decoration:none; color:inherit;">
+                    ⭐ <?= htmlspecialchars($row['imdb_rating']) ?>
+                </a>
+            </div>
+            <a href="poster.php?id=<?= $row['id'] ?>" style="font-size: 18px; text-decoration: none; padding: 0 10px;"></a>
+        </li>
+    <?php else: // 'regular' view mode ?>
+        <li style="width:178px; margin:10px; vertical-align:top; text-align:center; display:inline-block;">
+            <a href="poster.php?id=<?= $row['id'] ?>">
+                <img style="height:150px; border-radius:4px; margin-bottom:6px;" src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
+                <br>
+                <strong><?= htmlspecialchars($row['title_en']) ?></strong>
+                <br><?= htmlspecialchars($row['title_he']) ?><br>🗓 <?= htmlspecialchars($row['year']) ?>
+            </a>
+        </li>
+    <?php endif; ?>
+  <?php endforeach; ?>
+</ul>
   <?php endif; ?>
 
   <div class="pager">
-    <?php if ($page > 1): ?>
-      <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a>
-    <?php endif; ?>
-    <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-      <?php if ($i == $page): ?>
-        <strong><?= $i ?></strong>
-      <?php else: ?>
-        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) ?>"><?= $i ?></a>
-      <?php endif; ?>
-    <?php endfor; ?>
-    <?php if ($page < $total_pages): ?>
-      <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">הבא ➡</a>
-    <?php endif; ?>
+    <?php if ($page > 1): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a><?php endif; ?>
+    <?php for ($i = $start_page; $i <= $end_page; $i++): echo ($i == $page) ? "<strong>$i</strong>" : "<a href='" . htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) . "'>$i</a>"; endfor; ?>
+    <?php if ($page < $total_pages): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">הבא ➡</a><?php endif; ?>
   </div>
+
+  <div id="trailer-modal" style="display:none;" class="modal">
+    <div class="modal-content ltr">
+      <span class="close-btn">&times;</span>
+      <div class="video-container" id="video-container"></div>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const wall = document.querySelector('.poster-wall, .poster-list, .poster-regular');
+      const modal = document.getElementById('trailer-modal');
+      const videoContainer = document.getElementById('video-container');
+      const closeBtn = modal.querySelector('.close-btn');
+
+      const getYouTubeEmbedUrl = (url) => {
+        try {
+            const urlObj = new URL(url);
+            let videoId = urlObj.searchParams.get('v');
+            if (urlObj.hostname === 'youtu.be') videoId = urlObj.pathname.slice(1);
+            if (videoId) return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        } catch (e) {}
+        return null;
+      };
+      
+      const openModal = (url) => {
+        const embedUrl = getYouTubeEmbedUrl(url);
+        if(embedUrl) {
+          videoContainer.innerHTML = `<iframe src="${embedUrl}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+          modal.style.display = 'block';
+        }
+      };
+      const closeModal = () => {
+        modal.style.display = 'none';
+        videoContainer.innerHTML = '';
+      };
+
+      if (wall) {
+        wall.addEventListener('click', (e) => {
+          const btn = e.target.closest('.trailer-btn');
+          if (btn && btn.dataset.trailerUrl) {
+            e.preventDefault();
+            openModal(btn.dataset.trailerUrl);
+          }
+        });
+      }
+      closeBtn.addEventListener('click', closeModal);
+      window.addEventListener('click', (e) => { if (e.target == modal) closeModal(); });
+    });
+  </script>
+
 </body>
 </html>
 <?php include 'footer.php'; ?>

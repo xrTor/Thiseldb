@@ -31,8 +31,11 @@ while ($row = $result->fetch_assoc()) {
         $stmt->execute();
         $stmt->close();
 
-        echo "<li>✅ [{$id}] נשמר ל־{$localPath}</li>";
-    } else {
+        echo "";
+
+        // echo "<li>✅ [{$id}] נשמר ל־{$localPath}</li>";
+    }
+     else {
         echo "<li>❌ [{$id}] שגיאה בהורדה מ־{$url}</li>";
     }
 }

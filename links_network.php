@@ -1,5 +1,6 @@
 <?php
 require_once 'server.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 // שליפת רשתות - שימוש בעמודה "networks"
 $res = $conn->query("SELECT networks FROM posters WHERE networks IS NOT NULL AND networks != ''");
@@ -23,7 +24,7 @@ while ($row = $res->fetch_assoc()) {
     foreach ($list as $g) {
         $g = trim((string)$g);
         if ($g !== '') {
-            $key = mb_strtolower($g);
+            $key = mb_strtolower($g, 'UTF-8');
             if (!isset($networks[$key])) {
                 $networks[$key] = ['label' => $g, 'count' => 1];
             } else {
@@ -34,7 +35,7 @@ while ($row = $res->fetch_assoc()) {
 }
 
 // מיון לפי כמות יורדת
-usort($networks, fn($a, $b) => $b['count'] - $a['count']);
+usort($networks, fn($a, $b) => $b['count'] <=> $a['count']);
 
 $colors = [
     "#d1ecf1", "#d4edda", "#fff3cd", "#f8d7da",
@@ -70,16 +71,24 @@ echo "<table class='mx-auto' style='direction: rtl; max-width: 1000px;'>";
 $cols = 8;
 $i = 0;
 
+$limitParam = (int)($_SESSION['limit'] ?? 50);
+$viewParam  = (string)($_SESSION['view_mode'] ?? 'modern_grid');
+
 foreach ($networks as $g) {
     if ($i % $cols === 0) echo "<tr>";
 
-    $name = htmlspecialchars($g['label'], ENT_QUOTES, 'UTF-8');
+    $name  = htmlspecialchars($g['label'], ENT_QUOTES, 'UTF-8');
     $count = (int)$g['count'];
-    $url = "network.php?name=" . urlencode($g['label']);
+
+    // 🔗 שינוי יחיד: הפניה ל-home.php עם פרמטרים של החיפוש
+    $url = "home.php?search=&year=&min_rating=&metacritic=&rt_score=&imdb_id=&genre=&user_tag=&actor=&directors=&producers=&writers=&composers=&cinematographers=&lang_code=&country=&runtime=&network="
+         . urlencode($g['label'])
+         . "&search_mode=and&limit={$limitParam}&view=" . urlencode($viewParam) . "&sort=";
+
     $color = $colors[$i % count($colors)];
 
     echo "<td style='padding: 4px; text-align: center;'>";
-    echo "<a href='$url' class='text-decoration-none'>";
+    echo "<a href='" . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . "' class='text-decoration-none'>";
     echo "<div class='genre-box' style='background: $color;'>";
     echo "$name <span style='color:#555'>($count)</span>";
     echo "</div></a></td>";

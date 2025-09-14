@@ -231,7 +231,7 @@ if (isset($conn) && $__pa_id>0){
   }
 
   $__pa_collections=array();
-  if($r=$conn->query("SELECT c.id,c.name FROM poster_collections pc JOIN collections c ON c.id=pc.collection_id WHERE pc.poster_id={$__pa_id} ORDER BY c.name")){
+  if($r=$conn->query("SELECT c.id, c.name, c.poster_image_url FROM poster_collections pc JOIN collections c ON c.id=pc.collection_id WHERE pc.poster_id={$__pa_id} ORDER BY c.name")){
     while($r && $c=$r->fetch_assoc()){ $__pa_collections[]=$c; }
   }
 }
@@ -352,7 +352,7 @@ body {background-color:#161b26 !important; text-align: right !important;}
 
 /* ==== Light theme overrides ==== */
 body.theme-light { --bg:#ffffff; --card:#ffffff; --text:#222; --muted:#555; --chip:#f5f5f5; --accent:#1a73e8; --line:#dddddd; background:#ffffff !important; color:#222 !important; }
-body.theme-light a { color: var(--accent) !important; }
+body.theme-light .card a { color: var(--accent) !important; }
 body.theme-light .content a { color: var(--accent) !important; }
 body.theme-light .poster { background:#ffffff; border-inline-end:1px solid var(--line); }
 body.theme-light img.poster-img { border-color: var(--line); }
@@ -549,7 +549,10 @@ body.view-commas .chip-static:last-child::after {
 body.theme-light .flags-under-poster b {
   color: #000 !important;
 }
-
+/* תיקון צבע קישורים ב-Footer במצב בהיר */
+body.theme-light footer a {
+  color: var(--text) !important;
+}
   </style>
 </head>
 <body>
@@ -604,6 +607,21 @@ body.theme-light .flags-under-poster b {
 }
   ?>
 </div>
+<?php
+  // נסנן רק את האוספים שיש להם תמונת סטיקר
+  $collections_with_stickers = array_filter($__pa_collections, function($c) {
+    return !empty($c['poster_image_url']);
+  });
+?>
+<?php if (!empty($collections_with_stickers)): ?>
+    <div class="collection-stickers" style="text-align:center; margin-top:12px; display:flex; flex-direction:column; gap:8px; align-items:center;">
+      <?php foreach ($collections_with_stickers as $c): ?>
+        <a href="collection.php?id=<?= (int)$c['id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($c['name']) ?>">
+          <img src="<?= htmlspecialchars($c['poster_image_url']) ?>" alt="<?= htmlspecialchars($c['name']) ?>" style="height:50px; width:auto; max-width:150px; object-fit:contain;">
+        </a>
+      <?php endforeach; ?>
+    </div>
+<?php endif; ?>
 
 <?php
 // --- NETWORK LOGO מעל הדגלים ---
@@ -628,9 +646,11 @@ if (!empty($networks)) {
                     }
                 }
 
+                echo '<a href="home.php?network='.urlencode($net).'">';
                 echo '<img src="'.htmlspecialchars($logoPath, ENT_QUOTES, "UTF-8").'" 
                            alt="'.htmlspecialchars($net, ENT_QUOTES, "UTF-8").'" 
                            class="'.$class.'">';
+                echo '</a>';
                 break; // מצאנו → מפסיקים לבדוק סיומות נוספות
             }
         }
@@ -875,7 +895,7 @@ if (!empty($networks)) {
             <?php if ($rt_score): ?>
               <?php if ($rt_url): ?>
                 <a class="pill" href="<?= H($rt_url) ?>" target="_blank" rel="noopener">Rotten Tomatoes: <?= H($rt_score) ?>%
-                  <img src="images/rotten-tomatoes.png" style="vertical-align:middle" alt="RT" width="24"></a>
+                  <img src="images/rotten-tomatoes.png" style="vertical-align:middle" alt="RT" width="44"></a>
               <?php else: ?><span class="pill">Rotten Tomatoes: <?= H($rt_score) ?>%</span><?php endif; ?>
             <?php endif; ?>
 

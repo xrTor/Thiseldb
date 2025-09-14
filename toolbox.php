@@ -140,6 +140,9 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
                 <a href="manage_type_admin.php" class="nav-button" style="--btn-color: #717D7E;"><span class="nav-icon">🔗</span><span class="nav-text">שיוך סוגים</span></a>
                 <a href="manage_titles.php" class="nav-button" style="--btn-color: #4A235A;"><span class="nav-icon">🔤</span><span class="nav-text">ניהול כותרות</span></a>
                 <a href="manage_missing.php" class="nav-button" style="--btn-color: #B7950B;"><span class="nav-icon">❓</span><span class="nav-text">פוסטרים חסרים</span></a>
+                <a href="manage_plots.php" class="nav-button" style="--btn-color: #4A235A;"><span class="nav-icon">📝</span><span class="nav-text">ניהול תקצירים</span></a>
+
+                
                 <a href="manage_sync.php" class="nav-button" style="--btn-color: #7f8c8d;"><span class="nav-icon">🔄</span><span class="nav-text">סנכרון תמונות</span></a>
             </div>
         </div>

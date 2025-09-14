@@ -1,13 +1,8 @@
 <?php
 /****************************************************
  * auto-add.php — ייבוא אוטומטי + AKAs + IMDb Connections (מאוחד)
- * BUILD v21:
- * - H() יחידה לאסקפינג (אין h() נוספת)
- * - Posters upsert (אם יש build_row/unify_details)
- * - שמירת AKAs
- * - שמירת Connections עם dedupe + INSERT IGNORE
- * - שליפה עם NEXT / DOM / REGEX + תמיכת gzip
- * - דו"ח דיבאג כולל מקור connections (next/dom/regex/none)
+ * BUILD v22:
+ * - מתאים את הקריאה ל-build_row() לחתימה החדשה עם 5 פרמטרים
  ****************************************************/
 set_time_limit(3000000);
 mb_internal_encoding('UTF-8');
@@ -101,6 +96,7 @@ function map_u_to_posters_fields(array $u, array $raw_row): array {
   $add('rt_url',   $u['rt_url'] ?? null);
   $add('mc_score', isset($u['mc_score']) ? (string)$u['mc_score'] : null);
   $add('mc_url',   $u['mc_url'] ?? null);
+    /* === Ratings patch applied === */
 
   $add('seasons_count',  $u['seasons'] ?? null);
   $add('episodes_count', $u['episodes'] ?? null);
@@ -330,7 +326,6 @@ function imdb_connections_all_fetch(string $imdbId, array $keep): array {
       $xp = new DOMXPath($dom);
       $domOut=[]; foreach($keep as $k) $domOut[$k]=[];
 
-      // חיפוש כותרות אפשריות
       $headers = $xp->query("//*[self::h2 or self::h3 or self::h4 or contains(@class,'ipc-title__text')]");
       foreach ($headers as $hnode) {
         $label = normalize_conn_label(trim(preg_replace('/\s+/', ' ', $hnode->textContent ?? '')));
@@ -486,7 +481,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         if (function_exists('build_row')) {
           if (!isset($TMDB_KEY)) $TMDB_KEY='';
           if (!isset($RAPIDAPI_KEY)) $RAPIDAPI_KEY='';
-          $rawRow = build_row($tt, $TMDB_KEY, $RAPIDAPI_KEY);
+          if (!isset($TVDB_KEY)) $TVDB_KEY='';
+          if (!isset($OMDB_KEY)) $OMDB_KEY='';
+          $rawRow = build_row($tt, $TMDB_KEY, $RAPIDAPI_KEY, $TVDB_KEY, $OMDB_KEY);
         }
         if (function_exists('unify_details')) {
           if (!isset($TMDB_KEY)) $TMDB_KEY='';

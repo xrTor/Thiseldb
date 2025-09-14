@@ -1,5 +1,6 @@
 <?php
 require_once 'server.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 echo "<h2 class='text-center my-4'>🏷️ כל התגיות</h2>";
 
@@ -15,8 +16,8 @@ $res = $conn->query("
 $tags = [];
 while ($row = $res->fetch_assoc()) {
     $tags[] = [
-        'name' => $row['genre'],
-        'count' => $row['count']
+        'name'  => $row['genre'],
+        'count' => (int)$row['count'],
     ];
 }
 
@@ -55,16 +56,26 @@ if (empty($tags)) {
     $cols = 8;
     $i = 0;
 
+    // לשמור עקביות תצוגה עם דף התוצאות
+    $limitParam = (int)($_SESSION['limit'] ?? 50);
+    $viewParam  = (string)($_SESSION['view_mode'] ?? 'modern_grid');
+
     foreach ($tags as $tag) {
         if ($i % $cols === 0) echo "<tr>";
 
-        $name = htmlspecialchars($tag['name']);
+        $name  = htmlspecialchars($tag['name'], ENT_QUOTES, 'UTF-8');
         $count = (int)$tag['count'];
-        $url = "user_tags.php?name=" . urlencode($tag['name']);
+
+        // הפניה אל דף החיפוש (home.php) עם הפרמטר user_tag
+        $url = "home.php?search=&year=&min_rating=&metacritic=&rt_score=&imdb_id=&genre=&user_tag="
+             . urlencode($tag['name'])
+             . "&actor=&directors=&producers=&writers=&composers=&cinematographers=&lang_code=&country=&runtime=&network="
+             . "&search_mode=and&limit={$limitParam}&view=" . urlencode($viewParam) . "&sort=";
+
         $color = $colors[$i % count($colors)];
 
         echo "<td style='padding: 4px; text-align: center;'>";
-        echo "<a href='$url' class='text-decoration-none'>";
+        echo "<a href='" . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . "' class='text-decoration-none'>";
         echo "<div class='genre-box' style='background: $color;'>";
         echo "$name <span style='color:#555'>($count)</span>";
         echo "</div></a></td>";
@@ -74,5 +85,3 @@ if (empty($tags)) {
     if ($i % $cols !== 0) echo str_repeat("<td></td>", $cols - ($i % $cols)) . "</tr>";
     echo "</table>";
 }
-
-?>

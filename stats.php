@@ -271,10 +271,12 @@ footer .box {
       ?>
       <tr>
         <td>
-          <?php if ($lang_flag): ?>
-            <img src="<?= htmlspecialchars($lang_flag) ?>" alt="<?= htmlspecialchars($lang_label) ?>" style="height:16px; vertical-align:middle; margin-left: 5px;">
-          <?php endif; ?>
-          <?= htmlspecialchars($lang_label) ?>
+          <a href="language.php?lang_code=<?= htmlspecialchars($lang_code) ?>">
+            <?php if ($lang_flag): ?>
+              <img src="<?= htmlspecialchars($lang_flag) ?>" alt="<?= htmlspecialchars($lang_label) ?>" style="height:16px; vertical-align:middle; margin-left: 5px;">
+            <?php endif; ?>
+            <?= htmlspecialchars($lang_label) ?>
+          </a>
         </td>
         <td><?= number_format((int)($row['total'] ?? 0)) ?></td>
       </tr>

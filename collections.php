@@ -13,7 +13,7 @@ $redirect_location = isset($_GET['return_url']) ? $_GET['return_url'] : 'collect
 // לוגיקת נעיצה / ביטול נעיצה
 if (isset($_GET['pin'])) {
   $pin_id = (int)$_GET['pin'];
-  $stmt = $conn->prepare("UPDATE collections SET is_pinned = 1 WHERE id = ?");
+  $stmt = $conn->prepare("UPDATE collections SET is_pinned = 1, updated_at = NOW() WHERE id = ?");
   $stmt->bind_param("i", $pin_id);
   $stmt->execute();
   header("Location: " . $redirect_location);
@@ -21,7 +21,7 @@ if (isset($_GET['pin'])) {
 }
 if (isset($_GET['unpin'])) {
   $unpin_id = (int)$_GET['unpin'];
-  $stmt = $conn->prepare("UPDATE collections SET is_pinned = 0 WHERE id = ?");
+  $stmt = $conn->prepare("UPDATE collections SET is_pinned = 0, updated_at = NOW() WHERE id = ?");
   $stmt->bind_param("i", $unpin_id);
   $stmt->execute();
   header("Location: " . $redirect_location);
@@ -52,13 +52,15 @@ switch ($sort) {
   case 'created_asc': $order = "c.created_at ASC"; break;
   case 'name':        $order = "c.name ASC";        break;
   case 'count':       $order = "total_items DESC";  break;
+  case 'updated_desc':$order = "c.updated_at DESC"; break;
   default:            $order = "c.created_at DESC";
 }
 
 // ספירות
 $total_all_collections = $conn->query("SELECT COUNT(*) FROM collections")->fetch_row()[0];
 $total_unpinned_collections = $conn->query("SELECT COUNT(*) FROM collections WHERE is_pinned = 0")->fetch_row()[0];
-$total_pages = ceil($total_unpinned_collections / $per_page_for_query);
+$total_pages = $per_page_for_query > 0 ? ceil($total_unpinned_collections / $per_page_for_query) : 0;
+
 
 // שליפת נעוצים (תמיד מוצגים למעלה בעמוד 1)
 $pinned_res = $conn->query("
@@ -86,6 +88,7 @@ $unpinned_res = $conn->query("
 <head>
   <meta charset="UTF-8">
   <title>📁 רשימת אוספים</title>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     body { font-family:Arial; direction:rtl; background:#f9f9f9; padding:10px; }
     .main-controls { display:flex; justify-content:center; align-items:center; gap:20px; margin-top:30px; flex-wrap:wrap; }
@@ -96,7 +99,7 @@ $unpinned_res = $conn->query("
     .collection-card.pinned { background-color:#fffff0; border-left:5px solid #ffd700; }
     .collection-card h3 { margin:0 0 10px 0; font-size:20px; }
     .collection-card .description { color:#555; margin-bottom:10px; }
-    .collection-card .count { color:#999; font-size:14px; }
+    .collection-card .meta-info { display: flex; align-items: center; gap: 15px; color: #888; font-size: 13px; }
     .collection-card .actions { position:absolute; top:20px; left:20px; }
     .collection-card .actions a, .collection-card .actions button {
       margin-right:6px; text-decoration:none; font-size:14px; background:none; border:none; color:#007bff; cursor:pointer;
@@ -227,7 +230,7 @@ $unpinned_res = $conn->query("
 .btn-reset:hover { background: #218838; }
 
 
-  .add-new a  {height: 34px; text-align: center; text-i; color: white}
+  .add-new a  {height: 34px; text-align: center; color: white}
 
   .add-new a:hover { background:#e0ffad;
     /* בסיס לכל הכפתורים */
@@ -325,10 +328,10 @@ $unpinned_res = $conn->query("
       <select name="sort" onchange="this.form.submit()">
         <option value="created_desc" <?= $sort==='created_desc'?'selected':''; ?>>חדש → ישן</option>
         <option value="created_asc"  <?= $sort==='created_asc'?'selected':''; ?>>ישן → חדש</option>
+        <option value="updated_desc" <?= $sort==='updated_desc'?'selected':''; ?>>עדכון אחרון</option>
         <option value="name"         <?= $sort==='name'?'selected':''; ?>>שם (א-ת)</option>
         <option value="count"        <?= $sort==='count'?'selected':''; ?>>מס' פוסטרים</option>
       </select>
-      <!-- שימור per_page בבקשת המיון -->
       <input type="hidden" name="per_page" value="<?= htmlspecialchars($per_page_value) ?>">
     </form>
   </div>
@@ -342,7 +345,6 @@ $unpinned_res = $conn->query("
             <option value="250" <?= ($per_page_value == 250) ? 'selected' : '' ?>>הצג 250</option>
             <option value="0"   <?= ($per_page_value == 0)   ? 'selected' : '' ?>>הצג הכל</option>
         </select>
-        <!-- שימור sort בבקשת per_page -->
         <input type="hidden" name="sort" value="<?= htmlspecialchars($sort) ?>">
     </form>
   </div>
@@ -378,7 +380,15 @@ function render_collection_card($c) {
       <div class="description"><em>אין תיאור</em></div>
     <?php endif; ?>
 
-    <div class="count">🎞️ <?= (int)$c['total_items'] ?> פוסטרים</div>
+    <div class="meta-info">
+        <div class="count">🎞️ <?= (int)$c['total_items'] ?> פוסטרים</div>
+        <?php if (!empty($c['updated_at'])): ?>
+          <div class="updated-at">
+            <i class="fa-regular fa-clock"></i> עדכון אחרון: <?= date('d/m/Y H:i', strtotime($c['updated_at'])) ?>
+          </div>
+        <?php endif; ?>
+    </div>
+
 
     <div class="actions">
       <?php if (!empty($c['is_pinned'])): ?>
@@ -429,7 +439,6 @@ if ($unpinned_res && $unpinned_res->num_rows > 0) {
   </div>
 <?php endif; ?>
 
-<!-- מודאל הוספת פוסטר -->
 <div id="add-poster-modal" class="modal">
   <div class="modal-content">
     <span class="close-btn">&times;</span>

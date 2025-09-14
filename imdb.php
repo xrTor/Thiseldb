@@ -1,7 +1,7 @@
 <?php
 /****************************************************
  * imdb.php — פרטי כותר מרוכזים (RTL, עברית)
- * BUILD: v2025-08-28-b15 "FULL VERSION: Corrected Network Logic (API-only) & Full Functions"
+ * BUILD: v2025-09-10-b23 "FIX: Prioritize TVDB average runtime for series"
  ****************************************************/
 set_time_limit(3000000);
 
@@ -104,6 +104,103 @@ if (!function_exists('clean_people_list')) {
 }
 if (!function_exists('soft_key')) {
   function soft_key($s){$s=mb_strtolower(trim((string)$s),'UTF-8');$s=preg_replace('~\s+~u',' ',$s);return $s;}
+}
+
+if (!function_exists('normalize_language_name')) {
+  function normalize_language_name($lang) {
+    if (empty($lang) || !is_string($lang)) return null;
+    $code = trim(strtolower($lang));
+
+    // מילון מקיף לתרגום קודים ושמות נפוצים לשם אנגלי תקני
+    static $lang_map = [
+        'en' => 'English', 'eng' => 'English', 'english' => 'English',
+        'he' => 'Hebrew', 'heb' => 'Hebrew', 'hebrew' => 'Hebrew',
+        'fr' => 'French', 'fre' => 'French', 'fra' => 'French', 'french' => 'French',
+        'es' => 'Spanish', 'spa' => 'Spanish', 'spanish' => 'Spanish',
+        'de' => 'German', 'ger' => 'German', 'deu' => 'German', 'german' => 'German',
+        'it' => 'Italian', 'ita' => 'Italian', 'italian' => 'Italian',
+        'ru' => 'Russian', 'rus' => 'Russian', 'russian' => 'Russian',
+        'ja' => 'Japanese', 'jpn' => 'Japanese', 'japanese' => 'Japanese',
+        'ko' => 'Korean', 'kor' => 'Korean', 'korean' => 'Korean',
+        'zh' => 'Chinese', 'chi' => 'Chinese', 'chinese' => 'Chinese',
+        'ar' => 'Arabic', 'ara' => 'Arabic', 'arabic' => 'Arabic',
+        'hi' => 'Hindi', 'hin' => 'Hindi', 'hindi' => 'Hindi',
+        'pt' => 'Portuguese', 'por' => 'Portuguese', 'portuguese' => 'Portuguese',
+        'sv' => 'Swedish', 'swe' => 'Swedish', 'swedish' => 'Swedish',
+        'no' => 'Norwegian', 'nor' => 'Norwegian', 'norwegian' => 'Norwegian',
+        'fi' => 'Finnish', 'fin' => 'Finnish', 'finnish' => 'Finnish',
+        'da' => 'Danish', 'dan' => 'Danish', 'danish' => 'Danish',
+        'nl' => 'Dutch', 'dut' => 'Dutch', 'nld' => 'Dutch', 'dutch' => 'Dutch',
+        'pl' => 'Polish', 'pol' => 'Polish', 'polish' => 'Polish',
+        'tr' => 'Turkish', 'tur' => 'Turkish', 'turkish' => 'Turkish',
+    ];
+
+    if (isset($lang_map[$code])) {
+        return $lang_map[$code];
+    }
+    
+    return ucfirst($lang);
+  }
+}
+
+if (!function_exists('normalize_country_name')) {
+  function normalize_country_name($country) {
+    if (empty($country) || !is_string($country)) return null;
+    $country_lower = trim(strtolower($country));
+
+    // מפת קודים נפוצים לשמות מלאים - עודכן להצגת שמות מלאים
+    static $country_map = [
+        'us' => 'United States', 'usa' => 'United States', 'united states' => 'United States', 'united states of america' => 'United States',
+        'gb' => 'United Kingdom', 'gbr' => 'United Kingdom', 'uk' => 'United Kingdom', 'united kingdom' => 'United Kingdom',
+        'jp' => 'Japan', 'jpn' => 'Japan',
+        'ca' => 'Canada', 'can' => 'Canada',
+        'fr' => 'France', 'fra' => 'France',
+        'de' => 'Germany', 'deu' => 'Germany',
+        'es' => 'Spain', 'esp' => 'Spain',
+        'it' => 'Italy', 'ita' => 'Italy',
+        'au' => 'Australia', 'aus' => 'Australia',
+        'kr' => 'South Korea', 'kor' => 'South Korea',
+        'cn' => 'China', 'chn' => 'China',
+        'il' => 'Israel', 'isr' => 'Israel',
+    ];
+
+    if (isset($country_map[$country_lower])) {
+        return $country_map[$country_lower];
+    }
+
+    // אם לא נמצא קוד, נניח שזה שם תקין ונציג אותו
+    return trim($country);
+  }
+}
+
+if (!function_exists('format_runtime')) {
+  function format_runtime($runtime_val) {
+    if (empty($runtime_val)) return null;
+    
+    if (is_numeric($runtime_val)) {
+        return $runtime_val . ' min';
+    }
+
+    $h = 0; $m = 0;
+    if (preg_match('/(\d+)\s*(?:h|hr|hour)/i', (string)$runtime_val, $h_match)) {
+        $h = (int)$h_match[1];
+    }
+    if (preg_match('/(\d+)\s*(?:m|min|minute)/i', (string)$runtime_val, $m_match)) {
+        $m = (int)$m_match[1];
+    }
+    
+    $total_minutes = ($h * 60) + $m;
+    if ($total_minutes > 0) {
+        return $total_minutes . ' min';
+    }
+    
+    $numeric_val = (int)preg_replace('/\D/', '', (string)$runtime_val);
+    if ($numeric_val > 0) {
+        return $numeric_val . ' min';
+    }
+    
+    return (string)$runtime_val;
+  }
 }
 
 /* ========= HTTP ========= */
@@ -356,8 +453,15 @@ if (!function_exists('languages_from_imdb_only')) {
       imdb_technical_languages($tt),
       imdb_reference_languages($tt)
     );
-    $clean=[]; foreach ($names as $n){ $n=trim((string)$n); if($n===''||preg_match('~^[a-z]{1,2}$~i',$n)||preg_match('~^N/?A$~i',$n)) continue; $clean[]=$n; }
-    return $clean;
+    $normalized = [];
+    foreach ($names as $n) {
+        $normalized_name = normalize_language_name($n);
+        if ($normalized_name && !is_garbage_token($normalized_name)) {
+            $normalized[] = $normalized_name;
+        }
+    }
+    // סינון כפילויות נוסף לאחר הנרמול
+    return array_values(array_unique($normalized));
   }
 }
 if (!function_exists('countries_names_only')) {
@@ -568,6 +672,109 @@ if (!function_exists('tvdb_build_links')) {
       if($slug) $links[]="https://www.thetvdb.com/series/".$slug;
     }
     return array_values(array_unique($links));
+  }
+}
+
+/* ========= TVDB - שליפת נתונים מורחבים ========= */
+if (!function_exists('tvdb_fetch_hebrew_details')) {
+  function tvdb_fetch_hebrew_details($seriesId, $apikey){
+    $tok = tvdb_login($apikey);
+    if (!$tok) return ['title' => null, 'overview' => null];
+
+    $he_title = null;
+    $he_overview = null;
+
+    // --- שימוש בנקודת קצה ייעודית לתרגום ---
+    // TheTVDB דורש קוד של 3 אותיות ('heb'), ננסה אותו קודם
+    $translation_response = tvdb_get('/series/'.intval($seriesId).'/translations/heb', $tok);
+    
+    // אם לא נמצא, ננסה את קוד 2 האותיות ('he') כגיבוי
+    if (empty($translation_response['data']['name'])) {
+        $translation_response = tvdb_get('/series/'.intval($seriesId).'/translations/he', $tok);
+    }
+    // -----------------------------------------
+
+    $translation_data = $translation_response['data'] ?? null;
+
+    if ($translation_data) {
+        if (!empty($translation_data['name'])) {
+            $he_title = $translation_data['name'];
+        }
+        if (!empty($translation_data['overview'])) {
+            $he_overview = $translation_data['overview'];
+        }
+    }
+
+    return ['title' => $he_title, 'overview' => $he_overview];
+  }
+}
+
+if (!function_exists('tvdb_fetch_core_details')) {
+  function tvdb_fetch_core_details($seriesId, $apikey){
+    $tok = tvdb_login($apikey); if (!$tok) return [];
+    $ext = tvdb_fetch_series_extended($seriesId, $tok);
+    if (!$ext) return [];
+
+    $details = [];
+    if (!empty($ext['year'])) $details['year'] = $ext['year'];
+    
+    // שליפת מספר עונות ופרקים מהנתונים המורחבים
+    if (!empty($ext['seasons'])) {
+        $details['seasons'] = count($ext['seasons']);
+    }
+    if (!empty($ext['airsDays']) && !empty($ext['averageRuntime'])) {
+      $details['runtime'] = $ext['averageRuntime'];
+    }
+    
+    // חישוב מספר פרקים כולל
+    $episodeCount = 0;
+    if (!empty($ext['episodes'])) {
+        $episodeCount = count($ext['episodes']);
+    }
+    if($episodeCount > 0) $details['episodes'] = $episodeCount;
+
+    return $details;
+  }
+}
+
+if (!function_exists('tvdb_fetch_locale_details')) {
+  function tvdb_fetch_locale_details($seriesId, $apikey){
+    // BEFORE: $tok = tvdb_login($apikey); if (!$tok) return [];
+    $tok = tvdb_login($apikey); if (!$tok) return ['countries' => [], 'languages' => []]; // AFTER
+    
+    // BEFORE: $ext = tvdb_fetch_series_extended($seriesId, $tok); if (!$ext) return [];
+    $ext = tvdb_fetch_series_extended($seriesId, $tok); if (!$ext) return ['countries' => [], 'languages' => []]; // AFTER
+    
+    $countries = [];
+    // 1. איסוף המדינה הראשית
+    if (!empty($ext['country'])) {
+        $countries[] = $ext['country'];
+    }
+
+    // 2. איסוף מדינות מחברות ההפקה המשויכות
+    if (!empty($ext['companies']) && is_array($ext['companies'])) {
+        foreach ($ext['companies'] as $company) {
+            if (!empty($company['country'])) {
+                $countries[] = $company['country'];
+            }
+        }
+    }
+    
+    $details = ['countries' => [], 'languages' => []];
+    
+    // נרמול וסינון כפילויות מכל המדינות שנאספו
+    $normalized_countries = [];
+    foreach (array_unique($countries) as $country_slug) {
+        $normalized_countries[] = normalize_country_name($country_slug);
+    }
+    $details['countries'] = array_values(array_unique(array_filter($normalized_countries)));
+
+    // הטיפול בשפות נשאר זהה
+    if (!empty($ext['originalLanguage'])) {
+        $details['languages'][] = normalize_language_name($ext['originalLanguage']);
+    }
+
+    return $details;
   }
 }
 
@@ -1209,7 +1416,7 @@ if (!function_exists('build_row')) {
       $row['is_tv']=true;
       $y1=year_only($row['tmdb']['first_air_date']??null);
       $y2=year_only($row['tmdb']['last_air_date']??null);
-      $row['year']=$y1?(($y2 && $y2!==$y1)?($y1.'–'.$y2):$y1):($row['year']?:null);
+      $row['year']=$y1?(($y2 && $y2!==$y1)?($y1.'-'.$y2):$y1):($row['year']?:null);
     }
 
     return $row;
@@ -1242,7 +1449,6 @@ if (!function_exists('unify_details')) {
     $title          = first_nonempty($english_title, $row['imdb']);
     $otype          = $row['is_tv'] ? 'tv' : 'movie';
     $title_kind     = humanize_title_kind($row['is_tv'], $otype);
-    $year           = $row['year'];
 
     $aka_pair = null;
     if ($original_title && $english_title) {
@@ -1251,13 +1457,34 @@ if (!function_exists('unify_details')) {
         }
     }
 
-    $he_title = tmdb_pick_he_title($tmdb, $row['tmdb_type']);
+    $genres_imdb = normalize_list($row['imdb_genres']);
+    $tvdb_id = $tmdb['external_ids']['tvdb_id'] ?? ($HARDCODE_TVDB[$row['imdb']] ?? null);
+
+    // ================= הוספה חדשה =================
+    $tvdb_he_details = [];
+    $tvdb_core_details = [];
+    $tvdb_locale_details = ['countries' => [], 'languages' => []];
+
+    if ($row['is_tv'] && $tvdb_id) {
+        $tvdb_he_details = tvdb_fetch_hebrew_details($tvdb_id, $TVDB_KEY);
+        $tvdb_core_details = tvdb_fetch_core_details($tvdb_id, $TVDB_KEY);
+        $tvdb_locale_details = tvdb_fetch_locale_details($tvdb_id, $TVDB_KEY);
+    }
+    // ================= סוף הוספה =================
     
+    $genres_tvdb = ($row['is_tv'] && $tvdb_id) ? tvdb_fetch_genres_api($tvdb_id, $TVDB_KEY) : [];
+
+    // נותן עדיפות ל-TheTVDB, ואם אין, לוקח מ-TMDb
+    $he_title_from_tmdb = tmdb_pick_he_title($tmdb, $row['tmdb_type']);
+    $he_title = first_nonempty($tvdb_he_details['title'] ?? null, $he_title_from_tmdb);
+
     $plot_from_rapidapi = $r['plotOutline']['text'] ?? null;
     $plot_from_scraper = $row['_plot_en'] ?? null;
     $overview_en = first_nonempty($plot_from_rapidapi, $plot_from_scraper, $tmdb['overview'] ?? null);
     
-    $overview_he = tmdb_pick_he_overview($tmdb);
+    // נותן עדיפות ל-TheTVDB, ואם אין, לוקח מ-TMDb
+    $overview_he_from_tmdb = tmdb_pick_he_overview($tmdb);
+    $overview_he = first_nonempty($tvdb_he_details['overview'] ?? null, $overview_he_from_tmdb);
 
     $poster = tmdb_pick_he_poster($row['tmdb_type'], $row['tmdb_id'], $TMDB_KEY);
     if (!$poster) {
@@ -1267,15 +1494,16 @@ if (!function_exists('unify_details')) {
     }
     $trailer = tmdb_pick_youtube_trailer($tmdb);
 
-    $genres_imdb = normalize_list($row['imdb_genres']);
-    $tvdb_id = $tmdb['external_ids']['tvdb_id'] ?? ($HARDCODE_TVDB[$row['imdb']] ?? null);
-    $genres_tvdb = ($row['is_tv'] && $tvdb_id) ? tvdb_fetch_genres_api($tvdb_id, $TVDB_KEY) : [];
     $genres = merge_unique_lists($genres_imdb, $genres_tvdb);
 
-    $languages = languages_from_imdb_only($row['imdb'], $row['language']);
-    $countries = countries_names_only($row['country']);
-    $runtime   = first_nonempty($row['imdb_runtime']);
+    // מאחד רשימות מ-IMDb ו-TheTVDB ומסנן כפילויות
+    $imdb_languages = languages_from_imdb_only($row['imdb'], $row['language']);
+    $languages = merge_unique_lists($imdb_languages, $tvdb_locale_details['languages']);
 
+    // מאחד רשימות מ-IMDb ו-TheTVDB ומסנן כפילויות
+    $imdb_countries = countries_names_only($row['country']);
+    $countries = merge_unique_lists(array_map('normalize_country_name', $imdb_countries), $tvdb_locale_details['countries']);
+    
     $directors        = clean_people_list($row['director']);
     $writers          = clean_people_list($row['writer']);
     $producers        = clean_people_list($row['producers']);
@@ -1299,8 +1527,22 @@ if (!function_exists('unify_details')) {
 
     $tvdb_links = $row['is_tv'] ? tvdb_build_links($tmdb['name'] ?? ($tmdb['title'] ?? ''), $tvdb_id, $row['imdb'], $GLOBALS['HARDCODE_TVDB'], $TVDB_KEY) : [];
     $tvdb_url = $tvdb_links[0] ?? null;
-    $num_seasons  = $row['tmdb_type'] === 'tv' ? ($tmdb['number_of_seasons'] ?? null) : null;
-    $num_episodes = $row['tmdb_type'] === 'tv' ? ($tmdb['number_of_episodes'] ?? null) : null;
+
+    // נותן עדיפות לנתונים קיימים, ומשלים מ-TheTVDB
+    $year           = first_nonempty($row['year'], $tvdb_core_details['year'] ?? null);
+    
+    $runtime = null;
+    if ($row['is_tv']) {
+        // For TV shows, prioritize TheTVDB's average runtime
+        $runtime = first_nonempty($tvdb_core_details['runtime'] ?? null, $row['imdb_runtime']);
+    } else {
+        // For movies, keep the original priority
+        $runtime = first_nonempty($row['imdb_runtime'], $tvdb_core_details['runtime'] ?? null);
+    }
+    $formatted_runtime = format_runtime($runtime);
+
+    $num_seasons    = first_nonempty(($row['tmdb_type'] === 'tv' ? ($tmdb['number_of_seasons'] ?? null) : null), $tvdb_core_details['seasons'] ?? null);
+    $num_episodes   = first_nonempty(($row['tmdb_type'] === 'tv' ? ($tmdb['number_of_episodes'] ?? null) : null), $tvdb_core_details['episodes'] ?? null);
 
     $rt_score = null; $rt_url = null; $mc_score = null; $mc_url = null;
     if ($omdb) {
@@ -1344,7 +1586,7 @@ if (!function_exists('unify_details')) {
       'genres'           => $genres,
       'languages'        => $languages,
       'countries'        => $countries,
-      'runtime'          => $runtime,
+      'runtime'          => $formatted_runtime,
       'directors'        => $directors,
       'writers'          => $writers,
       'producers'        => $producers,

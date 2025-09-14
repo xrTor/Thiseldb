@@ -1,143 +1,113 @@
 <?php
 /**
- * menu_component.php (גרסת עיבוד-צד-שרת)
- * קובץ יחיד שמבצע post-processing ל-HTML לפני שליחה לדפדפן:
- * מחליף בטקסטים של סוגים (poster_types) את האמוג'י/אייקון בתמונת הסוג + טקסט.
+ * menu_component.php (גרסה משופרת ובטוחה)
+ * מבצע post-processing ל-HTML כדי להוסיף תמונות לסוגי פוסטרים.
  */
 
-if (defined('MENU_TYPES_OUTPUT_FILTER')) return;
-define('MENU_TYPES_OUTPUT_FILTER', true);
+if (defined('MENU_TYPES_OUTPUT_FILTER_LOADED')) return;
+define('MENU_TYPES_OUTPUT_FILTER_LOADED', true);
 
-/* ===== Escape בטוח ===== */
-if (!function_exists('h')) {
-  function h($v) {
-    if ($v === null) return '';
-    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
-  }
-}
+function run_menu_types_output_filter() {
+    // בודקים אם כבר רץ או אם אין צורך להפעיל
+    if (defined('MENU_TYPES_FILTER_ACTIVE')) return;
+    define('MENU_TYPES_FILTER_ACTIVE', true);
 
-/* ===== חיבור למסד אם צריך ===== */
-if (!isset($conn) || !($conn instanceof mysqli)) {
-  $p = __DIR__ . '/server.php';
-  if (is_file($p)) require_once $p;
-}
-
-/* ===== בסיס URL לתמונות ===== */
-if (!defined('TYPE_IMG_URL_BASE')) {
-    $base_path = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
-    define('TYPE_IMG_URL_BASE', $base_path . '/images/types/');
-}
-
-/* ===== שליפת מפה מה-DB: שם/קוד סוג → [image, icon] + מפה קאנונית ===== */
-$__types_map = [];
-$__canon_map = [];
-
-if (isset($conn) && $conn instanceof mysqli) {
-  if ($res = $conn->query("SELECT code,label_he,label_en,icon,image FROM poster_types")) {
-    while ($r = $res->fetch_assoc()) {
-      $icon = (string)($r['icon'] ?? '🎬');
-      $img  = trim((string)($r['image'] ?? ''));
-      $entry = ['icon'=>$icon, 'image'=>$img];
-
-      foreach (['code','label_he','label_en'] as $k) {
-        $key = trim((string)($r[$k] ?? ''));
-        if ($key === '') continue;
-        $__types_map[$key] = $entry;
-
-        $canon = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(
-                  preg_replace('/[🎬🎞🎥📺📽️📼❓]+/u','', $key), 'UTF-8'
-                ));
-        $canon = preg_replace('/\s+/u',' ', trim($canon));
-        if ($canon !== '' && !isset($__canon_map[$canon])) $__canon_map[$canon] = $key;
-      }
+    /* ===== חיבור למסד ===== */
+    global $conn;
+    if (!isset($conn) || !($conn instanceof mysqli)) {
+        $p = __DIR__ . '/server.php';
+        if (is_file($p)) {
+            require_once $p;
+        }
     }
-    $res->free();
-  }
+    
+    // אם עדיין אין חיבור למסד נתונים, אין טעם להמשיך
+    if (!isset($conn) || !($conn instanceof mysqli)) {
+        return;
+    }
+
+    /* ===== שליפת סוגים מה-DB ===== */
+    $types_map = [];
+    if ($res = $conn->query("SELECT label_he, icon, image FROM poster_types")) {
+        while ($r = $res->fetch_assoc()) {
+            $label = trim((string)($r['label_he'] ?? ''));
+            if ($label !== '') {
+                $types_map[$label] = [
+                    'icon' => trim((string)($r['icon'] ?? '🎬')),
+                    'image' => trim((string)($r['image'] ?? '')),
+                ];
+            }
+        }
+        $res->free();
+    }
+
+    // אם אין מידע על סוגים, אין מה לעשות
+    if (empty($types_map)) return;
+    
+    $base_path = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
+    $img_base_url = $base_path . '/images/types/';
+
+    /* ===== פילטר הפלט ===== */
+    ob_start(function($html) use ($types_map, $img_base_url) {
+        // מנסה למנוע שגיאות קריטיות ולטפל בשגיאות בשקט
+        try {
+            if (stripos($html, '<html') === false || empty($types_map)) {
+                return $html;
+            }
+
+            // החלפה בטבלאות סטטיסטיקה
+            $html = preg_replace_callback(
+                '~(<td\b[^>]*>)(.*?)(</td>)~siu',
+                function($m) use ($types_map, $img_base_url) {
+                    $original_content = $m[2];
+                    $text_content = trim(strip_tags($original_content));
+                    
+                    if (isset($types_map[$text_content]) && $types_map[$text_content]['image'] !== '') {
+                        $type = $types_map[$text_content];
+                        $img_src = h($img_base_url . $type['image']);
+                        $icon_safe = h($type['icon']);
+                        $img_html = '<img src="'.$img_src.'" alt="'.h($text_content).'" style="height:24px; vertical-align:middle; margin-left:6px;" onerror="this.replaceWith(document.createTextNode(\''.$icon_safe.'\'));">';
+                        return $m[1] . $img_html . h($text_content) . $m[3];
+                    }
+                    return $m[0];
+                },
+                $html
+            );
+            
+            // החלפה בתוויות של checkboxes
+             $html = preg_replace_callback(
+                '~(<label\b[^>]*>)(.*?)(</label>)~siu',
+                function($m) use ($types_map, $img_base_url) {
+                    $original_content = $m[2];
+                    $text_content = trim(strip_tags($original_content));
+
+                    // מציאת הטקסט הנקי (ללא האימוג'י)
+                    $clean_text = preg_replace('/[^\p{L}\p{N}\s]+/u', '', $text_content);
+                    $clean_text = trim(preg_replace('/\(\d+\)\s*$/', '', $clean_text));
+                    
+                    if (isset($types_map[$clean_text]) && $types_map[$clean_text]['image'] !== '' && strpos($original_content, 'type="checkbox"') !== false) {
+                        $type = $types_map[$clean_text];
+                        $img_src = h($img_base_url . $type['image']);
+                        $icon_safe = h($type['icon']);
+                        
+                        $img_html = '<img src="'.$img_src.'" alt="'.h($clean_text).'" style="height:24px; vertical-align:middle; margin-left:6px;" onerror="this.replaceWith(document.createTextNode(\''.$icon_safe.'\'));">';
+                        
+                        // מחליפים רק את הטקסט עצמו, ומשאירים את ה-checkbox
+                        return $m[1] . str_replace($clean_text, $img_html . h($clean_text), $original_content) . $m[3];
+                    }
+                    return $m[0];
+                },
+                $html
+            );
+
+            return $html;
+        } catch (Throwable $e) {
+            // במקרה של שגיאה כלשהי, פשוט נחזיר את ה-HTML המקורי כדי לא לשבור את העמוד
+            return $html;
+        }
+    });
 }
 
-if (!$__types_map) return;
-
-/* ===== פונקציות עזר ל־filter ===== */
-$__BASE = TYPE_IMG_URL_BASE;
-
-$__canon = static function(string $s): string {
-  $s = preg_replace('/[🎬🎞🎥📺📽️📼❓]+/u','', $s);
-  $s = preg_replace('/\(\d+\)\s*$/u','', $s);
-  $s = preg_replace('/[‐-‒–—―־-]+/u',' ', $s);
-  $s = preg_replace('/[^\p{L}\p{N}]+/u',' ', $s);
-  $s = preg_replace('/\s+/u',' ', trim($s));
-  return mb_strtolower($s, 'UTF-8');
-};
-
-$__img_html = static function(string $file, string $alt, string $icon='🎬') use ($__BASE): string {
-  $src = $__BASE . rawurlencode($file);
-  $styles = 'width:64px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-left:6px;';
-  $iconJs = str_replace("'", "\\'", $icon);
-  return '<img src="'.h($src).'" alt="'.h($alt).'" style="'.$styles.'" '.
-         'onerror="this.replaceWith(document.createTextNode(\''.$iconJs.' \'));">';
-};
-
-$__replace_content = static function(string $innerHtml) use ($__canon, $__canon_map, $__types_map, $__img_html): string {
-  $plain = trim(strip_tags($innerHtml));
-  if ($plain === '') return $innerHtml;
-
-  $canon = $__canon($plain);
-  if ($canon === '' || !isset($__canon_map[$canon])) return $innerHtml;
-
-  $key   = $__canon_map[$canon];
-  $entry = $__types_map[$key] ?? null;
-  if (!$entry) return $innerHtml;
-
-  $img   = trim((string)$entry['image'] ?? '');
-  $icon  = (string)($entry['icon'] ?? '🎬');
-
-  $displayText = preg_replace('/[🎬🎞🎥📺📽️📼❓]+/u','', $plain);
-  $displayText = preg_replace('/\s+/u',' ', trim($displayText));
-
-  $prefix = '';
-  if ($img !== '') {
-    $prefix = $__img_html($img, $key, $icon);
-  } else {
-    $prefix = h($icon.' ');
-  }
-  
-  // מחליף רק את הטקסט, שומר על אלמנטים פנימיים כמו checkbox
-  if(strpos($innerHtml, $plain) !== false) {
-      return str_replace($plain, $prefix . h($displayText), $innerHtml);
-  }
-  // Fallback
-  return $prefix . h($displayText);
-};
-
-/* ===== פילטר הפלט ===== */
-ob_start(function(string $html) use ($__replace_content) {
-  if (stripos($html, '<html') === false) return $html;
-
-  // 1) תאי טבלה ב-stats.php
-  $html = preg_replace_callback(
-    '~(<td\b[^>]*>)(.*?)(</td>)~siu',
-    function($m) use ($__replace_content){
-      return $m[1] . $__replace_content($m[2]) . $m[3];
-    },
-    $html
-  );
-  
-  // >> הוספת חוק חדש עבור התוויות ב-bar.php <<
-  // 2) תוויות (labels) עם checkbox ב-bar.php
-  $html = preg_replace_callback(
-    '~(<label\b[^>]*>)(.*?)(</label>)~siu',
-    function($m) use ($__replace_content){
-      // החלף רק אם התווית מכילה checkbox, כדי לא לפגוע בתוויות אחרות
-      if (strpos($m[2], 'type="checkbox"') !== false) {
-        return $m[1] . $__replace_content($m[2]) . $m[3];
-      }
-      return $m[0]; // החזר את המקור ללא שינוי
-    },
-    $html
-  );
-  
-  // ניתן להוסיף כאן חוקים נוספים בעתיד באותה הדרך
-
-  return $html;
-});
+// מפעיל את הפילטר
+run_menu_types_output_filter();
 ?>
