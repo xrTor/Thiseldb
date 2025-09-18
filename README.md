@@ -1,6 +1,6 @@
 U+200F
 
-U+061C ####  Thiseldb is a movie and tv seires blog  
+&#x202b; ####  Thiseldb is a movie and tv seires blog  
 
 U+061C   Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
