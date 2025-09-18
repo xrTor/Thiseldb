@@ -57,7 +57,7 @@ https://www.omdbapi.com/apikey.aspx
 כרגע לא ידוע על באגים
 אתם מוזמנים לדווח
 
-#### לפניותיThisel.db1@gmail.com  
+#### לפניות: Thisel.db1@gmail.com  
 
 
 
