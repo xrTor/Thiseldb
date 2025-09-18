@@ -2,7 +2,7 @@
  <p style="text-align:right;">
 
 
-הטקסט שברצונך ליישר כאן
+Tהטקסט שברצונך ליישר כאן
  <p style="text-align:right;">####  Thiseldb is a movie and tv seires blog  
  <p style="text-align:right;">####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
