@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: ספטמבר 09, 2025 בזמן 04:10 PM
--- גרסת שרת: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- Host: localhost:3306
+-- Generation Time: ספטמבר 18, 2025 בזמן 08:33 PM
+-- גרסת שרת: 10.6.23-MariaDB-log
+-- PHP Version: 8.4.11
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `thiseldb`
+-- Database: `thiseldb_index`
 --
 
 -- --------------------------------------------------------
@@ -58,10 +58,13 @@ CREATE TABLE `collections` (
   `name` varchar(255) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `image_url` text DEFAULT NULL,
   `pinned` tinyint(1) NOT NULL DEFAULT 0,
   `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
-  `poster_image_url` varchar(255) DEFAULT NULL
+  `poster_image_url` varchar(255) DEFAULT NULL,
+  `is_public` tinyint(1) NOT NULL DEFAULT 0,
+  `cover_poster_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -257,7 +260,8 @@ CREATE TABLE `poster_collections` (
   `poster_id` int(11) NOT NULL,
   `collection_id` int(11) NOT NULL,
   `added_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `is_pinned` tinyint(1) NOT NULL DEFAULT 0
+  `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
+  `sort_order` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -410,14 +414,20 @@ CREATE TABLE `ratings` (
 -- --------------------------------------------------------
 
 --
--- מבנה טבלה עבור טבלה `thiseldb`
+-- מבנה טבלה עבור טבלה `unique_visitors`
 --
 
-CREATE TABLE `thiseldb` (
+CREATE TABLE `unique_visitors` (
   `id` int(11) NOT NULL,
-  `name` varchar(100) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `count` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- הוצאת מידע עבור טבלה `unique_visitors`
+--
+
+INSERT INTO `unique_visitors` (`id`, `count`) VALUES
+(1, 4);
 
 -- --------------------------------------------------------
 
@@ -432,6 +442,24 @@ CREATE TABLE `user_tags` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `sort_order` int(11) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- מבנה טבלה עבור טבלה `visitors`
+--
+
+CREATE TABLE `visitors` (
+  `id` int(11) NOT NULL,
+  `count` int(11) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- הוצאת מידע עבור טבלה `visitors`
+--
+
+INSERT INTO `visitors` (`id`, `count`) VALUES
+(1, 141);
 
 --
 -- Indexes for dumped tables
@@ -596,9 +624,9 @@ ALTER TABLE `ratings`
   ADD KEY `poster_id` (`poster_id`);
 
 --
--- אינדקסים לטבלה `thiseldb`
+-- אינדקסים לטבלה `unique_visitors`
 --
-ALTER TABLE `thiseldb`
+ALTER TABLE `unique_visitors`
   ADD PRIMARY KEY (`id`);
 
 --
@@ -607,6 +635,12 @@ ALTER TABLE `thiseldb`
 ALTER TABLE `user_tags`
   ADD PRIMARY KEY (`id`),
   ADD KEY `poster_id` (`poster_id`);
+
+--
+-- אינדקסים לטבלה `visitors`
+--
+ALTER TABLE `visitors`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -670,7 +704,7 @@ ALTER TABLE `posters`
 -- AUTO_INCREMENT for table `poster_akas`
 --
 ALTER TABLE `poster_akas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=599801;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=835760;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
@@ -682,7 +716,7 @@ ALTER TABLE `poster_bookmarks`
 -- AUTO_INCREMENT for table `poster_connections`
 --
 ALTER TABLE `poster_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28966;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38860;
 
 --
 -- AUTO_INCREMENT for table `poster_genres_user`
@@ -721,16 +755,22 @@ ALTER TABLE `ratings`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `thiseldb`
+-- AUTO_INCREMENT for table `unique_visitors`
 --
-ALTER TABLE `thiseldb`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `unique_visitors`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=152;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14148;
+
+--
+-- AUTO_INCREMENT for table `visitors`
+--
+ALTER TABLE `visitors`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- הגבלות לטבלאות שהוצאו
