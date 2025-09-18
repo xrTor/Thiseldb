@@ -1,8 +1,8 @@
 
-<!-- language: rtl -->
+ <p style="text-align:right;">
 
 
- <p style="text-align:right;">הטקסט שברצונך ליישר כאן</p>.
+הטקסט שברצונך ליישר כאן</p>.
 
 ####  Thiseldb is a movie and tv seires blog  
 
