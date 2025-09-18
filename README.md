@@ -1,9 +1,11 @@
 
-<div dir="RTL">
-## Thiseldb is a movie and tv seires blog  
-##  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
-משוחרר תחת רישיון קוד פתוח  
-GPL 3
+<div dir="RTL" style="direction:rtl;">
+
+#### Thiseldb is a movie and tv seires blog  
+
+####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
+
+משוחרר תחת רישיון קוד פתוח GPL 3
 
 ## הוראות התקנה:
 הקימו שרת php/mysql  בXAMPP   
