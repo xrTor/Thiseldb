@@ -1,10 +1,7 @@
-
-<!-- language: rtl -->
-
-
  ####  Thiseldb is a movie and tv seires blog  
-
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
+למעבר לאתר
+https://thiseldb.me/
 
 משוחרר תחת רישיון קוד פתוח GPL 3
 
@@ -41,11 +38,8 @@ define('OMDB_KEY',     'Insert_KEY');       // OMDb — RT/MC
 
 
 ### לינקים
-[](https://unicode-explorer.com/c/200F "U+200F RIGHT-TO-LEFT MARK")
 
-‏
-
-U+200F https://www.themoviedb.org/settings/api/request
+https://www.themoviedb.org/settings/api/request
 
 https://rapidapi.com/rapidapi-org1-rapidapi-org-default/api/imdb236
 
