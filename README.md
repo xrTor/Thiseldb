@@ -1,5 +1,8 @@
+<p>
+&#x202b;
 
-####  Thiseldb is a movie and tv seires blog  
+ ####  Thiseldb is a movie and tv seires blog  
+
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
 משוחרר תחת רישיון קוד פתוח GPL 3
@@ -51,6 +54,7 @@ https://www.omdbapi.com/apikey.aspx
 #### לפניות
 Thisel.db1@gmail.com  
 
+</p>
 
 ![הדגמה](site.png)  
 ![הדגמה](site1.png)  
