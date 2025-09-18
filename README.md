@@ -1,5 +1,8 @@
 
-<div dir="RTL" style="direction:rtl;">
+<style>
+ direction:rtl;
+  </style>
+
 
 #### Thiseldb is a movie and tv seires blog  
 
