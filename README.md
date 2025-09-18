@@ -1,17 +1,13 @@
-U+200F
 
-&#x202b; ####  Thiseldb is a movie and tv seires blog  
-
-U+061C   Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
-
-[U+200F RIGHT-TO-LEFT MARK](https://unicode-explorer.com/c/200F)
+####  Thiseldb is a movie and tv seires blog  
+####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
 משוחרר תחת רישיון קוד פתוח GPL 3
 
 ## הוראות התקנה:
 הקימו שרת php/mysql  בXAMPP   
 האתר נגיש בכתובת  
-U+061C http://localhost/thiseldb-main
+http://localhost/thiseldb-main
 תיקית האחסון של האתר  Thiseldb-main מופיעה בתוך C:\xampp\htdocs
 
 מדריך התקנה ביוטיוב
