@@ -2,7 +2,7 @@
  <p style="text-align:right;">
 
 
-הטקסט שברצונך ליישר כאן</p>.
+הטקסט שברצונך ליישר כאן
 
 ####  Thiseldb is a movie and tv seires blog  
 
