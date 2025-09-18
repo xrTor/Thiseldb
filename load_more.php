@@ -223,5 +223,4 @@ if (!empty($rows)):
   endforeach;
 endif;
 
-$conn->close();
 ?>

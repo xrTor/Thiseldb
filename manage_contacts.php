@@ -62,5 +62,5 @@ $res = $conn->query("SELECT * FROM contact_requests ORDER BY created_at DESC");
 </body>
 </html>
 
-<?php $conn->close(); ?>
+
 <?php include 'footer.php'; ?>

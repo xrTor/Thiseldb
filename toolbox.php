@@ -128,14 +128,26 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
             <h2 class="card-header">🧭 ניווט מהיר</h2>
             <div class="nav-grid">
                 <a href="manage_posters.php" class="nav-button" style="--btn-color: #27ae60;"><span class="nav-icon">🎬</span><span class="nav-text">ניהול פוסטרים</span></a>
-                                <a href="manage_contacts.php" class="nav-button" style="--btn-color: #f39c12;"><span class="nav-icon">📩</span><span class="nav-text">ניהול פניות</span></a>
+                               
+          
+                 <a href="cleanup_duplicates.php" class="nav-button" style="--btn-color: deepskyblue;"><span class="nav-icon">🛠️</span><span class="nav-text">פוסטרים כפולים</span></a>
+                 
+                 
+                <a href="manage_contacts.php" class="nav-button" style="--btn-color: #f39c12;"><span class="nav-icon">📩</span><span class="nav-text">ניהול פניות</span></a>
                 <a href="manage_reports.php" class="nav-button" style="--btn-color: #c0392b;"><span class="nav-icon">🚨</span><span class="nav-text">ניהול דיווחים</span></a>
                 <a href="manage_trailers.php" class="nav-button" style="--btn-color: #8e44ad;"><span class="nav-icon">▶️</span><span class="nav-text">ניהול טריילרים</span></a>
                 <a href="manage_genres.php" class="nav-button" style="--btn-color: #16a085;"><span class="nav-icon">🎭</span><span class="nav-text">ניהול ז'אנרים</span></a>
                 <a href="manage_user_tag.php" class="nav-button" style="--btn-color: #d35400;"><span class="nav-icon">🏷️</span><span class="nav-text">ניהול תגיות</span></a>
                 <a href="manage_name_genres.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות ז'אנרים</span></a>
                 <a href="manage_name_user_tag.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות תגיות</span></a>
-                <a href="manage_languages.php" class="nav-button" style="--btn-color: #34495e;"><span class="nav-icon">🌐</span><span class="nav-text">ניהול שפות</span></a>
+
+
+                 <a href="manage_name_language.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות שפות</span></a>
+                <a href="manage_name_country.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות מדינות</span></a>
+
+                
+
+                <a href="manage_languages.php" class="nav-button" style="--btn-color: #34495e;"><span class="nav-icon">🌐</span><span class="nav-text">ניהול שפות (דגלים)</span></a>
                 <a href="manage_types.php" class="nav-button" style="--btn-color: #717D7E;"><span class="nav-icon">📋</span><span class="nav-text">ניהול סוגים</span></a>
                 <a href="manage_type_admin.php" class="nav-button" style="--btn-color: #717D7E;"><span class="nav-icon">🔗</span><span class="nav-text">שיוך סוגים</span></a>
                 <a href="manage_titles.php" class="nav-button" style="--btn-color: #4A235A;"><span class="nav-icon">🔤</span><span class="nav-text">ניהול כותרות</span></a>
@@ -266,6 +278,5 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
 </body>
 </html>
 <?php
-$conn->close();
 include 'footer.php';
 ?>

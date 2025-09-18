@@ -74,7 +74,6 @@ if ($selected_collection_id) {
     $stmt->close();
 }
 
-$conn->close();
 ?>
 
 <!DOCTYPE html>

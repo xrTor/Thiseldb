@@ -2,27 +2,8 @@
 // include 'header.php';
 require_once 'server.php';
 require_once 'languages.php';
-
-// --- התחלה: קוד חדש לטיפול ב-bar.php ---
-
-// הפעלת ה"באפר" כדי לתפוס את הפלט של הקובץ הבא
-ob_start();
+// חיבור bar.php ישירות (עמוד מלא)
 include 'bar.php';
-// שמירת הפלט במשתנה וניקוי הבאפר
-$bar_output = ob_get_clean();
-
-// חילוץ סגנונות ה-CSS מתוך הפלט
-$bar_style = '';
-if (preg_match('/<style>(.*?)<\/style>/s', $bar_output, $matches)) {
-    $bar_style = $matches[1];
-}
-
-// חילוץ תוכן ה-HTML מתוך הפלט
-$bar_html = '';
-if (preg_match('/<body>(.*?)<\/body>/s', $bar_output, $matches)) {
-    $bar_html = $matches[1];
-}
-// --- סוף: קוד חדש ---
 
 
 /* ===== Helpers ===== */
@@ -221,7 +202,6 @@ $end_i   = $offset + count($rows);
 </head>
 <body>
 
-  <?php echo $bar_html; ?>
 
   <h1>🌐 פוסטרים בשפה <?= h($lang_label) ?>
     <?php if ($lang_flag): ?>

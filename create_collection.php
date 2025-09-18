@@ -93,7 +93,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <form method="post">
     <label>📁 שם האוסף</label>
     <input type="text" name="name" required>
-
+<a href="bbcode_guide.php" target="_blank">📜 מדריך BBCode</a><br><br>
     <div class="bb-editor">
       <div class="description-grid">
         <div>

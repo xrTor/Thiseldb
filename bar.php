@@ -122,50 +122,38 @@ $fields = [
             opacity: .77;
         }
 
-        /* --- עיצוב חדש לסוגים (שקוף + Checkbox) --- */
         .bar-types {
             display: flex;
             flex-wrap: wrap;
             justify-content: flex-start;
-            gap: 15px; /* רווח בין פריטי הסוגים */
+            gap: 15px;
             margin: 15px 0 10px 0;
         }
-
-        /* 1. עיצוב ה-Label שמשמש כעטיפה */
         .bar-types label {
-            display: flex;          /* סידור אופקי: Checkbox ואז התוכן */
-            align-items: center;    /* יישור אנכי למרכז */
-            gap: 8px;               /* רווח בין ה-Checkbox לתוכן */
-            background: transparent;/* !!! רקע שקוף */
-            border: none;           /* !!! ללא גבול */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: none;
             padding: 5px;
             border-radius: 8px;
             cursor: pointer;
         }
-        
-        /* 2. החזרת תיבת הסימון המקורית ועיצובה */
         .bar-types input[type="checkbox"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
         }
-        
-        /* 3. עטיפה לתוכן (תמונה וטקסט) כדי לסדרם אנכית */
         .type-content-wrapper {
             display: flex;
-            flex-direction: column;  /* סידור אנכי: תמונה מעל טקסט */
-            align-items: center;     /* מרכוז אופקי */
+            flex-direction: column;
+            align-items: center;
         }
-        
-        /* 4. עיצוב התמונה (או האייקון) */
         .type-image {
-            /* width: 28px; */
             height: 80px;
-            margin-bottom: 4px; /* רווח קטן בין התמונה לטקסט */
+            margin-bottom: 4px;
             object-fit: contain;
         }
-
-        /* 5. עיצוב הטקסט */
         .type-label-text {
             font-size: 13px;
             color: #333;
@@ -173,13 +161,10 @@ $fields = [
             line-height: 1.2;
             transition: all 0.2s ease;
         }
-        
-        /* 6. עיצוב הטקסט במצב "בחור" (checked) */
         .bar-types input[type="checkbox"]:checked + .type-content-wrapper .type-label-text {
-            font-weight: bold;   /* הדגשת הטקסט */
-            color: #0056b3;      /* שינוי צבע הטקסט */
+            font-weight: bold;
+            color: #0056b3;
         }
-        /* --- סוף עיצוב הסוגים --- */
 
         .bar-bottom-row {
             display: flex;
@@ -200,30 +185,13 @@ $fields = [
             background: #fff;
             transition: background .18s, border-color .15s;
         }
-        .b { /* עיצוב ההערה מתחת לכותרת */
+        .b {
             display: block;
             text-align: center;
             margin: 10px 0 20px 0;
             font-size: 14px;
             color: #555;
             line-height: 1.5;
-        }
-
-        /* רספונסיביות */
-        @media (max-width: 1100px) {
-            .bar-fields-row { grid-template-columns: repeat(3,1fr);}
-        }
-        @media (max-width: 800px) {
-            .bar-fields-row { grid-template-columns: repeat(2,1fr);}
-            .bar-outer { padding: 7vw 2vw 2vw 2vw; }
-        }
-        @media (max-width: 600px) {
-            .bar-fields-row input[type="text"] { font-size: 13px;}
-            .bar-types { gap: 10px; }
-            .type-image { width: 24px; height: 24px; }
-            .type-label-text { font-size: 12px; }
-            .bar-bottom-row select, .bar-bottom-row button { font-size: 13px;}
-            .b { font-size: 13px; }
         }
     </style>
 </head>
@@ -274,6 +242,7 @@ $fields = [
             <?php endforeach; ?></select>
             <select name="view">
                 <option value="modern_grid" <?= $view === 'modern_grid' ? 'selected' : '' ?>>רשת מודרנית</option>
+                <option value="collections_view" <?= $view === 'collections_view' ? 'selected' : '' ?>>תצוגת גלריה</option>
                 <option value="grid" <?= $view === 'grid' ? 'selected' : '' ?>>Grid</option>
                 <option value="list" <?= $view === 'list' ? 'selected' : '' ?>>List</option>
                 <option value="default" <?= $view === 'default' ? 'selected' : '' ?>>רגילה</option>

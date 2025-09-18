@@ -13,7 +13,7 @@ if ($id === 0) {
 
 // Preserve params (remove one-off flags)
 $current_params = $_GET;
-unset($current_params['pin_poster'], $current_params['unpin_poster'], $current_params['csv_success'], $current_params['inserted'], $current_params['already']);
+unset($current_params['pin_poster'], $current_params['unpin_poster'], $current_params['csv_success'], $current_params['inserted'], $current_params['already'], $current_params['pin_collection'], $current_params['unpin_collection']);
 $redirect_query_string = http_build_query($current_params);
 
 // Pin / Unpin poster
@@ -35,6 +35,31 @@ if (isset($_GET['unpin_poster'])) {
   header("Location: collection.php?" . $redirect_query_string);
   exit;
 }
+
+// Pin / Unpin COLLECTION
+if (isset($_GET['pin_collection'])) {
+  $collection_to_pin = (int)$_GET['pin_collection'];
+  if ($collection_to_pin === $id) { // Sanity check
+    $stmt_pin_coll = $conn->prepare("UPDATE collections SET is_pinned = 1 WHERE id = ?");
+    $stmt_pin_coll->bind_param("i", $id);
+    $stmt_pin_coll->execute();
+    $stmt_pin_coll->close();
+  }
+  header("Location: collection.php?" . $redirect_query_string);
+  exit;
+}
+if (isset($_GET['unpin_collection'])) {
+  $collection_to_unpin = (int)$_GET['unpin_collection'];
+  if ($collection_to_unpin === $id) { // Sanity check
+    $stmt_unpin_coll = $conn->prepare("UPDATE collections SET is_pinned = 0 WHERE id = ?");
+    $stmt_unpin_coll->bind_param("i", $id);
+    $stmt_unpin_coll->execute();
+    $stmt_unpin_coll->close();
+  }
+  header("Location: collection.php?" . $redirect_query_string);
+  exit;
+}
+
 
 // Delete all content in collection
 if (isset($_GET['delete_all_content'])) {
@@ -72,11 +97,6 @@ $stmt->close();
 $types_list = [];
 $types_result = $conn->query("SELECT id, label_he FROM poster_types ORDER BY sort_order ASC");
 while($row = $types_result->fetch_assoc()) $types_list[] = $row;
-
-// Pagination
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$per_page = 250;
-$offset = ($page - 1) * $per_page;
 
 // Filters
 $filters = [
@@ -142,6 +162,10 @@ switch ($sort_order) {
     case 'added_asc': $order_by_clause .= ", pc.added_at ASC, p.id ASC"; break;
     case 'year_desc': $order_by_clause .= ", p.year DESC, p.id DESC"; break;
     case 'year_asc': $order_by_clause .= ", p.year ASC, p.id ASC"; break;
+    case 'rating_desc': $order_by_clause .= ", p.imdb_rating DESC, p.id DESC"; break;
+    case 'rating_asc': $order_by_clause .= ", p.imdb_rating ASC, p.id ASC"; break;
+    case 'title_he_asc': $order_by_clause .= ", p.title_he ASC, p.id ASC"; break;
+    case 'title_he_desc': $order_by_clause .= ", p.title_he DESC, p.id DESC"; break;
     default: $order_by_clause .= ", pc.added_at DESC, p.id DESC"; break;
 }
 
@@ -151,22 +175,51 @@ $count_stmt = $conn->prepare($count_sql);
 $count_stmt->bind_param($types, ...$params);
 $count_stmt->execute();
 $total_posters = $count_stmt->get_result()->fetch_row()[0] ?? 0;
-$total_pages = ceil($total_posters / $per_page);
 $count_stmt->close();
 
+// Pagination
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$allowed_per_page = [20, 50, 100, 250, 500];
+$per_page_request = $_GET['per_page'] ?? 250;
+$per_page = 250; // Default
+$show_all = false;
+
+if ($per_page_request === 'all') {
+    $show_all = true;
+    $per_page = $total_posters > 0 ? $total_posters : 1;
+} elseif (in_array((int)$per_page_request, $allowed_per_page)) {
+    $per_page = (int)$per_page_request;
+}
+
+$offset = ($page - 1) * $per_page;
+$total_pages = $show_all ? 1 : ceil($total_posters / $per_page);
+if ($per_page_request != 250) { $filter_query_string .= "&per_page=" . urlencode($per_page_request); }
+
+
 // Fetch posters
+$sql_limit_clause = "LIMIT ? OFFSET ?";
+if ($show_all) {
+    $sql_limit_clause = ""; // No limit if showing all
+}
+
 $posters_sql = "SELECT p.*, pc.is_pinned, pc.added_at, GROUP_CONCAT(DISTINCT ut.genre SEPARATOR ', ') AS user_tags_list
-                FROM posters p
-                JOIN poster_collections pc ON p.id = pc.poster_id
-                $join_user_tags
-                $join_akas
-                $where_clause
-                GROUP BY p.id
-                $order_by_clause
-                LIMIT ? OFFSET ?";
+                  FROM posters p
+                  JOIN poster_collections pc ON p.id = pc.poster_id
+                  $join_user_tags
+                  $join_akas
+                  $where_clause
+                  GROUP BY p.id
+                  $order_by_clause
+                  $sql_limit_clause";
+
 $params_with_limit = $params;
-$params_with_limit[] = $per_page; $types_with_limit = $types . "i";
-$params_with_limit[] = $offset;   $types_with_limit .= "i";
+$types_with_limit = $types;
+
+if (!$show_all) {
+    $params_with_limit[] = $per_page; $types_with_limit .= "i";
+    $params_with_limit[] = $offset;   $types_with_limit .= "i";
+}
+
 $stmt = $conn->prepare($posters_sql);
 $stmt->bind_param($types_with_limit, ...$params_with_limit);
 $stmt->execute();
@@ -248,21 +301,26 @@ function generate_home_search_link($param, $value) {
     .sort-box label { font-weight:bold; font-size:15px; }
     .sort-box select { padding: 5px 8px; border-radius: 5px; border: 1px solid #ccc; font-size:15px; }
 
-    /* --- New Controls Styling --- */
+    /* --- Controls Styling --- */
     .controls-wrapper { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 20px 0; display: flex; flex-direction: column; gap: 15px; }
     .action-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-    .action-bar strong { margin-left: 5px; font-size: 14px; color: #495057; }
-    .action-bar .btn-group { display: flex; }
-    .action-bar a.action-btn, .action-bar button.action-btn { text-decoration: none; padding: 6px 12px; border-radius: 5px; border: 1px solid #ced4da; background-color: deepskyblue; color: white; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap; font-family: inherit; }
-    .action-bar a.action-btn:hover, .action-bar button.action-btn:hover { background-color: #e9ecef; border-color: #adb5bd; }
-    .action-bar a.action-btn.active, .action-bar button.action-btn.active { background-color: #007bff; color: white; border-color: #007bff; }
+    .action-bar strong, .action-bar span { font-size: 14px; color: #495057; margin-left: 5px; }
     .action-bar form { margin: 0; }
-    .btn-group .action-btn { border-radius: 0; border-right-width: 0; }
-    .btn-group .action-btn:first-child { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
-    .btn-group .action-btn:last-child { border-top-left-radius: 5px; border-bottom-left-radius: 5px; border-right-width: 1px; }
-    .btn-group .action-btn.active { background-color: #007bff; color: #fff; border-color: #007bff; z-index: 2; }
-    #togglePinBtn.active { background-color: #0d6efd; color: white; border-color: #0d6efd; }
-    #toggleDeleteBtn.active { background-color: pink; color: white; border-color: pink; }
+    .action-bar .action-btn, .action-bar button { text-decoration: none; padding: 6px 12px; border-radius: 5px; border: 1px solid #ced4da; background-color: deepskyblue; color: white; border-color: #00BFFF; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; white-space: nowrap; font-family: inherit; }
+    .action-bar .action-btn:hover, .action-bar button:hover { background-color: #00a8e6; border-color: #00a8e6; }
+    .action-bar .action-btn.active, .action-bar button.active { background-color: #007bff; color: white; border-color: #007bff; z-index: 2; }
+    
+    .action-bar .btn-group { display: inline-flex; }
+    .btn-group .action-btn, .btn-group button { border-radius: 0; margin-left: -1px; }
+    .btn-group .action-btn:first-child, .btn-group button:first-child { border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
+    .btn-group .action-btn:last-child, .btn-group button:last-child { border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
+    
+    #togglePinBtn.active,
+    #toggleDeleteBtn.active {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
     
     /* Split description */
     .desc2-wrap{width:100%; text-align:center; margin:14px 0;}
@@ -280,7 +338,7 @@ function generate_home_search_link($param, $value) {
     .modal-close-btn { color: #aaa; float: left; font-size: 28px; font-weight: bold; position: absolute; top: 5px; left: 15px; cursor: pointer; }
     .modal-close-btn:hover, .modal-close-btn:focus { color: black; }
 
-    /* --- Reverted Hover Card Styling --- */
+    /* --- Hover Card Styling --- */
     .hover-card {
       position: absolute;
       top: 0;
@@ -315,6 +373,37 @@ function generate_home_search_link($param, $value) {
     .trailer-placeholder .play-button { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 68px; height: 48px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 48"><path d="M66.52,7.74c-0.78-2.93-2.49-5.41-5.42-6.19C55.79,.13,34,0,34,0S12.21,.13,6.9,1.55 C3.97,2.33,2.27,4.81,1.48,7.74C0.06,13.05,0,24,0,24s0.06,10.95,1.48,16.26c0.78,2.93,2.49,5.41,5.42,6.19 C12.21,47.87,34,48,34,48s21.79-0.13,27.1-1.55c2.93-0.78,4.64-3.26,5.42-6.19C67.94,34.95,68,24,68,24S67.94,13.05,66.52,7.74z" fill="%23f00"></path><path d="M 45,24 27,14 27,34" fill="%23fff"></path></svg>'); background-repeat: no-repeat; background-position: center; background-size: contain; border: none; transition: transform 0.2s; pointer-events: none; }
     .trailer-placeholder:hover .play-button { transform: translate(-50%, -50%) scale(1.1); }
     .trailer-wrap iframe { width: 100%; aspect-ratio: 16/9; border: 0; }
+    
+    /* --- Pagination Styling --- */
+    .pagination {
+        text-align: center;
+        margin-top: 25px;
+        padding: 10px 0;
+        direction: rtl;
+    }
+    .pagination a, .pagination span.current {
+        margin: 0 4px;
+        padding: 8px 14px;
+        border: 1px solid #ddd;
+        background: #fdfdfd;
+        color: #007bff;
+        border-radius: 4px;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+    .pagination a:hover {
+        background: #f0f0f0;
+        border-color: #ccc;
+    }
+    .pagination span.current {
+        background: #007bff;
+        color: white;
+        border-color: #007bff;
+        cursor: default;
+    }
+
   </style>
 </head>
 <body><br>
@@ -373,29 +462,49 @@ function generate_home_search_link($param, $value) {
         </form>
         <button type="button" onclick="openBatchAddModal()" class="action-btn" style="background-color: #d4edda; border-color: #c3e6cb; color: #155724;">➕ הוספה מרובה</button>
         <a href="edit_collection.php?id=<?= $collection['id'] ?>" class="action-btn">✏️ ערוך</a>
-        <?php $return_url = urlencode("collection.php?id=" . $collection['id']); ?>
+        
         <?php if (!empty($collection['is_pinned'])): ?>
-            <a href="collections.php?unpin=<?= $collection['id'] ?>&return_url=<?= $return_url ?>" class="action-btn" style="background:#fff3cd; color:#856404; border-color: #ffeeba;">📌 הסר נעיצת אוסף</a>
+            <a href="collection.php?unpin_collection=<?= $collection['id'] ?>&<?= $redirect_query_string ?>" class="action-btn" style="background:#fff3cd; color:#856404; border-color: #ffeeba;">📌 הסר נעיצת אוסף</a>
         <?php else: ?>
-            <a href="collections.php?pin=<?= $collection['id'] ?>&return_url=<?= $return_url ?>" class="action-btn" style="background:#d1e7dd; color:#0f5132; border-color: #badbcc;">📌 נעיצת אוסף</a>
+            <a href="collection.php?pin_collection=<?= $collection['id'] ?>&<?= $redirect_query_string ?>" class="action-btn" style="background:#d1e7dd; color:#0f5132; border-color: #badbcc;">📌 נעיצת אוסף</a>
         <?php endif; ?>
+
         <a href="manage_collections.php?delete=<?= $collection['id'] ?>" onclick="return confirm('למחוק את האוסף?')" class="action-btn" style="background:#f8d7da;color:#721c24; border-color: #f5c6cb;">🗑️ מחק אוסף</a>
         <a href="universe.php?collection_id=<?= $collection['id'] ?>" class="action-btn" style="background:#d1ecf1;color:#0c5460; border-color: #bee5eb;">🌌 הצג בציר זמן</a>
-        <a href="#" onclick="deleteAllContent(<?= $id ?>)" class="action-btn" style="background:#e0ffad; color: #fff; border-color: #e0ffad;">מחק את כל התוכן</a>
+        <a href="#" onclick="deleteAllContent(<?= $id ?>)" class="action-btn" style="background:#f9e7cf; color: #856404; border-color: #f7ddb2;">מחק את כל התוכן</a>
         <a href="collections.php" class="action-btn" style="margin-right: auto;">⬅ חזרה לרשימת האוספים</a>
     </div>
     <div class="action-bar">
         <strong>תצוגה:</strong>
-        <button type="button" class="action-btn" id="toggleListBtn" onclick="toggleNameList()" style="background: #e7f5ff; color: #1971c2; border-color: #a5d8ff;">📄 הצג רשימה שמית</button>
-        <span style="margin-right: 10px;">גודל פוסטרים:</span>
+        <button type="button" id="toggleListBtn" onclick="toggleNameList()" class="action-btn" style="background: #e7f5ff; color: #1971c2; border-color: #a5d8ff;">📄 הצג רשימה שמית</button>
+        <a href="collection_csv.php?id=<?= $id ?>" target="_blank" class="action-btn" style="background:#2a964a; color:#fff; border-color: #2a964a;">⬇️ ייצא כ־CSV</a>
+        <a href="#" id="togglePinBtn" onclick="togglePin()" class="action-btn">📌 הצג נעיצה</a>
+        <a href="#" id="toggleDeleteBtn" onclick="toggleDelete()" class="action-btn">🧹 הצג מחיקה</a>
+        
+        <div style="margin-right: auto;"></div>
+
+        <span>גודל פוסטרים:</span>
         <div class="btn-group">
             <button onclick="setSize('small')" class="action-btn" id="size-small">קטן</button>
             <button onclick="setSize('medium')" class="action-btn" id="size-medium">בינוני</button>
             <button onclick="setSize('large')" class="action-btn" id="size-large">גדול</button>
         </div>
-        <a href="collection_csv.php?id=<?= $id ?>" target="_blank" class="action-btn" style="background:#2a964a; color:#fff; border-color: #2a964a;">⬇️ ייצא כ־CSV</a>
-        <a href="#" id="togglePinBtn" onclick="togglePin()" class="action-btn">📌 הצג נעיצה</a>
-        <a href="#" id="toggleDeleteBtn" onclick="toggleDelete()" class="action-btn">🧹 הצג מחיקה</a>
+        
+        <span>בחר כמות:</span>
+        <div class="btn-group">
+            <?php
+            $per_page_params = $_GET;
+            unset($per_page_params['page']);
+            $per_page_options = [20, 50, 100, 250, 500, 'all'];
+            foreach ($per_page_options as $option) {
+                $per_page_params['per_page'] = $option;
+                $current_per_page_val = $show_all ? 'all' : $per_page;
+                $active_class = ($current_per_page_val == $option) ? 'active' : '';
+                $label = ($option === 'all') ? 'הכל' : $option;
+                echo '<a href="collection.php?' . http_build_query($per_page_params) . '" class="action-btn ' . $active_class . '">' . $label . '</a>';
+            }
+            ?>
+        </div>
     </div>
 </div>
   <form method="get" action="collection.php" style="margin:12px 0 15px 0; display:flex; gap:10px; align-items:center; justify-content:center;">
@@ -420,12 +529,19 @@ function generate_home_search_link($param, $value) {
             <input type="hidden" name="<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($value) ?>">
           <?php endif; ?>
         <?php endforeach; ?>
+        <?php if (isset($_GET['per_page'])): ?>
+            <input type="hidden" name="per_page" value="<?= htmlspecialchars($_GET['per_page']) ?>">
+        <?php endif; ?>
         <label for="sort">מיין לפי:</label>
         <select name="sort" id="sort" onchange="document.getElementById('sortForm').submit()">
           <option value="added_desc" <?= ($sort_order == 'added_desc') ? 'selected' : '' ?>>האחרון שהתווסף</option>
           <option value="added_asc"  <?= ($sort_order == 'added_asc') ? 'selected' : '' ?>>הראשון שהתווסף</option>
           <option value="year_desc"  <?= ($sort_order == 'year_desc') ? 'selected' : '' ?>>שנה (מהחדש לישן)</option>
           <option value="year_asc"   <?= ($sort_order == 'year_asc') ? 'selected' : '' ?>>שנה (מהישן לחדש)</option>
+          <option value="rating_desc" <?= ($sort_order == 'rating_desc') ? 'selected' : '' ?>>דירוג (מהגבוה לנמוך)</option>
+          <option value="rating_asc"  <?= ($sort_order == 'rating_asc') ? 'selected' : '' ?>>דירוג (מהנמוך לגבוה)</option>
+          <option value="title_he_asc" <?= ($sort_order == 'title_he_asc') ? 'selected' : '' ?>>שם עברי (א-ת)</option>
+          <option value="title_he_desc"  <?= ($sort_order == 'title_he_desc') ? 'selected' : '' ?>>שם עברי (ת-א)</option>
         </select>
       </form>
     </div>
@@ -612,18 +728,57 @@ function generate_home_search_link($param, $value) {
     </aside>
   </div>
 
-  <?php if ($total_pages > 1): ?>
-    <div style="text-align:center; margin-top:20px;">
-      <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-        <a href="collection.php?id=<?= $id ?>&page=<?= $i ?><?= $filter_query_string ?>"
-           style="margin:0 6px; padding:6px 10px; background:<?= $i==$page ? '#007bff' : '#eee' ?>; color:<?= $i==$page ? 'white' : 'black' ?>; border-radius:4px; text-decoration:none;">
-          <?= $i ?>
-        </a>
-      <?php endfor; ?>
-    </div>
-  <?php endif; ?>
+    <?php if ($total_pages > 1): ?>
+    <div class="pagination">
+        <?php
+        $range = 5;
+        $base_url = "collection.php?id=$id" . $filter_query_string;
 
-  <div class="form-box">
+        // "First" page link
+        if ($page > 1) {
+            echo "<a href='{$base_url}&page=1'>ראשון</a>";
+        }
+
+        // "Previous" page link
+        if ($page > 1) {
+            $prev_page = $page - 1;
+            echo "<a href='{$base_url}&page={$prev_page}'>הקודם</a>";
+        }
+
+        // Numeric page links
+        $start_range = max(1, $page - $range);
+        $end_range = min($total_pages, $page + $range);
+
+        if ($start_range > 1) {
+            echo "<span>...</span>";
+        }
+
+        for ($i = $start_range; $i <= $end_range; $i++) {
+            if ($i == $page) {
+                echo "<span class='current'>$i</span>";
+            } else {
+                echo "<a href='{$base_url}&page={$i}'>$i</a>";
+            }
+        }
+        
+        if ($end_range < $total_pages) {
+            echo "<span>...</span>";
+        }
+
+        // "Next" page link
+        if ($page < $total_pages) {
+            $next_page = $page + 1;
+            echo "<a href='{$base_url}&page={$next_page}'>הבא</a>";
+        }
+
+        // "Last" page link
+        if ($page < $total_pages) {
+            echo "<a href='{$base_url}&page={$total_pages}'>אחרון</a>";
+        }
+        ?>
+    </div>
+    <?php endif; ?>
+    <div class="form-box">
     <h3>➕ הוספת פוסטרים לפי מזהים</h3>
     <form method="post" action="add_to_collection_batch.php" class="batch-add-form">
       <input type="hidden" name="collection_id" value="<?= $collection['id'] ?>">
@@ -698,11 +853,12 @@ tt1375666
       item.classList.remove('small', 'medium', 'large');
       item.classList.add(size);
     });
-    document.querySelectorAll('.btn-group .action-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#size-small, #size-medium, #size-large').forEach(btn => btn.classList.remove('active'));
     const btn = document.getElementById('size-'+size);
     if (btn) btn.classList.add('active');
   }
 
+  // START: MODIFIED FUNCTION
   function toggleNameList() {
     const sidebar = document.getElementById('name-list-sidebar');
     const button = document.getElementById('toggleListBtn');
@@ -710,8 +866,10 @@ tt1375666
         sidebar.classList.toggle('hide-list');
         const isHidden = sidebar.classList.contains('hide-list');
         button.innerHTML = isHidden ? '📄 הצג רשימה שמית' : '📄 הסתר רשימה שמית';
+        localStorage.setItem('isNameListHidden', isHidden); // Save state
     }
   }
+  // END: MODIFIED FUNCTION
 
 
   window.addEventListener('DOMContentLoaded', () => {
@@ -739,6 +897,18 @@ tt1375666
     } else if (pinBtn) {
         pinBtn.innerHTML = '📌 הצג נעיצה';
     }
+    
+    // START: ADDED LOGIC FOR NAME LIST MEMORY
+    const nameListSidebar = document.getElementById('name-list-sidebar');
+    const toggleListBtn = document.getElementById('toggleListBtn');
+    if (localStorage.getItem('isNameListHidden') === 'true') {
+        if(nameListSidebar) nameListSidebar.classList.add('hide-list');
+        if(toggleListBtn) toggleListBtn.innerHTML = '📄 הצג רשימה שמית';
+    } else {
+        if(nameListSidebar) nameListSidebar.classList.remove('hide-list');
+        if(toggleListBtn) toggleListBtn.innerHTML = '📄 הסתר רשימה שמית';
+    }
+    // END: ADDED LOGIC
 
     document.querySelectorAll('.batch-add-form').forEach(form => {
       form.addEventListener('submit', function(event) {

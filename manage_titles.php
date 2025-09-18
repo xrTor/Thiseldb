@@ -3,7 +3,7 @@ require_once 'server.php';
 session_start();
 include 'header.php';
 
-// שמירה מרוכזת ב-AJAX
+// שמירה מרוכזת ב-AJAX (no change)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['data'])) {
     header('Content-Type: application/json');
     $updated = 0;
@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['data'])) {
     exit;
 }
 
-// חיפוש
+// --- search & pagination setup ---
 $filter_aka = isset($_GET['aka']) && $_GET['aka'] == '1';
 $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 
@@ -31,6 +31,7 @@ if (preg_match('~tt\d{7,8}~', $search, $m)) {
 
 $where = [];
 $params = [];
+$types = "";
 
 if ($filter_aka) {
     $where[] = "(title_en LIKE '%AKA%' OR title_he LIKE '%AKA%')";
@@ -39,18 +40,43 @@ if ($search !== '') {
     $safe = "%{$search}%";
     $where[] = "(title_en LIKE ? OR title_he LIKE ? OR imdb_id = ? OR id = ?)";
     $params = [$safe, $safe, $search, intval($search)];
+    $types = "sssi";
 }
-
 $where_sql = count($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-$sql = "SELECT id, title_he, title_en, image_url, imdb_id FROM posters $where_sql ORDER BY id DESC";
+
+$results_per_page = 50;
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+$offset = ($page - 1) * $results_per_page;
+
+// get total count
+$stmt_count = $conn->prepare("SELECT COUNT(*) FROM posters $where_sql");
+if ($types) $stmt_count->bind_param($types, ...$params);
+$stmt_count->execute();
+$total_results = $stmt_count->get_result()->fetch_row()[0];
+$stmt_count->close();
+$total_pages = ceil($total_results / $results_per_page);
+
+// fetch data for current page
+$sql = "SELECT id, title_he, title_en, image_url, imdb_id FROM posters $where_sql ORDER BY id DESC LIMIT ?, ?";
+$params[] = $offset;
+$params[] = $results_per_page;
+$types .= "ii";
+
 $stmt = $conn->prepare($sql);
-if (count($params) === 4) {
-    $stmt->bind_param("sssi", $params[0], $params[1], $params[2], $params[3]);
-}
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 $res = $stmt->get_result();
 
-// כותרת וחיפוש
+// --- generate pagination HTML ---
+$pagination_html = '';
+if ($total_pages > 1) {
+    ob_start();
+    include 'pagination.php';
+    $pagination_html = ob_get_clean();
+}
+
+// --- page rendering ---
 echo "<h2 class='text-center my-4'>📝 ניהול שמות פוסטרים</h2>";
 echo "<div class='container mb-3 text-center'>";
 echo "<form method='get' class='d-inline-flex gap-2'>";
@@ -68,8 +94,8 @@ if ($filter_aka) {
 }
 echo "</div>";
 
-// טופס טבלה
 echo "<div class='container'>";
+echo $pagination_html;
 echo "<form id='bulkForm'>";
 echo "<table class='table table-bordered table-striped text-center align-middle' style='direction: rtl'>";
 echo "<thead class='table-light'>
@@ -88,7 +114,6 @@ while ($row = $res->fetch_assoc()) {
     $title_en = htmlspecialchars($row['title_en']);
     $imdb_id = htmlspecialchars($row['imdb_id']);
     $image = $row['image_url'] ?: 'images/default.jpg';
-
     $imdb_link = $imdb_id ? "<a href='https://www.imdb.com/title/$imdb_id/' target='_blank'>$imdb_id 🎬</a>" : "—";
 
     echo "<tr>";
@@ -97,16 +122,10 @@ while ($row = $res->fetch_assoc()) {
     echo "<td>$imdb_link</td>";
     echo "<td>
             <div class='mb-2'>
-                <input type='text' name='data[$id][title_he]'
-                       class='form-control form-control-sm text-center'
-                       style='width:400px; max-width:700px;'
-                       value=\"" . $title_he . "\" placeholder='שם בעברית'>
+                <input type='text' name='data[$id][title_he]' class='form-control form-control-sm text-center' style='width:400px; max-width:700px;' value=\"" . $title_he . "\" placeholder='שם בעברית'>
             </div>
             <div>
-                <input type='text' name='data[$id][title_en]'
-                       class='form-control form-control-sm'
-                       style='width:100%; max-width:700px; text-align:left; direction:ltr;'
-                       value=\"" . $title_en . "\" placeholder='English Title'>
+                <input type='text' name='data[$id][title_en]' class='form-control form-control-sm' style='width:100%; max-width:700px; text-align:left; direction:ltr;' value=\"" . $title_en . "\" placeholder='English Title'>
             </div>
           </td>";
     echo "<td class='align-middle'>
@@ -114,23 +133,23 @@ while ($row = $res->fetch_assoc()) {
           </td>";
     echo "</tr>";
 }
+if ($res->num_rows === 0) {
+    echo "<tr><td colspan='5' class='text-center p-4'>לא נמצאו תוצאות.</td></tr>";
+}
 
 echo "</tbody></table>";
 echo "<div class='text-center my-3'>";
 echo "<button type='button' onclick='saveAllTitles()' class='btn btn-success px-4'>💾 שמור את כל הפוסטרים</button>";
 echo "</div>";
-echo "</form></div>";
+echo "</form>";
+echo $pagination_html;
+echo "</div>";
 ?>
 
 <style>
-.updated-cell {
-  animation: highlightFlash 2s ease-out;
-  background-color: #d4edda !important;
-}
-@keyframes highlightFlash {
-  0% { background-color: #d4edda; }
-  100% { background-color: transparent; }
-}
+.updated-cell { animation: highlightFlash 2s ease-out; background-color: #d4edda !important; }
+@keyframes highlightFlash { 0% { background-color: #d4edda; } 100% { background-color: transparent; } }
+.pagination { justify-content: center; } /* bootstrap alignment */
 </style>
 
 <script>

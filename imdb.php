@@ -14,17 +14,6 @@ if (!headers_sent()) {
   header('Expires: 0');
 }
 
-/* ===== Keys ===== */
-$TMDB_KEY     = '931b94936ba364daf0fd91fb38ecd91e';
-$RAPIDAPI_KEY = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'; // IMDb rating/votes בלבד
-$TVDB_KEY     = '1c93003f-ab80-4baf-b5c4-58c7b96494a2';               // TheTVDB v4
-$OMDB_KEY     = 'f7e4ae0b';                                         // OMDb — RT/MC
-
-/* ===== מפות hardcode ===== */
-$HARDCODE_TVDB = [
-  // 'tt1234567' => 12345,
-];
-
 /* ===== IMDb scraper lib (אצלך) ===== */
 include_once __DIR__ . '/imdb.class.php';
 

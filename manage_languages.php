@@ -1,16 +1,15 @@
-<?php include 'header.php'; 
+<?php 
+include 'header.php'; 
 require_once 'server.php';
 
+// --- actions (no change) ---
 if (isset($_POST['poster_id'], $_POST['remove_lang'])) {
   $pid = (int)$_POST['poster_id'];
   $lang = $_POST['remove_lang'];
-
   $stmt = $conn->prepare("DELETE FROM poster_languages WHERE poster_id = ? AND lang_code = ?");
   $stmt->bind_param("is", $pid, $lang);
   $stmt->execute();
   $stmt->close();
-
-  // אפשרות: להוסיף הודעה על הצלחה
   $log_report[] = ['status' => 'removed', 'id' => $pid, 'lang' => $lang];
 }
 
@@ -23,12 +22,10 @@ $log_report = [];
 if (isset($_POST['bulk_lang_apply'])) {
   $langs = $_POST['languages'] ?? [];
   $lines = explode("\n", $_POST['poster_ids']);
-
   foreach ($lines as $raw) {
     $id = trim($raw);
     if ($id === '') continue;
     if (preg_match('/tt\d+/', $id, $m)) $id = $m[0];
-
     if (is_numeric($id)) {
       $res = $conn->query("SELECT id FROM posters WHERE id = $id");
       $poster = $res->fetch_assoc();
@@ -37,16 +34,13 @@ if (isset($_POST['bulk_lang_apply'])) {
       $stmt->bind_param("s", $id); $stmt->execute();
       $poster = $stmt->get_result()->fetch_assoc(); $stmt->close();
     }
-
     if ($poster) {
       $pid = (int)$poster['id'];
       foreach ($langs as $lang) {
         $stmt = $conn->prepare("SELECT COUNT(*) FROM poster_languages WHERE poster_id = ? AND lang_code = ?");
         $stmt->bind_param("is", $pid, $lang);
         $stmt->execute(); $stmt->bind_result($exists); $stmt->fetch(); $stmt->close();
-
         if ($exists == 0) {
-          
           $stmt = $conn->prepare("INSERT INTO poster_languages (poster_id, lang_code) VALUES (?, ?)");
           $stmt->bind_param("is", $pid, $lang); $stmt->execute(); $stmt->close();
           $log_report[] = ['status' => 'added', 'id' => $id, 'lang' => $lang];
@@ -60,11 +54,17 @@ if (isset($_POST['bulk_lang_apply'])) {
   }
 }
 
-$posters_raw = $conn->query("SELECT id, title_en, title_he FROM posters")->fetch_all(MYSQLI_ASSOC);
+// --- pagination setup ---
+$results_per_page = 50;
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+$offset = ($page - 1) * $results_per_page;
 
+$total_results = $conn->query("SELECT COUNT(*) FROM posters")->fetch_row()[0];
+$total_pages = ceil($total_results / $results_per_page);
 
-$posters_raw = $conn->query("SELECT id, title_en, title_he FROM posters ORDER BY id DESC")->fetch_all(MYSQLI_ASSOC);
-
+// --- fetch posters for current page ---
+$posters_raw = $conn->query("SELECT id, title_en, title_he FROM posters ORDER BY id DESC LIMIT $offset, $results_per_page")->fetch_all(MYSQLI_ASSOC);
 
 $posters = [];
 foreach ($posters_raw as $p) {
@@ -83,6 +83,14 @@ foreach ($posters_raw as $p) {
     'langs'    => $langs
   ];
 }
+
+// --- generate pagination HTML ---
+$pagination_html = '';
+if ($total_pages > 1) {
+    ob_start();
+    include 'pagination.php';
+    $pagination_html = ob_get_clean();
+}
 ?>
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -91,32 +99,27 @@ foreach ($posters_raw as $p) {
   <title>🌐 שפות לפי פוסטר</title>
   <style>
     body { font-family: Arial; background:#f7f7f7; padding:40px; direction:rtl; }
-    h1 { text-align:center; color:#007bff; margin-bottom:30px; }
-    table { width:100%; border-collapse:collapse; background:#fff; border-radius:6px; box-shadow:0 0 4px rgba(0,0,0,0.1); overflow:hidden; }
+    h1, h2 { text-align:center; color:#007bff; }
+    table { width:100%; border-collapse:collapse; background:#fff; border-radius:6px; box-shadow:0 0 4px rgba(0,0,0,0.1); overflow:hidden; margin-top: 15px; }
     th, td { padding:12px; border-bottom:1px solid #eee; text-align:right; vertical-align:middle; }
     th { background:#f0f0f0; font-weight:bold; }
     td.title small { display:block; font-size:13px; color:#777; }
-    .lang-button {
-      display:inline-flex; align-items:center; gap:6px;
-      background:#f5f5f5; padding:6px 10px; border-radius:6px;
-      margin:3px; font-size:13px; text-decoration:none; color:#333;
-    }
+    .lang-button { display:inline-flex; align-items:center; gap:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; margin:3px; font-size:13px; text-decoration:none; color:#333; }
     .lang-button:hover { background:#e0e0e0; }
     .lang-button img { height:16px; }
     form.inline { display:inline; margin:0; padding:0; }
-    button.remove-btn {
-      background:none; border:none; color:#a00; font-size:14px;
-      cursor:pointer; margin-right:1x;
-    }
+    button.remove-btn { background:none; border:none; color:#a00; font-size:14px; cursor:pointer; margin-right:1x; }
     button.remove-btn:hover { color:#d00; }
-        textarea { width:100%; padding:10px; margin-top:10px; }
+    textarea { width:100%; padding:10px; margin-top:10px; box-sizing: border-box; }
     button { padding:10px 20px; margin-top:10px; background:#007bff; color:#fff; border:none; border-radius:6px; cursor:pointer; }
-h1, h2 { text-align:center; color:#007bff; }
-    
-.form1 { max-width:700px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 4px rgba(0,0,0,0.1); }
-
-button:hover { background:#0056b3; }
+    .form1 { max-width:700px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 4px rgba(0,0,0,0.1); }
+    button:hover { background:#0056b3; }
     ul.report { list-style:none; padding:0; margin:20px auto; max-width:600px; }
+    .pagination { text-align: center; margin: 15px 0; }
+    .pagination a, .pagination span { display: inline-block; color: #007bff; text-decoration: none; padding: 8px 12px; margin: 0 2px; border: 1px solid #ddd; border-radius: 4px; }
+    .pagination a.active { background-color: #007bff; color: white; border-color: #007bff; cursor: default; }
+    .pagination a:hover:not(.active) { background-color: #f1f1f1; }
+    .pagination span { color: #999; border-color: transparent; }
  </style>
 </head>
 <body>
@@ -151,6 +154,8 @@ button:hover { background:#0056b3; }
 </form>
 
 <h1>🌐 רשימת פוסטרים והשפות שלהם</h1>
+
+<?= $pagination_html ?>
 
 <table>
   <thead>
@@ -197,9 +202,8 @@ button:hover { background:#0056b3; }
   </tbody>
 </table>
 
+<?= $pagination_html ?>
 
 </body>
 </html>
-
-
 <?php include 'footer.php'; ?>

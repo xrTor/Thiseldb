@@ -1,3 +1,6 @@
+
+<?php require_once 'init.php'; ?>
+
 <!DOCTYPE html>
 <html lang="he">
 <head>
@@ -95,6 +98,9 @@
     #scrollTopBtn:hover {
       background-color: #007bff;
     }
+    .transparent:hover {content: url('images/transparent.png?v=3');
+     /* filter: brightness(94%); */
+    }
   </style>
   <link rel="stylesheet" href="style.css?v=5">
   <link rel="icon" type="image/x-icon" href="images/favicon.ico?v=3">
@@ -105,7 +111,7 @@
 <center>
 <a href="index.php">
   <h1 style="text-align:center;">
-    <img src="images/name.png">   <!-- class="logo" -->
+    <img src="images/name.png" class="transparent">   <!-- class="logo" -->
   </h1>
 </a>
 <?php include 'nav.php';?>
@@ -117,7 +123,6 @@
 <!-- <b>Thiseldb</b></a> -->
 
 <?php $current = basename($_SERVER['PHP_SELF']); ?>
-
 
     </div>
     </div>

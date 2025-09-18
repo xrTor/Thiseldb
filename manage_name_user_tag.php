@@ -127,7 +127,7 @@ echo "<thead class='table-light'><tr>
 while ($row = $res->fetch_assoc()) {
     $genre = htmlspecialchars($row['genre']);
     $count = (int)$row['count'];
-    $url = "home.php?tag=" . urlencode($row['genre']);
+    $url = "home.php?user_tag=" . urlencode($row['genre']);
 
     echo "<tr>";
     echo "<td>$genre</td>";

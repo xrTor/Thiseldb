@@ -372,6 +372,92 @@ if ($end_page - $start_page < $max_links - 1) {
     .collection-sticker-image:hover {
         transform: scale(1.1);
     }
+    /* ========== START: STYLES FOR collections_view (Gallery View) ========== */
+.collections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    justify-content: center;
+    margin: 0 auto;
+    max-width: 1400px;
+}
+
+.collection-card {
+    border: 1px solid #ddd;      /* ✅ גבול עדין */
+    border-radius: 1px;         /* אזהרה: כאן משנים תרדיוס של התמונה*/
+    overflow: hidden;            /* ✅ חיתוך לפי הפינות */
+    text-decoration: none;
+    color: black;
+    background-color: #fff;      /* ✅ רקע לבן לכרטיס */
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.collection-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.collection-card .card-image-link img {
+    width: 100%;
+    height: 100%;       /* גובה קבוע כאן הכי חשוב שיש שהתמונה לא תחתך!!! אזהרה!!!
+    400px*/ 
+    object-fit: cover;   /* חותך */
+    display: block;
+}
+
+
+.collection-card .card-details {
+    padding: 12px;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    justify-content: space-between;
+    min-height: 100px;
+    background: #fff;           /* ✅ אזור טקסט עם רקע לבן */
+}
+
+.card-details .card-title-link {
+    text-decoration: none;
+    color: inherit;
+}
+.card-details .title-en {
+    font-weight: bold;
+    font-size: 1.05em;
+    line-height: 1.2;
+    margin-bottom: 2px;
+    color: #333;
+}
+.card-details .title-he {
+    font-size: 1em;
+    color: #666;
+    margin-bottom: 8px;
+    line-height: 1.2;
+}
+.card-details .meta-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+    color: #555;
+    border-top: 1px solid #eee;
+    padding-top: 8px;
+    margin-top: auto;
+}
+.card-details .meta-info a {
+    text-decoration: none;
+    color: #0056b3;
+    font-weight: bold;
+}
+.card-details .meta-info a:hover {
+    text-decoration: underline;
+}
+/* ========== END: STYLES FOR collections_view ========== */
+
+
     
   </style>
 </head>
@@ -399,12 +485,12 @@ if ($end_page - $start_page < $max_links - 1) {
           </a> 
           
           <div class="poster-title">
-  <a href="poster.php?id=<?= $row['id'] ?>" class="title-link">
-      <b><?= htmlspecialchars($row['title_en']) ?></b>
-      <?php if (!empty($row['title_he'])): ?><br><span class="hebrew-title"><?= htmlspecialchars($row['title_he']) ?></span><?php endif; ?>
-  </a>
-  <br><span class="year-link">[<a href="home.php?year=<?= htmlspecialchars($row['year']) ?>"><?= $row['year'] ?></a>]</span>
-</div>
+            <a href="poster.php?id=<?= $row['id'] ?>" class="title-link">
+                <b><?= htmlspecialchars($row['title_en']) ?></b>
+                <?php if (!empty($row['title_he'])): ?><br><span class="hebrew-title"><?= htmlspecialchars($row['title_he']) ?></span><?php endif; ?>
+            </a>
+            <br><span class="year-link">[<a href="home.php?year=<?= htmlspecialchars($row['year']) ?>"><?= $row['year'] ?></a>]</span>
+          </div>
 
           <a class="imdb-container" href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank">
             <img src="images/imdb.png" alt="IMDb"> 
@@ -464,7 +550,7 @@ if ($end_page - $start_page < $max_links - 1) {
                 <?php
                   $manual_langs = $manual_languages_by_poster_id[$row['id']] ?? [];
                   $auto_langs = array_filter(array_map('trim', explode(',', $row['languages'] ?? '')));
-                  $auto_langs_unique = array_diff($auto_langs, $manual_langs); // הצג דגלי IMDb רק אם הם לא הוגדרו ידנית
+                  $auto_langs_unique = array_diff($auto_langs, $manual_langs);
                 ?>
                 <?php if (!empty($manual_langs)): ?>
                     <div class="flag-row">
@@ -512,6 +598,36 @@ if ($end_page - $start_page < $max_links - 1) {
       <?php endforeach; ?>
     </div>
     
+  <?php elseif ($view === 'collections_view'): ?>
+    <div class="collections-grid">
+      <?php foreach ($rows as $row): ?>
+        <?php $image_to_show = $row['image_url'] ?: 'images/no-poster.png'; ?>
+        <div class="collection-card">
+            <a href="poster.php?id=<?= $row['id'] ?>" class="card-image-link">
+                <img src="<?= htmlspecialchars($image_to_show) ?>" alt="תמונת פוסטר">
+            </a>
+            <div class="card-details">
+                <a href="poster.php?id=<?= $row['id'] ?>" class="card-title-link">
+                    <div class="title-en"><?= htmlspecialchars($row['title_en']) ?></div>
+                    <?php if (!empty($row['title_he'])): ?>
+                        <div class="title-he"><?= htmlspecialchars($row['title_he']) ?></div>
+                    <?php endif; ?>
+                </a>
+                <div class="meta-info">
+                    <span>🗓️ <?= htmlspecialchars($row['year']) ?></span>
+                    <?php if (!empty($row['imdb_id'])): ?>
+                        <a href="https://www.imdb.com/title/<?= htmlspecialchars($row['imdb_id']) ?>/" target="_blank" title="פתח ב-IMDB">
+                           ⭐ <?= htmlspecialchars($row['imdb_rating']) ?>
+                        </a>
+                    <?php else: ?>
+                        <span>⭐ <?= htmlspecialchars($row['imdb_rating']) ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
   <?php elseif ($view === 'grid'): ?>
     <div class="poster-wall">
       <?php foreach ($rows as $row): ?>

@@ -8,7 +8,7 @@ function safe($str) {
 
 $log_report = [];
 
-// --- bulk add genres to posters ---
+// --- bulk add genres to posters (no change) ---
 if (isset($_POST['bulk_add'])) {
   $genres = array_map('trim', preg_split('/[,|]/', $_POST['bulk_genre']));
   $lines = explode("\n", $_POST['bulk_ids']);
@@ -53,7 +53,6 @@ if (isset($_POST['bulk_add'])) {
       }
 
       if ($update) {
-        // Remove duplicates, trim spaces, capitalize
         $final_genres = array_unique(array_map('trim', $poster_genres));
         $final_genres = array_filter($final_genres, fn($g) => $g !== '');
         $final_str = implode(', ', $final_genres);
@@ -68,7 +67,7 @@ if (isset($_POST['bulk_add'])) {
   }
 }
 
-// --- remove genre from a poster ---
+// --- remove genre from a poster (no change) ---
 if (isset($_GET['delete']) && isset($_GET['pid']) && isset($_GET['genre'])) {
   $pid = intval($_GET['pid']);
   $genre = trim($_GET['genre']);
@@ -85,26 +84,56 @@ if (isset($_GET['delete']) && isset($_GET['pid']) && isset($_GET['genre'])) {
   }
 }
 
-// --- search posters ---
+// --- search & pagination setup ---
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 if (preg_match('/tt\d+/', $search, $match)) {
   $search = $match[0];
 }
 
-$posters = [];
+$results_per_page = 50;
+$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+$offset = ($page - 1) * $results_per_page;
 
+// --- get total count for pagination ---
+$count_sql = "SELECT COUNT(*) FROM posters";
+$count_params = [];
+$count_types = "";
 if ($search !== '') {
-  $searchLike = "%$search%";
-  $stmt = $conn->prepare("SELECT id, title_en, title_he, genres FROM posters WHERE title_en LIKE ? OR imdb_id LIKE ? ORDER BY id DESC");
-  $stmt->bind_param("ss", $searchLike, $searchLike);
-  $stmt->execute();
-  $result = $stmt->get_result();
-  $posters_raw = $result->fetch_all(MYSQLI_ASSOC);
-  $stmt->close();
-} else {
-  $result = $conn->query("SELECT id, title_en, title_he, genres FROM posters ORDER BY id DESC");
-  $posters_raw = $result->fetch_all(MYSQLI_ASSOC);
+    $searchLike = "%$search%";
+    $count_sql .= " WHERE title_en LIKE ? OR imdb_id LIKE ?";
+    $count_params = [$searchLike, $searchLike];
+    $count_types = "ss";
 }
+$stmt_count = $conn->prepare($count_sql);
+if ($count_types) $stmt_count->bind_param($count_types, ...$count_params);
+$stmt_count->execute();
+$total_results = $stmt_count->get_result()->fetch_row()[0];
+$stmt_count->close();
+$total_pages = ceil($total_results / $results_per_page);
+
+// --- fetch posters for current page ---
+$posters = [];
+$sql = "SELECT id, title_en, title_he, genres FROM posters";
+$params = [];
+$types = "";
+if ($search !== '') {
+    $searchLike = "%$search%";
+    $sql .= " WHERE title_en LIKE ? OR imdb_id LIKE ?";
+    $params = [$searchLike, $searchLike];
+    $types = "ss";
+}
+$sql .= " ORDER BY id DESC LIMIT ?, ?";
+$params[] = $offset;
+$params[] = $results_per_page;
+$types .= "ii";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param($types, ...$params);
+$stmt->execute();
+$result = $stmt->get_result();
+$posters_raw = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
 foreach ($posters_raw as $p) {
   $genres = array_map('trim', explode(',', $p['genres'] ?? ''));
@@ -116,6 +145,15 @@ foreach ($posters_raw as $p) {
     'genres'   => $genres
   ];
 }
+
+// --- generate pagination HTML ---
+$pagination_html = '';
+if ($total_pages > 1) {
+    ob_start();
+    include 'pagination.php';
+    $pagination_html = ob_get_clean();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -126,10 +164,10 @@ foreach ($posters_raw as $p) {
     body { font-family:"Segoe UI"; padding:40px; background:#f8f8f8; }
     h1, h2 { text-align:center; color:#007bff; margin-bottom:20px; }
     form.search, form.bulk { max-width:500px; margin:0 auto 30px; }
-    input[type="text"], textarea { width:100%; padding:10px; font-size:14px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px; }
+    input[type="text"], textarea { width:100%; padding:10px; font-size:14px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px; box-sizing: border-box; }
     button[type="submit"] { padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:14px; }
     button:hover { background:#0056b3; }
-    table { width:100%; border-collapse:collapse; margin-top:30px; background-color: white;}
+    table { width:100%; border-collapse:collapse; margin-top:15px; background-color: white;}
     th, td { padding:10px; border-bottom:1px solid #eee; text-align:right; vertical-align:top; }
     th { background:#f1f1f1; }
     td.title small { display:block; font-size:13px; color:#555; margin-top:4px; }
@@ -139,6 +177,11 @@ foreach ($posters_raw as $p) {
     ul.report li { margin-bottom:6px; font-size:14px; }
     .bold,td.title a {font-weight: bold; }
     .back {color:#007bff; display: inline-flex; align-items: center; background: #F0F1F2; color: #495057; padding: 8px 8px; border-radius: 12px; margin: 2px; font-size: 13px;}
+    .pagination { text-align: center; margin: 15px 0; }
+    .pagination a, .pagination span { display: inline-block; color: #007bff; text-decoration: none; padding: 8px 12px; margin: 0 2px; border: 1px solid #ddd; border-radius: 4px; }
+    .pagination a.active { background-color: #007bff; color: white; border-color: #007bff; cursor: default; }
+    .pagination a:hover:not(.active) { background-color: #f1f1f1; }
+    .pagination span { color: #999; border-color: transparent; }
   </style>
 </head>
 <body>
@@ -176,6 +219,9 @@ foreach ($posters_raw as $p) {
   <input type="text" name="search" placeholder="🔍 חיפוש לפי שם פוסטר או IMDb" value="<?= safe($search) ?>">
   <button type="submit">חפש</button>
 </form>
+
+<?= $pagination_html ?>
+
 <table>
   <thead>
     <tr><th>מזהה</th><th>שם</th><th>ז'אנרים</th></tr>
@@ -202,10 +248,14 @@ foreach ($posters_raw as $p) {
         </td>
       </tr>
     <?php endforeach; ?>
+     <?php if (empty($posters)): ?>
+      <tr><td colspan="3" style="text-align: center; padding: 20px;">לא נמצאו תוצאות.</td></tr>
+    <?php endif; ?>
   </tbody>
 </table>
 
+<?= $pagination_html ?>
+
 </body>
 </html>
-
 <?php include 'footer.php'; ?>

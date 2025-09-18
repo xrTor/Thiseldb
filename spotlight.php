@@ -131,7 +131,6 @@ if ($res_pop_tag && $res_pop_tag->num_rows > 0) {
     }
 }
 
-$conn->close();
 
 function render_poster_carousel($posters, $carousel_id) {
     if (empty($posters)) {

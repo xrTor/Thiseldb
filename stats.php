@@ -5,10 +5,10 @@ require_once 'languages.php';
 
 // 🔢 סטטיסטיקה לפי סוג עם אייקונים
 $types_data = [];
-$types_result = $conn->query("SELECT pt.code, pt.label_he, pt.icon, COUNT(p.id) AS total
+$types_result = $conn->query("SELECT pt.code, pt.label_he, pt.icon, pt.image, COUNT(p.id) AS total
   FROM poster_types pt
   LEFT JOIN posters p ON p.type_id = pt.id
-  GROUP BY pt.code, pt.label_he, pt.icon
+  GROUP BY pt.code, pt.label_he, pt.icon, pt.image
   ORDER BY pt.sort_order ASC");
 
 while ($row = $types_result->fetch_assoc()) {
@@ -85,6 +85,7 @@ $count_collections = (int)($count_collections_row['c'] ?? 0);
 <head>
   <meta charset="UTF-8">
   <title>📊 סטטיסטיקות כלליות</title>
+ 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { font-family: Arial; background:#f4f4f4; padding:10px; text-align:center; direction:rtl; max-width:1000px; margin:auto; }
@@ -154,7 +155,7 @@ footer .box {
 </head>
 <body>
 
-<h1>📊 סטטיסטיקות כלליות</h1>
+<h1><br> סטטיסטיקות כלליות</h1> <img src="images/spreadsheet.png" height="70px" alt="">
 
 <div class="box">
   <h2>🔢 לפי סוג</h2>
@@ -163,14 +164,20 @@ footer .box {
       <tr><th>סוג</th><th>מספר פוסטרים</th></tr>
     </thead>
     <tbody>
-      <!-- שורת סיכום בתוך הטבלה, מעל כל הסוגים -->
       <tr class="summary-row">
         <td><img src="images/types/posters.png" alt="Poster" width="64px" style="vertical-align: middle;"> סך הכול פוסטרים</td>
         <td><?= number_format($total) ?></td>
       </tr>
       <?php foreach ($types_data as $type): ?>
         <tr>
-          <td><?= htmlspecialchars($type['label_with_icon'] ?? '') ?></td>
+          <td>
+            <?php if (!empty($type['image'])): ?>
+              <img src="images/types/<?= htmlspecialchars($type['image']) ?>" alt="<?= htmlspecialchars($type['label_he']) ?>" width="64px" style="vertical-align: middle;">
+            <?php else: ?>
+              <?= htmlspecialchars($type['icon'] ?? '') ?>
+            <?php endif; ?>
+            <?= htmlspecialchars($type['label_he'] ?? '') ?>
+          </td>
           <td><?= number_format((int)($type['total'] ?? 0)) ?></td>
         </tr>
       <?php endforeach; ?>
@@ -178,7 +185,6 @@ footer .box {
   </table>
 </div>
 
-<!-- 🔗 פילוח קשרים לפי סוג: ממוקם מעל "אהדה כללית" -->
 <div class="box">
   <h2>🔗 פילוח קשרים לפי סוג (IMDb Connections)</h2>
   <table>
@@ -189,7 +195,6 @@ footer .box {
       </tr>
     </thead>
     <tbody>
-      <!-- שורת "סה״כ קשרים" בראש הטבלה -->
       <tr class="summary-row">
         <td>סה״כ קשרים</td>
         <td><?= number_format($total_conn_sum) ?></td>
@@ -208,7 +213,6 @@ footer .box {
     </tbody>
   </table>
 
-  <!-- גרף עוגה קטן להתפלגות סוגי הקשרים -->
   <canvas id="connTypeChart"></canvas>
 </div>
 
@@ -249,7 +253,7 @@ footer .box {
 </div>
 
 <div class="box">
-  <h2>🌐 פילוח לפי שפה</h2>
+  <h2>🌐 פילוח לפי שפה (דגל)</h2>
   <table>
     <thead>
       <tr><th>שפה</th><th>מספר פוסטרים</th></tr>

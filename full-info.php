@@ -15,7 +15,7 @@ function norm_split($s){
   if ($s === '') return [];
   $s = str_replace([';', '/', '|'], ',', $s);
   $parts = array_map('trim', explode(',', $s));
-  return array_values(array_filter($parts, fn($x)=>$x!==''));
+  return array_values(array_filter($parts, function($x){ return $x!==''; })); // תאימות לאחור
 }
 function aggFromColumn(mysqli $conn, string $col): array {
   $rs = $conn->query("SELECT `$col` AS v FROM posters WHERE `$col` IS NOT NULL AND `$col`<>''");
@@ -33,6 +33,37 @@ function aggFromColumn(mysqli $conn, string $col): array {
   });
   return $m;
 }
+
+/** בונה URL חיפוש ל-home.php עם ברירות מחדל ומעליה overrides */
+function buildSearchQuery(array $overrides = []): string {
+  $defaults = [
+    'search' => '',
+    'year' => '',
+    'min_rating' => '',
+    'metacritic' => '',
+    'rt_score' => '',
+    'imdb_id' => '',
+    'genre' => '',
+    'user_tag' => '',
+    'actor' => '',
+    'directors' => '',
+    'producers' => '',
+    'writers' => '',
+    'composers' => '',
+    'cinematographers' => '',
+    'lang_code' => '',
+    'country' => '',
+    'runtime' => '',
+    'network' => '',
+    'search_mode' => 'and',
+    'limit' => '50',
+    'view' => 'modern_grid',
+    'sort' => '',
+  ];
+  $params = array_merge($defaults, $overrides);
+  return http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+}
+
 
 /* ===== Data ===== */
 $languages   = aggFromColumn($conn, 'languages');
@@ -122,24 +153,24 @@ $icons = [
   'types'       => '🧪 ',
 ];
 
-/* ===== Sections ===== */
+/* ===== Sections (עם תאימות לאחור) ===== */
 $sections = [
-  ['languages',   'שפות',          $languages,   fn($lbl)=>'language_imdb.php?lang_code='.urlencode($lbl)],
-  ['countries',   'מדינות',        $countries,   fn($lbl)=>'country.php?country='.urlencode($lbl)],
-  ['genres',      'ז׳אנרים',       $genres,      fn($lbl)=>'genre.php?name='.urlencode($lbl)],
-  ['networks',    'רשתות',         $networks,    fn($lbl)=>'network.php?name='.urlencode($lbl)],
+    ['languages',   'שפות',          $languages,   function($lbl){ return 'home.php?'.buildSearchQuery(['lang_code'=>$lbl]); }],
+    ['countries',   'מדינות',        $countries,   function($lbl){ return 'home.php?'.buildSearchQuery(['country'=>$lbl]); }],
+    ['genres',      'ז׳אנרים',       $genres,      function($lbl){ return 'home.php?'.buildSearchQuery(['genre'=>$lbl]); }],
+    ['networks',    'רשתות',         $networks,    function($lbl){ return 'home.php?'.buildSearchQuery(['network'=>$lbl]); }],
 
-  ['actors',      'שחקנים',        $actors,      fn($lbl)=>'actor.php?name='.urlencode($lbl)],
-  ['directors',   'במאים',         $directors,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
-  ['writers',     'תסריטאים',      $writers,     fn($lbl)=>'actor.php?name='.urlencode($lbl)],
-  ['producers',   'מפיקים',        $producers,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
-  ['composers',   'מלחינים',       $composers,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
-  ['cinematog',   'צלמים',         $cinematog,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+    ['actors',      'שחקנים',        $actors,      function($lbl){ return 'home.php?'.buildSearchQuery(['actor'=>$lbl]); }],
+    ['directors',   'במאים',         $directors,   function($lbl){ return 'home.php?'.buildSearchQuery(['directors'=>$lbl]); }],
+    ['writers',     'תסריטאים',      $writers,     function($lbl){ return 'home.php?'.buildSearchQuery(['writers'=>$lbl]); }],
+    ['producers',   'מפיקים',        $producers,   function($lbl){ return 'home.php?'.buildSearchQuery(['producers'=>$lbl]); }],
+    ['composers',   'מלחינים',       $composers,   function($lbl){ return 'home.php?'.buildSearchQuery(['composers'=>$lbl]); }],
+    ['cinematog',   'צלמים',         $cinematog,   function($lbl){ return 'home.php?'.buildSearchQuery(['cinematographers'=>$lbl]); }],
 
-  ['years',       'שנים',          $years,       fn($lbl)=>'home.php?year='.urlencode($lbl)],
-  ['collections', 'אוספים',        $collections, fn($lbl,$row)=>'collection.php?id='.urlencode($row['id'] ?? $lbl)],
-  ['user_tags',   'תגיות',   $user_tags,   fn($lbl)=>'home.php?user_tag='.urlencode($lbl)],
-  ['types',       'סוגים',         $types,       fn($lbl,$row)=>'home.php?type%5B%5D='.urlencode((string)($row['id'] ?? $lbl))],
+    ['years',       'שנים',          $years,       function($lbl){ return 'home.php?'.buildSearchQuery(['year'=>$lbl]); }],
+    ['collections', 'אוספים',        $collections, function($lbl, $row){ return 'collection.php?id='.urlencode($row['id'] ?? $lbl); }],
+    ['user_tags',   'תגיות',         $user_tags,   function($lbl){ return 'home.php?'.buildSearchQuery(['user_tag'=>$lbl]); }],
+    ['types',       'סוגים',         $types,       function($lbl, $row){ return 'home.php?'.buildSearchQuery(['type[]'=>(string)($row['id'] ?? $lbl)]); }],
 ];
 ?>
 <!doctype html>
@@ -192,11 +223,16 @@ $sections = [
 </head>
 <body>
 <div class="wrap">
-  <h1>📚 כל המידע באתר</h1>
+  <h1>📚 כל הערכים באתר</h1>
+  <div style="text-align:center;margin:8px 0 10px;">
+    <a href="full-info-he.php" class="toggle-btn">↗ אל העמוד בעברית</a>
+  </div>
 
-  <!-- תפריט קפיצה (קבוע) עם אייקונים -->
   <div class="toc" id="toc">
-    <?php foreach ($sections as [$id,$title,$data]): $cnt = is_array($data)?count($data):0; ?>
+    <?php foreach ($sections as $section): 
+        list($id, $title, $data) = $section;
+        $cnt = is_array($data) ? count($data) : 0;
+    ?>
       <a href="#sec-<?=h($id)?>" data-sec="<?=h($id)?>">
         <span class="ico"><?= h($icons[$id] ?? '•') ?></span><?=h($title)?>
         <span class="cnt">(<?= (int)$cnt ?>)</span>
@@ -207,7 +243,8 @@ $sections = [
   <?php
   $palette = $colors; $paletteCount = count($palette);
   $fixedCols = 6; // מקסימום 6 בעמודה
-  foreach ($sections as [$id,$title,$data,$linkFn]):
+  foreach ($sections as $section):
+    list($id, $title, $data, $linkFn) = $section;
     $totalItems = is_array($data) ? count($data) : 0;
     $icon = $icons[$id] ?? '•';
   ?>
@@ -231,7 +268,8 @@ $sections = [
 
             // צבע לא חוזר באותה עמודה
             $col = $i % $fixedCols;
-            $rowIdx = intdiv($i, $fixedCols);
+            // -- התיקון כאן --
+            $rowIdx = floor($i / $fixedCols); // החלפה של intdiv ל-floor שעובד בכל הגרסאות
             $colorIndex = ($rowIdx + $col) % $paletteCount;
             $bg = $palette[$colorIndex];
 
@@ -301,7 +339,7 @@ document.getElementById('toc').addEventListener('click', function(e){
     if (!a.includes(id)) { a.push(id); setHidden(a); }
   }
   function removeHidden(id) {
-    setHidden(getHidden().filter(x => x !== id));
+    setHidden(getHidden().filter(function(x){ return x !== id; })); // תאימות לאחור
   }
 
   // שחזור מצב בהטענה
@@ -343,11 +381,11 @@ document.getElementById('toc').addEventListener('click', function(e){
 
   function getAllIds() {
     return Array.from(document.querySelectorAll('.sec[data-sec]'))
-      .map(s => s.getAttribute('data-sec'));
+      .map(function(s){ return s.getAttribute('data-sec'); }); // תאימות לאחור
   }
 
   function saveHiddenFromDOM() {
-    const hidden = getAllIds().filter(id => {
+    const hidden = getAllIds().filter(function(id){
       const sec = document.querySelector('.sec[data-sec="'+id+'"]');
       return sec && sec.classList.contains('collapsed');
     });
@@ -355,7 +393,7 @@ document.getElementById('toc').addEventListener('click', function(e){
   }
 
   function setAll(open) {
-    document.querySelectorAll('.sec[data-sec]').forEach(sec => {
+    document.querySelectorAll('.sec[data-sec]').forEach(function(sec){
       const id  = sec.getAttribute('data-sec');
       const btn = document.querySelector('.toggle-btn[data-sec="'+id+'"]');
       if (open) {
@@ -383,14 +421,14 @@ document.getElementById('toc').addEventListener('click', function(e){
     btnShowAll.type = 'button';
     btnShowAll.className = 'toggle-btn';
     btnShowAll.textContent = 'הצג הכל';
-    btnShowAll.addEventListener('click', () => setAll(true));
+    btnShowAll.addEventListener('click', function(){ setAll(true); }); // תאימות לאחור
 
     const btnHideAll = document.createElement('button');
     btnHideAll.type = 'button';
     btnHideAll.className = 'toggle-btn';
     btnHideAll.style.marginInlineStart = '8px';
     btnHideAll.textContent = 'הסתר הכל';
-    btnHideAll.addEventListener('click', () => setAll(false));
+    btnHideAll.addEventListener('click', function(){ setAll(false); }); // תאימות לאחור
 
     box.appendChild(btnShowAll);
     box.appendChild(btnHideAll);

@@ -154,7 +154,7 @@ if ($trailer_url) {
 
 /* ====== POST: לייקים / תגיות / סרטים דומים ====== */
 if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
-  /* votes */
+  /* votes (ללא שינוי) */
   if (isset($_POST['pv_action'])) {
     $act=$_POST['pv_action'];
     if ($act==='remove') {
@@ -174,36 +174,89 @@ if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
     }
   }
 
-  /* user tags */
+  /* user tags (שופר לתמיכה בריבוי ערכים) */
   if (isset($_POST['ut_add'])) {
-    $__val=trim((string)($_POST['ut_value']??'')); if($__val!==''){
-      $st=$conn->prepare("SELECT 1 FROM user_tags WHERE poster_id=? AND genre=?");
-      $st->bind_param("is", $__pa_id, $__val); $st->execute(); $st->store_result();
-      if($st->num_rows==0){
-        $st2=$conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?,?)");
-        $st2->bind_param("is", $__pa_id, $__val); $st2->execute(); $st2->close();
-      }
-      $st->close();
+    $raw_input = trim((string)($_POST['ut_value'] ?? ''));
+    if ($raw_input !== '') {
+        // שינוי כאן: פיצול רק לפי פסיק, נקודה-פסיק או ירידת שורה
+        $tags = preg_split('/[,\n;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
+        
+        $stmt_check = $conn->prepare("SELECT 1 FROM user_tags WHERE poster_id=? AND genre=?");
+        $stmt_insert = $conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?, ?)");
+        $existing_genres_lc = array_map(fn($g) => mb_strtolower($g, 'UTF-8'), $genres);
+
+        foreach ($tags as $new_tag) {
+            $new_tag = trim($new_tag);
+            if ($new_tag === '') continue;
+
+            $new_tag_lc = mb_strtolower($new_tag, 'UTF-8');
+
+            // Add tag only if it's not an official genre and not already a user tag
+            if (!in_array($new_tag_lc, $existing_genres_lc)) {
+                $stmt_check->bind_param("is", $__pa_id, $new_tag);
+                $stmt_check->execute();
+                $stmt_check->store_result();
+
+                if ($stmt_check->num_rows == 0) {
+                    $stmt_insert->bind_param("is", $__pa_id, $new_tag);
+                    $stmt_insert->execute();
+                }
+            }
+        }
+        $stmt_check->close();
+        $stmt_insert->close();
     }
   }
+
   if (isset($_POST['ut_remove'])) {
     $__gid=(int)$_POST['ut_remove'];
     $conn->query("DELETE FROM user_tags WHERE id={$__gid} AND poster_id={$__pa_id}");
   }
 
-  /* similar add/remove */
+  /* similar add/remove (שופר לתמיכה בריבוי ערכים) */
   if (isset($_POST['sim_add'])) {
-    $__in=trim((string)($_POST['sim_value']??'')); $__target=0;
-    if($__in!=='' && ctype_digit($__in)) $__target=(int)$__in;
-    if(!$__target) $__target=__pa_extract_local($__in);
-    if(!$__target){ $__tt=__pa_extract_imdb($__in);
-      if($__tt){ $st=$conn->prepare("SELECT id FROM posters WHERE imdb_id=?"); $st->bind_param("s",$__tt); $st->execute();
-        $rr=$st->get_result(); if($rr && ($rw=$rr->fetch_assoc())) $__target=(int)$rw['id']; $st->close(); } }
-    if($__target>0 && $__target!==$__pa_id){
-      $conn->query("INSERT IGNORE INTO poster_similar (poster_id, similar_id) VALUES ({$__pa_id}, {$__target})");
-      $conn->query("INSERT IGNORE INTO poster_similar (poster_id, similar_id) VALUES ({$__target}, {$__pa_id})");
+    $raw_input = trim((string)($_POST['sim_value'] ?? ''));
+    if ($raw_input !== '') {
+        // Split input by newlines, spaces, commas, or semicolons.
+        $identifiers = preg_split('/[\s,;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
+        
+        $stmt_imdb = $conn->prepare("SELECT id FROM posters WHERE imdb_id=?");
+
+        foreach ($identifiers as $__in) {
+            $__target = 0; // Reset for each identifier
+            $__in = trim($__in);
+
+            // Logic to find the target poster ID from the identifier string
+            if (ctype_digit($__in)) {
+                $__target = (int)$__in;
+            } else {
+                $local_id = __pa_extract_local($__in);
+                if ($local_id > 0) {
+                    $__target = $local_id;
+                } else {
+                    $__tt = __pa_extract_imdb($__in);
+                    if ($__tt) {
+                        $stmt_imdb->bind_param("s", $__tt);
+                        $stmt_imdb->execute();
+                        $result = $stmt_imdb->get_result();
+                        if ($row = $result->fetch_assoc()) {
+                            $__target = (int)$row['id'];
+                        }
+                    }
+                }
+            }
+
+            // If a valid ID was found (and it's not the current poster), add the connection.
+            if ($__target > 0 && $__target !== $__pa_id) {
+                // START CHANGE: Combine both inserts into a single, atomic query to ensure the relationship is always bidirectional.
+                $conn->query("INSERT IGNORE INTO poster_similar (poster_id, similar_id) VALUES ({$__pa_id}, {$__target}), ({$__target}, {$__pa_id})");
+                // END CHANGE
+            }
+        }
+        $stmt_imdb->close();
     }
   }
+  
   if (isset($_POST['sim_remove'])) {
     $__sid=(int)$_POST['sim_remove'];
     $conn->query("DELETE FROM poster_similar WHERE poster_id={$__pa_id} AND similar_id={$__sid}");
@@ -312,7 +365,7 @@ body.mgmt-open  #mgmt-panel { display:block !important; }
 #mgmt-panel{ border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; background:transparent; }
 #mgmt-panel h4{ margin:0 0 8px }
 #mgmt-panel .row-forms{ display:flex; flex-wrap:wrap; gap:10px; align-items:center }
-#mgmt-panel input[type=text]{ border:1px solid var(--line); background:transparent; color:inherit; border-radius:8px; padding:6px 10px; }
+#mgmt-panel input[type=text], #mgmt-panel textarea{ border:1px solid var(--line); background:transparent; color:inherit; border-radius:8px; padding:6px 10px; font-family:inherit; }
 
 body {background-color:#161b26 !important; text-align: right !important;}
 .content {text-align: right !important;}
@@ -411,14 +464,10 @@ body.view-commas .chip-static {
   color: var(--text);
 }
 
-body.view-commas .chip::after,
-body.view-commas .chip-static::after {
+/* --- החלף בקוד הזה --- */
+body.view-commas .chip:not(:last-child)::after,
+body.view-commas .chip-static:not(:last-child)::after {
   content: ", ";
-}
-
-body.view-commas .chip:last-child::after,
-body.view-commas .chip-static:last-child::after {
-  content: "";
 }
 
 /* מתחת לתמונה – בלי פסיקים, כל אחד בשורה */
@@ -553,6 +602,10 @@ body.theme-light .flags-under-poster b {
 body.theme-light footer a {
   color: var(--text) !important;
 }
+body.view-commas .chip a {
+    color: inherit;
+    text-decoration: none;
+}
   </style>
 </head>
 <body>
@@ -563,10 +616,8 @@ body.theme-light footer a {
   <div class="card" style="margin-bottom:16px">
     <div class="row">
 
-      <!-- ===== עמודת תמונת הפוסטר + דגלים + Connections ===== -->
       <div class="poster">
   <img class="poster-img" src="<?= H($poster_url) ?>" alt="Poster" loading="lazy" decoding="async">
-<!-- סוג פוסטר + פרטים מתחת לתמונה -->
 <div class="chips-static" style="text-align:center; margin-top:8px;">
 
   <?php if (!empty($runtime_formatted)): ?>
@@ -593,16 +644,23 @@ body.theme-light footer a {
       $q->close();
 
       if ($tr) {
+    // 🔗 קישור מלא לחיפוש לפי סוג (עם כל הפרמטרים כמו ב-home.php)
+    $typeLink = 'home.php?search=&year=&min_rating=&metacritic=&rt_score=&imdb_id=&genre=&user_tag=&actor=&directors=&producers=&writers=&composers=&cinematographers=&lang_code=&country=&runtime=&network=&type%5B%5D=' . urlencode($tid) . '&search_mode=and&limit=50&view=modern_grid&sort=';
+
+    echo '<a href="' . htmlspecialchars($typeLink, ENT_QUOTES) . '" class="chip-static type-chip" style="text-decoration:none;">';
+
     if (!empty($tr['image']) && is_file("images/types/".$tr['image'])) {
-        echo '<div class="chip-static type-chip">';
-        echo '<img src="images/types/'.htmlspecialchars($tr['image'],ENT_QUOTES).'" alt="'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'" class="type-chip-img">';
+        echo '<img src="images/types/'.htmlspecialchars($tr['image'],ENT_QUOTES).'" 
+                   alt="'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'" 
+                   class="type-chip-img">';
         echo '<div class="type-chip-label">'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
-        echo '</div>';
     } elseif (!empty($tr['icon'])) {
-        echo '<div class="chip-static type-chip">'.$tr['icon'].' '.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
+        echo $tr['icon'].' '.htmlspecialchars($tr['label_he'],ENT_QUOTES);
     } else {
-        echo '<div class="chip-static type-chip">'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
+        echo htmlspecialchars($tr['label_he'],ENT_QUOTES);
     }
+
+    echo '</a>';
 }
 }
   ?>
@@ -717,10 +775,8 @@ if (!empty($networks)) {
         ?>
       </div>
 
-      <!-- ===== עמודת תוכן ===== -->
       <div class="content">
 
-        <!-- פס עליון: ניהול + לייק -->
         <div class="toolbar">
           <button type="button" id="btn-theme-toggle" class="btn" title="החלף מצב תצוגה">🌞 מצב בהיר</button>
 <button type="button" id="btn-view-toggle" class="btn">🔀 מצב פסיקים</button>
@@ -737,7 +793,6 @@ if (!empty($networks)) {
           </form>
         </div>
 
-        <!-- כותרות -->
         <div class="title">
           <h3>
             <?= H($display_title) ?>
@@ -748,8 +803,7 @@ if (!empty($networks)) {
           <?php if (!empty($title_he)): ?><h3><?= H($title_he) ?></h3><?php endif; ?>
         </div>
 
-        <!-- שיוך לאוספים -->
-<?php if (!empty($__pa_collections)): ?>
+        <?php if (!empty($__pa_collections)): ?>
   <div class="section">
     <p class="kv"><span class="label">משויך לאוספים:</span></p>
     <div class="chips">
@@ -763,8 +817,7 @@ if (!empty($networks)) {
 <?php endif; ?>
         
 
-        <!-- שפות -->
-<?php if (!empty($languages)): ?>
+        <?php if (!empty($languages)): ?>
   <div class="section">
     <p class="kv"><span class="label">שפות:</span></p>
     <div class="chips">
@@ -773,7 +826,6 @@ if (!empty($networks)) {
   </div>
 <?php endif; ?>
 
-<!-- מדינות -->
 <?php if (!empty($countries)): ?>
   <div class="section">
     <p class="kv"><span class="label">מדינות:</span></p>
@@ -783,7 +835,6 @@ if (!empty($networks)) {
   </div>
 <?php endif; ?>
 
-<!-- רשתות -->
 <?php if (!empty($networks)): ?>
   <div class="section">
     <p class="kv"><span class="label">רשתות:</span></p>
@@ -799,7 +850,6 @@ if (!empty($networks)) {
 
    
 
-        <!-- ז'אנרים -->
         <?php if (!empty($genres)): ?>
           <div class="section">
             <p class="kv"><span class="label">ז׳אנרים:</span></p>
@@ -811,26 +861,29 @@ if (!empty($networks)) {
           </div>
         <?php endif; ?>
 
-        <!-- תגיות משתמשים -->
         <?php if (!empty($__pa_user_tags)): ?>
           <div class="section" style="border-top:none;padding-top:6px;">
-            <p class="kv"><span class="label">תגיות:</span></p>
-            <div class="chips">
-              <?php foreach ($__pa_user_tags as $t): ?>
-                <a class="chip tag-pill" href="home.php?user_tag=<?= urlencode($t['genre']) ?>"><?= H($t['genre']) ?></a>
-              <?php endforeach; ?>
-            </div>
+           <p class="kv"><span class="label">תגיות:</span></p>
+<div class="chips">
+    <?php foreach ($__pa_user_tags as $t): ?>
+        <form method="post" style="display:inline-block;margin:0">
+            <a class="chip tag-pill" href="home.php?user_tag=<?= urlencode($t['genre']) ?>">
+                <?= H($t['genre']) ?>
+            </a>
+            <button type="submit" name="ut_remove" value="<?= (int)$t['id'] ?>" class="btn mgmt-only" title="מחיקת תגית" style="margin-right: -10px;">🗑️</button>
+        </form>
+    <?php endforeach; ?>
+</div>
           </div>
         <?php endif; ?>
 
-        <!-- פאנל ניהול (ללא שינוי עיצוב) -->
         <div id="mgmt-panel" class="mgmt-only">
           <h4>ניהול תגיות וסרטים דומים</h4>
 
           <div class="section" style="border-top:none;padding-top:0;">
             <p class="kv"><span class="label">הוספת סרט דומה:</span></p>
             <form method="post" class="row-forms">
-              <input type="text" name="sim_value" placeholder="מזהה פנימי, tt1234567 או poster.php?id=XX" required>
+              <textarea name="sim_value" placeholder="הזן מזהים (tt, id, URL), אחד בכל שורה או מופרדים בפסיק/רווח" required rows="4" style="width:100%; resize: vertical;"></textarea>
               <button type="submit" name="sim_add" class="btn">📥 הוסף סרט דומה</button>
             </form>
           </div>
@@ -855,7 +908,7 @@ if (!empty($networks)) {
           <div class="section">
             <p class="kv"><span class="label">הוספת תגית:</span></p>
             <form method="post" class="row-forms">
-              <input type="text" name="ut_value" placeholder="הוסף תגית" required>
+              <textarea name="ut_value" placeholder="הוסף תגיות, מופרדות בפסיק או בשורה חדשה" required rows="3" style="width:100%; resize: vertical;"></textarea>
               <button type="submit" name="ut_add" class="btn">➕ הוסף</button>
             </form>
           </div>
@@ -865,16 +918,18 @@ if (!empty($networks)) {
             <?php if (!empty($__pa_user_tags)): ?>
               <div class="chips">
                 <?php foreach ($__pa_user_tags as $t): ?>
-                  <form method="post" style="display:inline-block;margin:0">
-                    <span class="chip tag-pill"><?= H($t['genre']) ?> <button type="submit" name="ut_remove" value="<?= (int)$t['id'] ?>" class="btn mgmt-only" title="מחיקת תגית">🗑️</button></span>
-                  </form>
-                <?php endforeach; ?>
+    <form method="post" class="chip tag-pill" style="display:inline-block;margin:0; padding:0; border:none; background:none;">
+        <a href="home.php?user_tag=<?= urlencode($t['genre']) ?>">
+            <?= H($t['genre']) ?>
+        </a>
+        <button type="submit" name="ut_remove" value="<?= (int)$t['id'] ?>" class="btn mgmt-only" title="מחיקת תגית" style="margin-right: -10px;">🗑️</button>
+    </form>
+<?php endforeach; ?>
               </div>
             <?php else: ?><p class="kv" style="color:#9aa4b2">אין תגיות למחיקה.</p><?php endif; ?>
           </div>
         </div>
 
-        <!-- דירוגים וקישורים -->
         <div class="section">
           <div class="ratings">
             <?php if ($imdb_rating): ?>
@@ -914,7 +969,6 @@ if (!empty($networks)) {
           </div>
         </div>
 
-        <!-- תקציר/צוות -->
         <?php if ($overview_he || $overview_en): ?>
           <div class="section">
             <?php if ($overview_he): ?><p class="kv"><span class="label">תקציר:</span><br> <?= H($overview_he) ?></p><?php endif; ?>
@@ -964,7 +1018,6 @@ if (!empty($networks)) {
           </div>
         <?php endif; ?>
 
-        <!-- סרטים דומים -->
         <?php if (!empty($__pa_similar)): ?>
           <hr>
           <h3>🎬 סרטים דומים:</h3>
@@ -983,7 +1036,6 @@ if (!empty($networks)) {
           </div>
         <?php endif; ?>
 
-        <!-- טריילר מתחת לסרטים דומים -->
         <div class="section">
           <h3 style="margin:0 0 8px;">טריילר</h3>
           <?php if (!empty($ytId)): ?>
@@ -1001,9 +1053,7 @@ if (!empty($networks)) {
           <?php endif; ?>
         </div>
 
-      </div><!-- /content -->
-
-    </div>
+      </div></div>
   </div>
 </div>
 

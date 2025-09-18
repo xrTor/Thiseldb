@@ -8,6 +8,7 @@ include 'header.php';
  * chips לשדות רשימה; select אוטומטי ב-image_url/trailer_url; כפתורים ממורכזים למעלה/למטה;
  * בדיקת ייחודיות imdb_id (מלבד העצמי); רענון user_tags + poster_languages;
  * כל הקלטים LTR/left, חוץ מ-title_he ו-overview_he שהם RTL/right; ללא original_title.
+ * נוסף: שדה AKAs (שמות נוספים) עם שליטה ידנית, מותאם לטבלת poster_akas הקיימת.
  */
 
 $poster_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -30,7 +31,8 @@ $data=[
   'genres'=>'','languages'=>'','countries'=>'','networks'=>'',
   'runtime'=>'','seasons_count'=>'','episodes_count'=>'',
   'has_subtitles'=>0,'is_dubbed'=>0,
-  'user_tags'=>''
+  'user_tags'=>'',
+  'akas'=>'' // שדה חדש
 ];
 
 // טעינת פוסטר
@@ -52,6 +54,14 @@ $tags_arr=[]; $rt=$conn->prepare("SELECT genre FROM user_tags WHERE poster_id=?"
 $rt->execute(); $rtr=$rt->get_result(); while($row=$rtr->fetch_assoc()){ $g=trim((string)$row['genre']); if($g!=='') $tags_arr[]=$g; }
 $rt->close(); $data['user_tags']=implode(', ',$tags_arr);
 
+// -- טעינת AKAs --
+$akas_arr=[];
+$ra=$conn->prepare("SELECT aka_title FROM poster_akas WHERE poster_id=?");
+$ra->bind_param("i", $poster_id); $ra->execute(); $rar=$ra->get_result();
+while($row=$rar->fetch_assoc()){ $aka=trim((string)$row['aka_title']); if($aka!=='') $akas_arr[]=$aka; }
+$ra->close();
+$data['akas']=implode("\n",$akas_arr);
+
 $message='';
 
 // שמירה
@@ -60,7 +70,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   foreach([
     'title_en','title_he','year','imdb_id','tmdb_url','tvdb_url','mc_url','rt_url','image_url','trailer_url',
     'plot','plot_he','overview_en','overview_he','directors','writers','producers','composers',
-    'cinematographers','cast','genres','languages','countries','networks','user_tags'
+    'cinematographers','cast','genres','languages','countries','networks','user_tags',
+    'akas' // שדה חדש
   ] as $f){ $data[$f]=trim((string)($_POST[$f]??'')); }
   foreach(['type_id','imdb_votes','mc_score','runtime','seasons_count','episodes_count'] as $f){
     $val=$_POST[$f]??''; $data[$f]=($val===''?null:(int)$val);
@@ -125,6 +136,25 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         foreach($selected_flags as $lang){ $lc=trim((string)$lang); if($lc!==''){ $ins->bind_param("is",$poster_id,$lc); $ins->execute(); } }
         $ins->close();
       }
+
+      // -- עדכון: רענון AKAs מותאם לטבלה שלך --
+      $conn->query("DELETE FROM poster_akas WHERE poster_id={$poster_id}");
+      $akas=preg_split('~\R~u',(string)$data['akas']); // \R תופס כל סוג של ירידת שורה
+      $akas=array_values(array_filter(array_map('trim',$akas), function($x){ return $x!==''; }));
+      if(!empty($akas)){
+        // נשלוף את ה-imdb_id הנוכחי של הפוסטר, כי הטבלה דורשת אותו
+        $current_imdb_id = $data['imdb_id'] ?? '';
+        
+        // נכין שאילתת INSERT שכוללת את כל העמודות הנדרשות
+        $ins=$conn->prepare("INSERT INTO poster_akas (poster_id, aka_title, aka, imdb_id, source) VALUES (?, ?, ?, ?, 'manual')");
+        foreach($akas as $aka){
+          // נשים את אותו ערך גם ב-aka וגם ב-aka_title כדי לספק את דרישות הטבלה
+          $ins->bind_param("isss", $poster_id, $aka, $aka, $current_imdb_id);
+          $ins->execute();
+        }
+        $ins->close();
+      }
+      // -- סוף עדכון --
 
       // ריענון
       $st=$conn->prepare("SELECT * FROM posters WHERE id=?"); $st->bind_param("i",$poster_id); $st->execute();
@@ -246,7 +276,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if(!links) links='<span style="color:#888">—</span>';
     setPreview('pv_links',links);
 
-    ['genres','cast','directors','writers','producers','composers','cinematographers','languages','countries','user_tags','networks'].forEach(function(fid){
+    // -- עדכון: הוספת akas לרשימה --
+    ['genres','cast','directors','writers','producers','composers','cinematographers','languages','countries','user_tags','networks','akas'].forEach(function(fid){
       var inp=document.getElementById(fid),out=document.getElementById('pv_'+fid);
       if(!inp||!out) return;
       var parts=(inp.value||'').split(/,|\n/).map(function(s){return s.trim();}).filter(function(x){return x;});
@@ -271,7 +302,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
 
   function rehydrate(){
-    ['genres','cast','directors','writers','producers','composers','cinematographers','languages','countries','user_tags','networks'].forEach(function(fid){
+    // -- עדכון: הוספת akas לרשימה --
+    ['genres','cast','directors','writers','producers','composers','cinematographers','languages','countries','user_tags','networks','akas'].forEach(function(fid){
       var el=document.getElementById(fid); renderChips(fid);
       if(el && !el.dataset.bound){ el.addEventListener('input',function(){ renderChips(fid); refreshPreview(); }); el.dataset.bound='1'; }
     });
@@ -297,7 +329,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     <div class="hdr"><h2>✏️ עריכת פוסטר</h2></div>
 
     <form method="post" id="editForm" autocomplete="off" class="page-pad">
-      <!-- כפתורים עליונים -->
       <div class="actions-bar">
         <button type="submit" class="btn primary">💾 עדכן</button>
         <button type="reset" class="btn" onclick="setTimeout(rehydrate,0)">איפוס</button>
@@ -308,7 +339,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         <div class="<?= (strpos($message,'✅')===0)?'msg-ok':'msg-err' ?>"><?= $message ?></div>
       <?php endif; ?>
 
-      <!-- סוג פוסטר -->
       <div class="section">
         <h3>סוג פוסטר</h3>
         <div class="types">
@@ -332,7 +362,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- קישורים חיצוניים וזיהוי -->
       <div class="section">
         <h3>קישורים חיצוניים וזיהוי</h3>
         <div class="grid">
@@ -347,7 +376,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- כותרות/זיהוי -->
       <div class="section">
         <h3>כותרות וזיהוי</h3>
         <div class="grid">
@@ -370,7 +398,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- דירוגים -->
       <div class="section">
         <h3>דירוגים</h3>
         <div class="grid">
@@ -401,7 +428,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- תקצירים -->
       <div class="section">
         <h3>תקציר/עלילה</h3>
         <div class="grid">
@@ -416,7 +442,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- אנשי צוות -->
       <div class="section">
         <h3>אנשי צוות</h3>
         <div class="grid">
@@ -429,85 +454,81 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- רשימות -->
       <div class="section">
-        <h3>רשימות (פסיקים בין ערכים)</h3>
+        <h3>רשימות (פסיקים או שורות חדשות)</h3>
         <div class="grid">
           <div><label>ז׳אנרים</label><input type="text" name="genres" id="genres" value="<?= htmlspecialchars($data['genres']) ?>"><div id="genres_chips" class="chips"></div></div>
           <div><label>תגיות משתמש</label><input type="text" name="user_tags" id="user_tags" value="<?= htmlspecialchars($data['user_tags']) ?>"><div id="user_tags_chips" class="chips"></div></div>
           <div><label>שפות</label><input type="text" name="languages" id="languages" value="<?= htmlspecialchars($data['languages']) ?>"><div id="languages_chips" class="chips"></div></div>
           <div><label>מדינות</label><input type="text" name="countries" id="countries" value="<?= htmlspecialchars($data['countries']) ?>"><div id="countries_chips" class="chips"></div></div>
-          
-        </div>
+          <div class="full">
+            <label>AKAs (שמות נוספים)</label>
+            <textarea name="akas" id="akas" rows="4"><?= htmlspecialchars($data['akas']) ?></textarea>
+            <div id="akas_chips" class="chips"></div>
+          </div>
+          </div>
       </div>
 
-      <!-- סדרות בלבד -->
       <?php $tcode=$typeCodeById[(int)$data['type_id']]??''; $lc=strtolower(trim((string)$tcode)); $isSeriesNow=($lc==='series'||$lc==='miniseries'); ?>
       <div class="section series-only <?= $isSeriesNow?'show':'' ?>" id="seriesBlock">
         <h3>פרטי סדרה</h3>
         <div class="grid">
           <div><label>TVDb URL</label><input type="text" name="tvdb_url" value="<?= htmlspecialchars($data['tvdb_url']) ?>"></div>
           <div>
-  <label>רשתות</label>
-  <input type="text" name="networks" id="networks" value="<?= htmlspecialchars($data['networks']) ?>">
-  <div id="networks_chips" class="chips"></div>
-</div>
+            <label>רשתות</label>
+            <input type="text" name="networks" id="networks" value="<?= htmlspecialchars($data['networks']) ?>">
+            <div id="networks_chips" class="chips"></div>
+          </div>
 
           <div><label>מספר עונות</label><input type="number" name="seasons_count" value="<?= htmlspecialchars($data['seasons_count']) ?>"></div>
           <div><label>מספר פרקים</label><input type="number" name="episodes_count" value="<?= htmlspecialchars($data['episodes_count']) ?>"></div>
         </div>
       </div>
 
-      <!-- מדיה -->
-<div class="section">
-  <h3>מדיה</h3>
-  <div class="grid">
-    <div>
-      <label>תמונה (Image URL)</label>
-      <input type="text" name="image_url" value="<?= htmlspecialchars($data['image_url']) ?>" onmouseover="this.select()">
-      <div id="imgPrevBox" class="preview-box">
-        <img id="imgPreview" class="img-prev" alt="Preview" src="<?= $data['image_url'] ? htmlspecialchars($data['image_url']) : 'images/no-poster.png' ?>">
-      </div>
-      <!-- כפתור חדש -->
-      <button type="button" class="btn-toggle" onclick="toggleBox('imgPrevBox')">הצג/הסתר תמונה</button>
-    </div>
-    <div>
-      <label>טריילר (YouTube/Vimeo/MP4)</label>
-      <input type="text" name="trailer_url" value="<?= htmlspecialchars($data['trailer_url']) ?>" onmouseover="this.select()">
-      <div id="trailerPrevBox" class="preview-box">
-        <div id="trailerFrameBox">
-          <?php
-            $tu = trim((string)$data['trailer_url']);
-            if ($tu !== '' && preg_match('~(?:v=|youtu\.be/)([A-Za-z0-9_-]{6,})~',$tu,$m)) {
-              echo '<iframe class="trailer-frame" loading="lazy" allowfullscreen src="https://www.youtube.com/embed/'.htmlspecialchars($m[1],ENT_QUOTES,'UTF-8').'"></iframe>';
-            } elseif ($tu !== '' && preg_match('~vimeo\.com/(\d+)~i',$tu,$m)) {
-              echo '<iframe class="trailer-frame" loading="lazy" allow="fullscreen; picture-in-picture" src="https://player.vimeo.com/video/'.htmlspecialchars($m[1],ENT_QUOTES,'UTF-8').'"></iframe>';
-            } elseif ($tu !== '' && preg_match('~\.(mp4|webm|ogg)(\?.*)?$~i',$tu)) {
-              echo '<video class="trailer-frame" controls src="'.htmlspecialchars($tu,ENT_QUOTES,'UTF-8').'"></video>';
-            } elseif ($tu!=='') {
-              echo '<a target="_blank" rel="noopener" href="'.htmlspecialchars($tu,ENT_QUOTES,'UTF-8').'">פתח טריילר בקישור חיצוני</a>';
-            } else {
-              echo '<img src="images/no-trailer.png" alt="No trailer" class="trailer-frame">';
-            }
-          ?>
+      <div class="section">
+        <h3>מדיה</h3>
+        <div class="grid">
+          <div>
+            <label>תמונה (Image URL)</label>
+            <input type="text" name="image_url" value="<?= htmlspecialchars($data['image_url']) ?>" onmouseover="this.select()">
+            <div id="imgPrevBox" class="preview-box">
+              <img id="imgPreview" class="img-prev" alt="Preview" src="<?= $data['image_url'] ? htmlspecialchars($data['image_url']) : 'images/no-poster.png' ?>">
+            </div>
+            <button type="button" class="btn-toggle" onclick="toggleBox('imgPrevBox')">הצג/הסתר תמונה</button>
+          </div>
+          <div>
+            <label>טריילר (YouTube/Vimeo/MP4)</label>
+            <input type="text" name="trailer_url" value="<?= htmlspecialchars($data['trailer_url']) ?>" onmouseover="this.select()">
+            <div id="trailerPrevBox" class="preview-box">
+              <div id="trailerFrameBox">
+                <?php
+                  $tu = trim((string)$data['trailer_url']);
+                  if ($tu !== '' && preg_match('~(?:v=|youtu\.be/)([A-Za-z0-9_-]{6,})~',$tu,$m)) {
+                    echo '<iframe class="trailer-frame" loading="lazy" allowfullscreen src="https://www.youtube.com/embed/'.htmlspecialchars($m[1],ENT_QUOTES,'UTF-8').'"></iframe>';
+                  } elseif ($tu !== '' && preg_match('~vimeo\.com/(\d+)~i',$tu,$m)) {
+                    echo '<iframe class="trailer-frame" loading="lazy" allow="fullscreen; picture-in-picture" src="https://player.vimeo.com/video/'.htmlspecialchars($m[1],ENT_QUOTES,'UTF-8').'"></iframe>';
+                  } elseif ($tu !== '' && preg_match('~\.(mp4|webm|ogg)(\?.*)?$~i',$tu)) {
+                    echo '<video class="trailer-frame" controls src="'.htmlspecialchars($tu,ENT_QUOTES,'UTF-8').'"></video>';
+                  } elseif ($tu!=='') {
+                    echo '<a target="_blank" rel="noopener" href="'.htmlspecialchars($tu,ENT_QUOTES,'UTF-8').'">פתח טריילר בקישור חיצוני</a>';
+                  } else {
+                    echo '<img src="images/no-trailer.png" alt="No trailer" class="trailer-frame">';
+                  }
+                ?>
+              </div>
+            </div>
+            <button type="button" class="btn-toggle" onclick="toggleBox('trailerPrevBox')">הצג/הסתר טריילר</button>
+          </div>
         </div>
       </div>
-      <!-- כפתור חדש -->
-      <button type="button" class="btn-toggle" onclick="toggleBox('trailerPrevBox')">הצג/הסתר טריילר</button>
-    </div>
-  </div>
-</div>
 
-      <!-- דגלים -->
       <div class="section">
         <h3>דגלים (poster_languages)</h3>
         <div class="flags-box">
           <?php
             ob_start(); include 'flags.php'; $flags_html=ob_get_clean();
-            // החלפה לשם שדה אחר (להימנע מהתנגשות עם שדה הטקסט "languages")
             $flags_html = str_replace('name="languages[]"','name="lang_flags[]"',$flags_html);
             $flags_html = str_replace("name='languages[]'","name='lang_flags[]'",$flags_html);
-            // סימון checked לדגלים שנשמרו
             if(!empty($selected_flags)){
               foreach($selected_flags as $lc2){
                 $lc2=trim((string)$lc2); if($lc2==='') continue;
@@ -520,11 +541,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- שדות מוסתרים -->
       <input type="hidden" name="plot" value="<?= htmlspecialchars($data['plot']) ?>">
       <input type="hidden" name="plot_he" value="<?= htmlspecialchars($data['plot_he']) ?>">
 
-      <!-- כפתורי שמירה תחתונים -->
       <div class="section">
         <div class="actions-bar">
           <button type="submit" class="btn primary">💾 עדכן</button>
@@ -533,7 +552,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         </div>
       </div>
 
-      <!-- תצוגת מקדימה בתחתית -->
       <div class="preview-panel">
         <h3>תצוגה מקדימה</h3>
         <div class="pv-grid">
@@ -552,7 +570,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
           <div class="pv-item"><label>שפות</label><div id="pv_languages" class="val"></div></div>
           <div class="pv-item"><label>מדינות</label><div id="pv_countries" class="val"></div></div>
           <div class="pv-item full"><label>תגיות משתמש</label><div id="pv_user_tags" class="val"></div></div>
-        </div>
+          <div class="pv-item full"><label>שמות נוספים (AKAs)</label><div id="pv_akas" class="val"></div></div>
+          </div>
       </div>
 
     </form>
