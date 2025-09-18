@@ -1,10 +1,10 @@
 
- <p style="text-align:right;">
+<!-- language: rtl -->
 
 
-Tהטקסט שברצונך ליישר כאן
- <p style="text-align:right;">####  Thiseldb is a movie and tv seires blog  
- <p style="text-align:right;">####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
+ ####  Thiseldb is a movie and tv seires blog  
+
+####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
 משוחרר תחת רישיון קוד פתוח GPL 3
 
@@ -39,8 +39,13 @@ define('RAPIDAPI_KEY', 'Insert_KEY');      // IMDb rating/votes בלבד
 define('TVDB_KEY',     'Insert_KEY');         // TheTVDB v4
 define('OMDB_KEY',     'Insert_KEY');       // OMDb — RT/MC
 
+
 ### לינקים
-https://www.themoviedb.org/settings/api/request
+[](https://unicode-explorer.com/c/200F "U+200F RIGHT-TO-LEFT MARK")
+
+‏
+
+U+200F https://www.themoviedb.org/settings/api/request
 
 https://rapidapi.com/rapidapi-org1-rapidapi-org-default/api/imdb236
 
