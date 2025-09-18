@@ -1,7 +1,6 @@
 
-<p style="direction:rtl; text-align: right">
+<!-- language: rtl -->
 
-&#x202c;
 
  ####  Thiseldb is a movie and tv seires blog  
 
