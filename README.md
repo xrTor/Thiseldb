@@ -1,30 +1,30 @@
  ####  Thiseldb is a movie and tv seires blog  
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 למעבר לאתר
-https://thiseldb.me/
+י https://thiseldb.me/
 
 משוחרר תחת רישיון קוד פתוח GPL 3
 
 ## הוראות התקנה:
 הקימו שרת php/mysql  בXAMPP   
 האתר נגיש בכתובת  
-http://localhost/thiseldb-main
+י http://localhost/thiseldb-main
 תיקית האחסון של האתר  Thiseldb-main מופיעה בתוך C:\xampp\htdocs
 
 מדריך התקנה ביוטיוב
-https://www.youtube.com/watch?v=YAmA8CdFyKs
+י https://www.youtube.com/watch?v=YAmA8CdFyKs
 
 ## התקנה
- mysql צרו דאטה בייס ב בשם thiseldb  
+י mysql צרו דאטה בייס ב בשם thiseldb  
 ובצעו ייבוא של הקובץ    
-thiseldb.sql  
+י thiseldb.sql  
 
 
 ## אלו הגדרות השרת
-'localhost', 'root', '', 'thiseldb'    
+י 'localhost', 'root', '', 'thiseldb'    
 שם משתמש root    
 בלי סיסמא    
-thiseldb שם הדאטה בייס    
+י thiseldb שם הדאטה בייס    
 
 
 קבלו API חינמי  או בתשלום
@@ -58,10 +58,9 @@ https://www.omdbapi.com/apikey.aspx
 כרגע לא ידוע על באגים
 אתם מוזמנים לדווח
 
-#### לפניות
-Thisel.db1@gmail.com  
+#### לפניותיThisel.db1@gmail.com  
 
-</p>
+
 
 ![הדגמה](site.png)  
 ![הדגמה](site1.png)  
