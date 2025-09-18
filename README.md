@@ -4,6 +4,8 @@ U+200F
 
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
+[U+200F RIGHT-TO-LEFT MARK](https://unicode-explorer.com/c/200F)
+
 משוחרר תחת רישיון קוד פתוח GPL 3
 
 ## הוראות התקנה:
