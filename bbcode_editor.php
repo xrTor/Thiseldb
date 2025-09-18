@@ -68,16 +68,16 @@
 
   const customIcons = {
     // --- עיצוב טקסט בסיסי ---
-    // 'b': 'images/bbcode/bold.png',          // מודגש
-    // 'i': 'images/bbcode/italic.png',          // נטוי
-    // 'u': 'images/bbcode/underline.png',          // קו תחתון
-    // 's': 'images/bbcode/strike.png',          // קו חוצה
+    // 'b': 'images/bbcode/bold.png',        // מודגש
+    // 'i': 'images/bbcode/italic.png',        // נטוי
+    // 'u': 'images/bbcode/underline.png',        // קו תחתון
+    // 's': 'images/bbcode/strike.png',        // קו חוצה
     'sub': '',        // כתב תחתי
     'sup': '',        // כתב עילי
     'small': '',      // טקסט קטן
     'big': '',        // טקסט גדול
-    'kbd': '',        // מקלדת
-    'mark': '',       // מרקר
+    'kbd': 'images/bbcode/keyboard.png',        // מקלדת
+    'mark': 'images/bbcode/marker.png',      // מרקר
 
     // --- יישור ופסקאות ---
     'right': '',      // יישור לימין
@@ -87,40 +87,40 @@
     'indent': '',     // הזחה
 
     // --- בלוקים ותוכן מיוחד ---
-    'quote': 'images/bbcode/quote.svg',      // ציטוט
-    'code': 'images/bbcode/code.svg',       // קוד
-    'pre': '',        // Preformatted
-    'noparse': '',    // אל תפרק
-    'spoiler': 'images/bbcode/spoiler.svg',    // ספוילר
+    'quote': 'images/bbcode/quote.png',      // ציטוט
+    'code': 'images/bbcode/programming.png',      // קוד
+    'pre': 'images/bbcode/text.png',        // Preformatted
+    'noparse': 'images/bbcode/noparse.png',    // אל תפרק
+    'spoiler': 'images/bbcode/spoiler.png',    // ספוילר
     'hide': '',       // הסתר/הצג
 
     // --- מדיה וקישורים ---
     'url': 'images/bbcode/link.png',        // קישור
-    'email': '',      // אימייל
+    'email': 'images/bbcode/mail.png',      // אימייל
     'img': 'images/bbcode/image.png',        // תמונה
     'youtube': 'images/bbcode/youtube.svg',    // יוטיוב
-    'video': '',      // וידאו
+    'video': 'images/bbcode/video.png',      // וידאו
     'audio': '',      // אודיו
 
     // --- צבעים ואותיות ---
     'color': 'images/bbcode/color.png',      // מזהה מיוחד: צבע טקסט
-    'bg': '',         // מזהה מיוחד: צבע רקע
+    'bg': 'images/bbcode/bg-color.png',         // מזהה מיוחד: צבע רקע
     'upper': '',      // אותיות גדולות
     'lower': '',      // אותיות קטנות
 
     // --- רשימות, טבלאות וקווים ---
-    'ul': '',         // רשימה (תבליטים)
-    'ol': '',         // רשימה (מספרים)
+    'ul': 'images/bbcode/ul.png',          // רשימה (תבליטים)
+    'ol': 'images/bbcode/ol.png',          // רשימה (מספרים)
     'table': '',      // טבלה
-    'hr': '',         // קו אופקי
+    'hr': 'images/bbcode/minus.png',        // קו אופקי
     'br': '',         // ירידת שורה
 
     // --- בלוקי שפה ---
-    'עברית': '',     // כפתור "א"
-    'אנגלית': '',   // כפתור "A"
+    'עברית': '',    // כפתור "א"
+    'אנגלית': '',  // כפתור "A"
 
     // --- כלים ---
-    'clear': 'images/bbcode/clear.svg',      // נקה הכל
+    'clear': 'images/bbcode/delete.png',      // נקה הכל
   };
 
   let hiddenPicker = document.getElementById('bb_hidden_color_picker');
@@ -202,14 +202,10 @@
         <button type="button" data-action="hr" title="קו מפריד"><i class="fa-solid fa-ruler-horizontal"></i></button>
         <button type="button" data-action="br" title="שורה חדשה"><i class="fa-solid fa-turn-down"></i></button>
         <span class="sep"></span>
-        <button type="button" data-tag="עברית" title="בלוק עברית" style="font-weight:bold; font-size: 1.2em;">א</button>
-        <button type="button" data-tag="אנגלית" title="בלוק אנגלית" style="font-weight:bold; font-size: 1.2em; font-family: Times New Roman;">A</button>
-        <span class="sep"></span>
         <select class="bb-heading" title="כותרת"><option value="">כותרת</option><option value="h1" class="opt-h1">H1</option><option value="h2" class="opt-h2">H2</option><option value="h3" class="opt-h3">H3</option><option value="h4" class="opt-h4">H4</option><option value="h5" class="opt-h5">H5</option><option value="h6" class="opt-h6">H6</option></select>
         <select class="bb-blocks" title="סגנון"><option value="">סגנון</option><option value="info" class="opt-info">מידע</option><option value="warning" class="opt-warning">אזהרה</option><option value="error" class="opt-error">שגיאה</option><option value="success" class="opt-success">הצלחה</option></select>
         <select class="bb-size" title="גודל"><option value="">גודל</option><optgroup label="סולם 1–10">${size10}</optgroup><optgroup label="פיקסלים">${pxOpts}</optgroup></select>
         <select class="bb-font" title="גופן"><option value="">גופן</option>${fontList.map(f=>`<option value="${f}" style="font-family:'${f}',sans-serif">${f}</option>`).join('')}</select>
-        <span class="font-preview" title="תצוגת גופן">Aa</span>
         <button type="button" data-action="clear" title="נקה הכל"><i class="fa-solid fa-broom"></i></button>
       `;
       
