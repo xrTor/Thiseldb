@@ -1,7 +1,4 @@
-
-<style>
- direction:rtl !important;
-  </style>
+<div dir="rtl"> 
 
 
 #### Thiseldb is a movie and tv seires blog  
