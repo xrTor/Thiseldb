@@ -3,10 +3,8 @@
 
 
 הטקסט שברצונך ליישר כאן
- <p style="text-align:right;">
-####  Thiseldb is a movie and tv seires blog  
- <p style="text-align:right;">
-####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
+ <p style="text-align:right;">####  Thiseldb is a movie and tv seires blog  
+ <p style="text-align:right;">####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
 משוחרר תחת רישיון קוד פתוח GPL 3
 
