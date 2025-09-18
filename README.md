@@ -28,12 +28,19 @@ thiseldb שם הדאטה בייס
 
 
 קבלו API חינמי  או בתשלום
+
 ועדכנו בעמוד ADD את הKEY שקיבלתם  
+
 ### // ===== מפתחות API =====
+
 // החליפו רק את הInsert_KEY במפתחות שקיבלת מהשירות השונים
+
 define('TMDB_KEY',     'Insert_KEY');          // TMDB
+
 define('RAPIDAPI_KEY', 'Insert_KEY');      // IMDb rating/votes בלבד
+
 define('TVDB_KEY',     'Insert_KEY');         // TheTVDB v4
+
 define('OMDB_KEY',     'Insert_KEY');       // OMDb — RT/MC
 
 
