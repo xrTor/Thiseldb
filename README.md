@@ -1,8 +1,6 @@
  ####  Thiseldb is a movie and tv seires blog  
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
-למעבר לאתר
-
-י https://thiseldb.me/
+למעבר לאתר: https://thiseldb.me
 
 משוחרר תחת רישיון קוד פתוח GPL 3
 
