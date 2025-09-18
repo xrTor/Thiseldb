@@ -1,6 +1,6 @@
 
 <style>
- direction:rtl;
+ direction:rtl !important;
   </style>
 
 
