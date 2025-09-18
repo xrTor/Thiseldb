@@ -1,7 +1,6 @@
-<div dir="rtl"> 
+U+200F
 
-
-#### Thiseldb is a movie and tv seires blog  
+ U+200F ####  Thiseldb is a movie and tv seires blog  
 
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
@@ -11,8 +10,7 @@
 הקימו שרת php/mysql  בXAMPP   
 האתר נגיש בכתובת  
 http://localhost/thiseldb-main
-תיקית האחסון של האתר  
-C:\xampp\htdocs
+תיקית האחסון של האתר  Thiseldb-main מופיעה בתוך C:\xampp\htdocs
 
 מדריך התקנה ביוטיוב
 https://www.youtube.com/watch?v=YAmA8CdFyKs
@@ -41,8 +39,11 @@ define('OMDB_KEY',     'Insert_KEY');       // OMDb — RT/MC
 
 ### לינקים
 https://www.themoviedb.org/settings/api/request
+
 https://rapidapi.com/rapidapi-org1-rapidapi-org-default/api/imdb236
+
 https://www.thetvdb.com/api-information/signup
+
 https://www.omdbapi.com/apikey.aspx
 
 ## באגים ידועים:
