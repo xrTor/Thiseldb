@@ -2,7 +2,9 @@
 <!-- language: rtl -->
 
 
- ####  Thiseldb is a movie and tv seires blog  
+ <p style="text-align:right;">הטקסט שברצונך ליישר כאן</p>.
+
+####  Thiseldb is a movie and tv seires blog  
 
 ####  Thiseldb הוא אתר סיקורים של סדרות  וסרטים  
 
