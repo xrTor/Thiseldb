@@ -11,7 +11,7 @@ U+061C ####  Thiseldb is a movie and tv seires blog
 ## הוראות התקנה:
 הקימו שרת php/mysql  בXAMPP   
 האתר נגיש בכתובת  
-http://localhost/thiseldb-main
+U+061C http://localhost/thiseldb-main
 תיקית האחסון של האתר  Thiseldb-main מופיעה בתוך C:\xampp\htdocs
 
 מדריך התקנה ביוטיוב
