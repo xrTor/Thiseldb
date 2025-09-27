@@ -2,8 +2,8 @@
 /* a { text-decoration: none !important;
 } */
  a {color: #2d89ef !important;text-decoration: none !important}
-a:hover {
-  text-decoration: underline !important;
+* a:hover {
+  text-decoration: underline !important; color:#2d89ef !important;
 }
 
 body {

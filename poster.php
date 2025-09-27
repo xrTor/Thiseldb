@@ -7,7 +7,7 @@ header('Content-Type: text/html; charset=UTF-8');
 if (function_exists('opcache_reset')) { @opcache_reset(); }
 
 /* ====== תלויות ====== */
-require_once __DIR__ . '/SERVER.php';
+require_once __DIR__ . '/server.php';
 include 'header.php';
 
 /* =================== ADD-ONLY BLOCK (poster actions & helpers) =================== */
@@ -178,8 +178,8 @@ if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
   if (isset($_POST['ut_add'])) {
     $raw_input = trim((string)($_POST['ut_value'] ?? ''));
     if ($raw_input !== '') {
-        // שינוי כאן: פיצול רק לפי פסיק, נקודה-פסיק או ירידת שורה
-        $tags = preg_split('/[,\n;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
+        // Split input by newlines, commas, or semicolons
+        $tags = preg_split('/[\s,;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
         
         $stmt_check = $conn->prepare("SELECT 1 FROM user_tags WHERE poster_id=? AND genre=?");
         $stmt_insert = $conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?, ?)");
@@ -464,10 +464,14 @@ body.view-commas .chip-static {
   color: var(--text);
 }
 
-/* --- החלף בקוד הזה --- */
-body.view-commas .chip:not(:last-child)::after,
-body.view-commas .chip-static:not(:last-child)::after {
+body.view-commas .chip::after,
+body.view-commas .chip-static::after {
   content: ", ";
+}
+
+body.view-commas .chip:last-child::after,
+body.view-commas .chip-static:last-child::after {
+  content: "";
 }
 
 /* מתחת לתמונה – בלי פסיקים, כל אחד בשורה */
@@ -601,10 +605,6 @@ body.theme-light .flags-under-poster b {
 /* תיקון צבע קישורים ב-Footer במצב בהיר */
 body.theme-light footer a {
   color: var(--text) !important;
-}
-body.view-commas .chip a {
-    color: inherit;
-    text-decoration: none;
 }
   </style>
 </head>
@@ -863,17 +863,12 @@ if (!empty($networks)) {
 
         <?php if (!empty($__pa_user_tags)): ?>
           <div class="section" style="border-top:none;padding-top:6px;">
-           <p class="kv"><span class="label">תגיות:</span></p>
-<div class="chips">
-    <?php foreach ($__pa_user_tags as $t): ?>
-        <form method="post" style="display:inline-block;margin:0">
-            <a class="chip tag-pill" href="home.php?user_tag=<?= urlencode($t['genre']) ?>">
-                <?= H($t['genre']) ?>
-            </a>
-            <button type="submit" name="ut_remove" value="<?= (int)$t['id'] ?>" class="btn mgmt-only" title="מחיקת תגית" style="margin-right: -10px;">🗑️</button>
-        </form>
-    <?php endforeach; ?>
-</div>
+            <p class="kv"><span class="label">תגיות:</span></p>
+            <div class="chips">
+              <?php foreach ($__pa_user_tags as $t): ?>
+                <a class="chip tag-pill" href="home.php?user_tag=<?= urlencode($t['genre']) ?>"><?= H($t['genre']) ?></a>
+              <?php endforeach; ?>
+            </div>
           </div>
         <?php endif; ?>
 
@@ -918,13 +913,10 @@ if (!empty($networks)) {
             <?php if (!empty($__pa_user_tags)): ?>
               <div class="chips">
                 <?php foreach ($__pa_user_tags as $t): ?>
-    <form method="post" class="chip tag-pill" style="display:inline-block;margin:0; padding:0; border:none; background:none;">
-        <a href="home.php?user_tag=<?= urlencode($t['genre']) ?>">
-            <?= H($t['genre']) ?>
-        </a>
-        <button type="submit" name="ut_remove" value="<?= (int)$t['id'] ?>" class="btn mgmt-only" title="מחיקת תגית" style="margin-right: -10px;">🗑️</button>
-    </form>
-<?php endforeach; ?>
+                  <form method="post" style="display:inline-block;margin:0">
+                    <span class="chip tag-pill"><?= H($t['genre']) ?> <button type="submit" name="ut_remove" value="<?= (int)$t['id'] ?>" class="btn mgmt-only" title="מחיקת תגית">🗑️</button></span>
+                  </form>
+                <?php endforeach; ?>
               </div>
             <?php else: ?><p class="kv" style="color:#9aa4b2">אין תגיות למחיקה.</p><?php endif; ?>
           </div>

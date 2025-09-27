@@ -2,6 +2,7 @@
 // שלב 1: לכידת כל הפלט מהקבצים הבעייתיים
 ob_start();
 include 'header.php'; 
+require_once 'server.php';
 $html_from_header = ob_get_clean();
 
 // שלב 2: פיצול התוכן לחלק של ה-HEAD ולחלק של ה-BODY
@@ -31,15 +32,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 
-/* ===== Keys ===== */
-$TMDB_KEY     = '931b94936ba364daf0fd91fb38ecd91e';
-$RAPIDAPI_KEY = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'; // IMDb rating/votes בלבד (לא RT/MC)
-$TVDB_KEY     = '1c93003f-ab80-4baf-b5c4-58c7b96494a2';               // TheTVDB v4
 
-/* ===== מפות hardcode ===== */
-$HARDCODE_TVDB = [
-  'tt1119644' => 82066, // Fringe
-];
 
 /* ===== IMDb scraper lib (אצלך) ===== */
 include_once __DIR__ . '/imdb.class.php';

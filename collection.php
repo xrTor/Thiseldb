@@ -323,6 +323,8 @@ function generate_home_search_link($param, $value) {
     }
     
     /* Split description */
+    .desc-shared-wrap { text-align: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #e0e0e0; }
+    .desc-shared-wrap img { max-width: 100%; height: auto; border-radius: 4px; }
     .desc2-wrap{width:100%; text-align:center; margin:14px 0;}
     .desc2-table{display:inline-table; border-collapse:separate; border-spacing:24px 0; width:auto; max-width:1100px;}
     .desc2-td{vertical-align:top; padding:0 20px; max-width:520px;}
@@ -422,22 +424,51 @@ function generate_home_search_link($param, $value) {
   <?php if (!empty($collection['description'])): ?>
     <?php
       $raw = (string)($collection['description'] ?? '');
-      $right_he_raw = ''; $left_en_raw  = '';
-      $tags_exist = (strpos($raw, '[עברית]') !== false || strpos($raw, '[/עברית]') !== false || strpos($raw, '[אנגלית]') !== false || strpos($raw, '[/אנגלית]') !== false);
-      if ($tags_exist) {
+      $shared_raw = ''; $right_he_raw = ''; $left_en_raw  = '';
+      
+      $tags_detected = (strpos($raw, '[משותף]') !== false || strpos($raw, '[עברית]') !== false || strpos($raw, '[אנגלית]') !== false);
+      
+      if ($tags_detected) {
+        if (preg_match('~\[משותף\](.*?)\[/משותף\]~is', $raw, $mShared)) { $shared_raw = trim($mShared[1]); }
         if (preg_match('~\[עברית\](.*?)\[/עברית\]~is', $raw, $mHe)) { $right_he_raw = trim($mHe[1]); }
         if (preg_match('~\[אנגלית\](.*?)\[/אנגלית\]~is', $raw, $mEn)) { $left_en_raw = trim($mEn[1]); }
       } else {
-        $rawN = str_replace("\r\n", "\n", trim($raw)); $rawN = preg_replace("/\n{4,}/", "\n\n\n", $rawN);
+        $rawN = str_replace("\r\n", "\n", trim($raw));
+        $rawN = preg_replace("/\n{4,}/", "\n\n\n", $rawN);
         $parts = preg_split("/\n{3,}/", $rawN, 2);
-        $p0 = trim($parts[0] ?? ''); $p1 = trim($parts[1] ?? '');
+        $p0 = trim($parts[0] ?? '');
+        $p1 = trim($parts[1] ?? '');
         $hasHeb = static function(string $t): bool { return (bool)preg_match('/\p{Hebrew}/u', $t); };
-        if (count($parts) >= 2) { $right_he_raw = $p0; $left_en_raw  = $p1; } 
-        else { if ($p0 !== '') { if ($hasHeb($p0)) { $right_he_raw = $p0; } else { $left_en_raw = $p0; } } }
+
+        if (count($parts) >= 2) {
+          $right_he_raw = $p0;
+          $left_en_raw  = $p1;
+        } else {
+          if ($p0 !== '') {
+            if ($hasHeb($p0)) {
+              $right_he_raw = $p0;
+            } else {
+              $left_en_raw = $p0;
+            }
+          }
+        }
       }
-      $desc_he_html = trim(bbcode_to_html($right_he_raw)); $desc_en_html = trim(bbcode_to_html($left_en_raw));
-      $has_he = !empty($desc_he_html); $has_en = !empty($desc_en_html);
+
+      $desc_shared_html = trim(bbcode_to_html($shared_raw));
+      $desc_he_html = trim(bbcode_to_html($right_he_raw));
+      $desc_en_html = trim(bbcode_to_html($left_en_raw));
+      
+      $has_shared = !empty($desc_shared_html);
+      $has_he = !empty($desc_he_html);
+      $has_en = !empty($desc_en_html);
     ?>
+
+    <?php if ($has_shared): ?>
+      <div class="desc-shared-wrap bbcode">
+        <?= $desc_shared_html ?>
+      </div>
+    <?php endif; ?>
+
     <?php if ($has_he || $has_en): ?>
       <div class="desc2-wrap">
           <table class="desc2-table" role="presentation" dir="ltr">
@@ -449,6 +480,7 @@ function generate_home_search_link($param, $value) {
       </div>
     <?php endif; ?>
   <?php endif; ?>
+
 
   <div id="csvUploadResult" style="max-width:900px;margin:12px auto 0;display:none;background:#f6fff6;border:1px solid #cde8cd;padding:12px;border-radius:8px;"></div>
 

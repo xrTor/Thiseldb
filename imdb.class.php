@@ -227,6 +227,7 @@ class IMDB
      */
     private function fetchUrl($sSearch, $orgSearch = false, $exactSearch = false)
     {
+        $sRedirectFile = ''; // FIXED: Initialize variable
         $sSearch = trim($sSearch);
 
         // Try to find a valid URL.
@@ -478,6 +479,7 @@ class IMDB
 
         // Save cache.
         if (false === $bSearch) {
+            $sCacheFile = $this->sRoot . '/cache/' . sha1($this->iId) . '.cache';
             if (true === self::IMDB_DEBUG) {
                 echo '<pre><b>Cache created:</b> ' . basename($sCacheFile) . '</pre>';
             }
@@ -898,11 +900,11 @@ class IMDB
     /**
      * @param int    $iLimit  How many cast members should be returned?
      * @param bool   $bMore   Add … if there are more cast members than
-     *                        printed.
+     * printed.
      * @param string $sTarget Add a target to the links?
      *
      * @return string A list with linked cast members and their character or
-     *                $sNotFound.
+     * $sNotFound.
      */
     public function getCastAndCharacterAsUrl($iLimit = 0, $bMore = true, $sTarget = '')
     {
@@ -944,7 +946,7 @@ class IMDB
      * @param bool $bMore  Add … if there are more cast members than printed.
      *
      * @return string  A list with cast members and their character or
-     *                 $sNotFound.
+     * $sNotFound.
      */
     public function getCastAndCharacter($iLimit = 0, $bMore = true)
     {
@@ -2285,7 +2287,7 @@ class IMDB
             }
         }
 
-        return self::$sNotFound;
+        return IMDBHelper::arrayOutput($this->bArrayOutput, $this->sSeparator, self::$sNotFound);
     }
 
     /**

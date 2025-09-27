@@ -1,9 +1,5 @@
 <?php
-// ===== מפתחות =====
-$tmdbKey = '931b94936ba364daf0fd91fb38ecd91e';
-$omdbKey = 'f7e4ae0b';
-$tvdbKey = '1c93003f-ab80-4baf-b5c4-58c7b96494a2'; // TVDB v4
-$rapidApiKey = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'; // הוספת מפתח RapidAPI
+require_once 'server.php';
 
 // ✅ ה־IMDB SCRAPER (שים את imdb.class.php ליד הקובץ או עדכן נתיב)
 include_once __DIR__ . '/imdb.class.php';

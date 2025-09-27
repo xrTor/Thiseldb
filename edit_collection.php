@@ -20,15 +20,21 @@ $stmt->close();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection'])) {
   $name = trim($_POST['name'] ?? '');
+  $desc_shared = trim($_POST['description_shared'] ?? '');
   $desc_he = trim($_POST['description_he'] ?? '');
   $desc_en = trim($_POST['description_en'] ?? '');
   $img  = trim($_POST['image_url'] ?? '');
   $poster_img = trim($_POST['poster_image_url'] ?? '');
   
   $desc = '';
-  if (!empty($desc_he) || !empty($desc_en)) {
-      $desc = "[עברית]\n" . $desc_he . "\n[/עברית]\n\n\n[אנגלית]\n" . $desc_en . "\n[/אנגלית]";
+  if (!empty($desc_shared)) {
+      $desc .= "[משותף]\n" . $desc_shared . "\n[/משותף]\n\n\n";
   }
+  if (!empty($desc_he) || !empty($desc_en)) {
+      $desc .= "[עברית]\n" . $desc_he . "\n[/עברית]\n\n\n[אנגלית]\n" . $desc_en . "\n[/אנגלית]";
+  }
+  $desc = trim($desc);
+
 
   if ($img !== '') {
     if (!preg_match('~^https?://~i', $img) && strpos($img, '/') === false && strpos($img, '\\') === false) {
@@ -67,9 +73,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
 }
 
 $descValue = trim($collection['description'] ?? '');
+$desc_shared_val = '';
 $desc_he_val = '';
 $desc_en_val = '';
 
+if (preg_match('/\[משותף\](.*?)\[\/משותף\]/is', $descValue, $matches_shared)) {
+    $desc_shared_val = trim($matches_shared[1]);
+}
 if (preg_match('/\[עברית\](.*?)\[\/עברית\]/is', $descValue, $matches_he)) {
     $desc_he_val = trim($matches_he[1]);
 }
@@ -134,6 +144,11 @@ if (empty($desc_he_val) && empty($desc_en_val) && !empty($descValue) && strpos($
     <input type="text" name="name" value="<?= htmlspecialchars($collection['name']) ?>" required>
     <a href="bbcode_guide.php" target="_blank">📜 מדריך BBCode</a><br><br>
     <div class="bb-editor">
+        <div>
+          <label for="descBoxShared">תיאור משותף (חלק עליון, לתמונות/באנרים)</label>
+          <textarea class="bb-textarea" name="description_shared" id="descBoxShared" rows="5"><?= htmlspecialchars($desc_shared_val) ?></textarea>
+        </div>
+        <br>
         <div class="description-grid">
             <div>
               <label for="descBoxHe">תיאור (עברית)</label>

@@ -202,8 +202,13 @@ footer .box {
 
       <?php if ($connections_by_label): ?>
         <?php while($r = $connections_by_label->fetch_assoc()): ?>
+          <?php $label = $r['relation_label'] ?? ''; ?>
           <tr>
-            <td><?= htmlspecialchars($r['relation_label'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
+            <td>
+              <a href="connections.php?label=<?= urlencode($label) ?>">
+                <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+              </a>
+            </td>
             <td><?= number_format((int)($r['cnt'] ?? 0)) ?></td>
           </tr>
         <?php endwhile; ?>
@@ -289,6 +294,13 @@ footer .box {
   </table>
 </div>
 
+
+<div class="box">
+  <h2>📊 גרף התפלגות לפי סוג</h2>
+  <canvas id="typeChart"></canvas>
+</div>
+
+
 <div class="box">
   <h2>📅 פילוח לפי שנה</h2>
   <table>
@@ -305,11 +317,6 @@ footer .box {
     </tbody>
   </table>
   <canvas id="yearChart" class="yearChart"></canvas>
-</div>
-
-<div class="box">
-  <h2>📊 גרף התפלגות לפי סוג</h2>
-  <canvas id="typeChart"></canvas>
 </div>
 
 <p><a href="index.php">⬅ חזרה לדף הבית</a></p>

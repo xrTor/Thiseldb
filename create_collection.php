@@ -9,15 +9,21 @@ $new_id  = null;
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $name       = trim($_POST['name'] ?? '');
+  $desc_shared = trim($_POST['description_shared'] ?? '');
   $desc_he    = trim($_POST['description_he'] ?? '');
   $desc_en    = trim($_POST['description_en'] ?? '');
   $img        = trim($_POST['image_url'] ?? '');
   $poster_img = trim($_POST['poster_image_url'] ?? '');
   
   $desc = '';
-  if (!empty($desc_he) || !empty($desc_en)) {
-      $desc = "[עברית]\n" . $desc_he . "\n[/עברית]\n\n\n[אנגלית]\n" . $desc_en . "\n[/אנגלית]";
+  if (!empty($desc_shared)) {
+      $desc .= "[משותף]\n" . $desc_shared . "\n[/משותף]\n\n\n";
   }
+  if (!empty($desc_he) || !empty($desc_en)) {
+      $desc .= "[עברית]\n" . $desc_he . "\n[/עברית]\n\n\n[אנגלית]\n" . $desc_en . "\n[/אנגלית]";
+  }
+  $desc = trim($desc);
+
 
   $imgToSave = null;
   if ($img !== '') {
@@ -93,8 +99,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <form method="post">
     <label>📁 שם האוסף</label>
     <input type="text" name="name" required>
-<a href="bbcode_guide.php" target="_blank">📜 מדריך BBCode</a><br><br>
+    <a href="bbcode_guide.php" target="_blank">📜 מדריך BBCode</a><br><br>
     <div class="bb-editor">
+      <div>
+        <label for="descBoxShared">תיאור משותף (חלק עליון, לתמונות/באנרים)</label>
+        <textarea class="bb-textarea" name="description_shared" id="descBoxShared" rows="5"></textarea>
+      </div>
+      <br>
+      
       <div class="description-grid">
         <div>
           <label for="descBoxHe">תיאור (עברית)</label>
