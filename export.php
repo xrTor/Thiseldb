@@ -1,38 +1,81 @@
 <?php
-require_once 'server.php';
+/****************************************************
+ * export.php — ייצוא נתונים מהטבלה posters
+ * כולל ז'אנרים (genres) ותגיות משתמש (user_tags)
+ * שם הקובץ: Thiseldb.csv
+ ****************************************************/
 
-header('Content-Type: text/csv; charset=UTF-8');
-header('Content-Disposition: attachment; filename="Thiseldb.csv"');
+mb_internal_encoding("UTF-8");
 
-// פתרון לבעיות עברית ב־Excel
-echo "\xEF\xBB\xBF";
+require_once __DIR__ . "/server.php";
 
-$output = fopen("php://output", "w");
-
-// כותרות העמודות
-fputcsv($output, ['ID', 'Title (EN)', 'Title (HE)', 'Year', 'IMDb Rating', 'Type (HE)', 'IMDb ID']);
-
-// שאילתה עם חיבור לטבלת הסוגים
-$res = $conn->query("
-  SELECT 
-    p.id, p.title_en, p.title_he, p.year, p.imdb_rating, p.imdb_id,
-    t.label_he AS type_label_he
-  FROM posters p
-  LEFT JOIN poster_types t ON p.type_id = t.id
-");
-
-while ($row = $res->fetch_assoc()) {
-  $id       = $row['id'];
-  $title_en = $row['title_en'] ?: '—';
-  $title_he = $row['title_he'] ?: '—';
-  $year     = $row['year'] ?: '—';
-  $rating   = $row['imdb_rating'] ?: '—';
-  $type_he  = $row['type_label_he'] ?: '⁉️ לא ידוע';
-  $imdb_id  = $row['imdb_id'] ?: '—';
-
-  fputcsv($output, [$id, $title_en, $title_he, $year, $rating, $type_he, $imdb_id]);
+if (function_exists('mysqli_set_charset')) {
+    @mysqli_set_charset($conn, 'utf8mb4');
 }
 
-fclose($output);
-$conn->close();
-?>
+// === שליפת נתונים (כולל ז'אנרים ותגיות) ===
+$sql = "
+    SELECT 
+        p.id,
+        p.title_he,
+        p.title_en,
+        p.year,
+        p.imdb_id,
+        p.imdb_rating,
+        p.genres,
+        GROUP_CONCAT(DISTINCT ut.genre ORDER BY ut.genre SEPARATOR ', ') AS user_tags
+    FROM posters p
+    LEFT JOIN user_tags ut ON ut.poster_id = p.id
+    GROUP BY p.id
+    ORDER BY p.id DESC
+
+    
+
+";
+// ORDER BY p.id ASC
+$res = $conn->query($sql);
+
+// === ייצוא ל־CSV ===
+$filename = "Thiseldb.csv";
+
+// כותרות HTTP
+header("Content-Type: text/csv; charset=UTF-8");
+// שם קובץ קבוע באנגלית
+header("Content-Disposition: attachment; filename=\"$filename\"");
+
+// פתיחת פלט
+$out = fopen("php://output", "w");
+
+// כתיבת BOM כדי לאפשר תמיכה בעברית ב-Excel
+fwrite($out, "\xEF\xBB\xBF");
+
+// כתיבת שורת כותרות בעברית
+fputcsv($out, [
+    "מזהה",
+    "שם בעברית",
+    "שם באנגלית",
+    "שנה",
+    "מזהה IMDb",
+    "דירוג IMDb",
+    "ז'אנרים",
+    "תגיות משתמש"
+]);
+
+// כתיבת נתונים
+if ($res) {
+    while ($row = $res->fetch_assoc()) {
+        fputcsv($out, [
+            $row['id'],
+            $row['title_he'],
+            $row['title_en'],
+            $row['year'],
+            $row['imdb_id'],
+            $row['imdb_rating'],
+            $row['genres'],
+            $row['user_tags']
+        ]);
+    }
+}
+
+fclose($out);
+exit;

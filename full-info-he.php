@@ -321,7 +321,8 @@ $sections = [
 
   <!-- כפתורי שליטה כלליים + קישור לעמוד באנגלית -->
   <div class="toolbar">
-    <a href="full-info.php" class="link-en">↗ אל העמוד באנגלית</a>
+    <a href="full-info.php" class="toggle-btn">↗ אל העמוד באנגלית</a>
+  <a href="full-info-text-he.php" class="toggle-btn">↗ אל הגרסא הטקסטואלית</a><br><br>
     <button type="button" class="toggle-btn" id="btnShowAll">הצג הכל</button>
     <button type="button" class="toggle-btn" id="btnHideAll">הסתר הכל</button>
   </div>

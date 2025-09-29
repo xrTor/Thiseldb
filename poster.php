@@ -179,7 +179,7 @@ if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
     $raw_input = trim((string)($_POST['ut_value'] ?? ''));
     if ($raw_input !== '') {
         // Split input by newlines, commas, or semicolons
-        $tags = preg_split('/[\s,;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
+        $tags = preg_split('/[,\n;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
         
         $stmt_check = $conn->prepare("SELECT 1 FROM user_tags WHERE poster_id=? AND genre=?");
         $stmt_insert = $conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?, ?)");
@@ -606,6 +606,10 @@ body.theme-light .flags-under-poster b {
 body.theme-light footer a {
   color: var(--text) !important;
 }
+/* הסרת פסיק מיותר מרשימת האוספים האנכית */
+body.view-commas .collection-list .chip::after {
+  content: "" !important;
+}
   </style>
 </head>
 <body>
@@ -804,17 +808,17 @@ if (!empty($networks)) {
         </div>
 
         <?php if (!empty($__pa_collections)): ?>
-  <div class="section">
-    <p class="kv"><span class="label">משויך לאוספים:</span></p>
-    <div class="chips">
-      <?php foreach ($__pa_collections as $c): ?>
-        <a class="chip" href="collection.php?id=<?= (int)$c['id'] ?>">
-          🧩 <?= __pa_h($c['name']) ?>
-        </a>
-      <?php endforeach; ?>
-    </div>
-  </div>
-<?php endif; ?>
+          <div class="section">
+            <p class="kv"><span class="label">משויך לאוספים:</span></p>
+            <div class="collection-list" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+              <?php foreach ($__pa_collections as $c): ?>
+                <a class="chip" href="collection.php?id=<?= (int)$c['id'] ?>">
+                  🧩 <?= __pa_h($c['name']) ?>
+                </a>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php endif; ?>
         
 
         <?php if (!empty($languages)): ?>
@@ -878,7 +882,7 @@ if (!empty($networks)) {
           <div class="section" style="border-top:none;padding-top:0;">
             <p class="kv"><span class="label">הוספת סרט דומה:</span></p>
             <form method="post" class="row-forms">
-              <textarea name="sim_value" placeholder="הזן מזהים (tt, id, URL), אחד בכל שורה או מופרדים בפסיק/רווח" required rows="4" style="width:100%; resize: vertical;"></textarea>
+              <textarea name="sim_value" placeholder="הזן מזהים (tt, id, URL), אחד בכל שורה או מופרדים בפסיק/רווח" required rows="6" style="width:100%; resize: vertical;"></textarea>
               <button type="submit" name="sim_add" class="btn">📥 הוסף סרט דומה</button>
             </form>
           </div>
@@ -903,7 +907,7 @@ if (!empty($networks)) {
           <div class="section">
             <p class="kv"><span class="label">הוספת תגית:</span></p>
             <form method="post" class="row-forms">
-              <textarea name="ut_value" placeholder="הוסף תגיות, מופרדות בפסיק או בשורה חדשה" required rows="3" style="width:100%; resize: vertical;"></textarea>
+              <textarea name="ut_value" placeholder="הוסף תגיות, מופרדות בפסיק או בשורה חדשה" required rows="6" style="width:100%; resize: vertical;"></textarea>
               <button type="submit" name="ut_add" class="btn">➕ הוסף</button>
             </form>
           </div>
@@ -963,9 +967,9 @@ if (!empty($networks)) {
 
         <?php if ($overview_he || $overview_en): ?>
           <div class="section">
-            <?php if ($overview_he): ?><p class="kv"><span class="label">תקציר:</span><br> <?= H($overview_he) ?></p><?php endif; ?>
+            <?php if ($overview_he): ?><p class="kv"><span class="label">תקציר:</span><br> <?= nl2br(H($overview_he)) ?></p><?php endif; ?>
             <?php if ($overview_en): $cleaned_overview = preg_replace('~\s*(\.\.\.|…)\s*Read all\s*»?$~iu', '', $overview_en); ?>
-              <p class="kv"><br><span class="label">תקציר (אנגלית):</span><br> <?= H($cleaned_overview) ?></p>
+              <p class="kv"><br><span class="label">תקציר (אנגלית):</span><br> <?= nl2br(H($cleaned_overview)) ?></p>
             <?php endif; ?>
           </div>
         <?php endif; ?>

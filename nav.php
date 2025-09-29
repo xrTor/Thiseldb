@@ -88,6 +88,7 @@ echo "";
     'spotlight.php' => '🎯 זרקור', 
     'top.php' => '🏆 TOP 10',
     'full-info.php' => '🧪 מסוף',
+    'similar_all.php' => '🎞️ סרטים דומים',
      'stats.php' => '📈 סטטיסטיקה',
      'contact.php' => '📩 צור קשר',
      'about.php' => '🎉 אודות',

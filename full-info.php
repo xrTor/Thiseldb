@@ -1,5 +1,5 @@
 <?php
-// full-info.php — צבעוני + אייקונים + כפתור יחיד הצג/הסתר + ללא חיתוך טקסט
+// full-info.php — צבעוני + מספור עם נקודה + ספירת כמות בסקשנים + פוסטרים בסוף
 mb_internal_encoding('UTF-8');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -9,22 +9,29 @@ include 'header.php';
 
 /* ===== Helpers ===== */
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+
 function norm_split($s){
   if ($s === null) return [];
   $s = (string)$s;
   if ($s === '') return [];
   $s = str_replace([';', '/', '|'], ',', $s);
   $parts = array_map('trim', explode(',', $s));
-  return array_values(array_filter($parts, function($x){ return $x!==''; })); // תאימות לאחור
+  return array_values(array_filter($parts, function($x){ return $x!==''; }));
 }
+
 function aggFromColumn(mysqli $conn, string $col): array {
   $rs = $conn->query("SELECT `$col` AS v FROM posters WHERE `$col` IS NOT NULL AND `$col`<>''");
   $m = [];
-  if ($rs) while($row=$rs->fetch_assoc()){
-    foreach (norm_split($row['v']) as $name){
-      $key = mb_strtolower($name,'UTF-8');
-      if (!isset($m[$key])) $m[$key] = ['label'=>$name,'count'=>1];
-      else $m[$key]['count']++;
+  if ($rs) {
+    while($row=$rs->fetch_assoc()){
+      foreach (norm_split($row['v']) as $name){
+        $key = mb_strtolower($name,'UTF-8');
+        if (!isset($m[$key])) {
+          $m[$key] = ['label'=>$name,'count'=>1];
+        } else {
+          $m[$key]['count']++;
+        }
+      }
     }
   }
   uasort($m, function($a,$b){
@@ -34,36 +41,17 @@ function aggFromColumn(mysqli $conn, string $col): array {
   return $m;
 }
 
-/** בונה URL חיפוש ל-home.php עם ברירות מחדל ומעליה overrides */
 function buildSearchQuery(array $overrides = []): string {
   $defaults = [
-    'search' => '',
-    'year' => '',
-    'min_rating' => '',
-    'metacritic' => '',
-    'rt_score' => '',
-    'imdb_id' => '',
-    'genre' => '',
-    'user_tag' => '',
-    'actor' => '',
-    'directors' => '',
-    'producers' => '',
-    'writers' => '',
-    'composers' => '',
-    'cinematographers' => '',
-    'lang_code' => '',
-    'country' => '',
-    'runtime' => '',
-    'network' => '',
-    'search_mode' => 'and',
-    'limit' => '50',
-    'view' => 'modern_grid',
-    'sort' => '',
+    'search'=>'','year'=>'','min_rating'=>'','metacritic'=>'','rt_score'=>'',
+    'imdb_id'=>'','genre'=>'','user_tag'=>'','actor'=>'','directors'=>'',
+    'producers'=>'','writers'=>'','composers'=>'','cinematographers'=>'',
+    'lang_code'=>'','country'=>'','runtime'=>'','network'=>'',
+    'search_mode'=>'and','limit'=>'50','view'=>'modern_grid','sort'=>'',
   ];
   $params = array_merge($defaults, $overrides);
   return http_build_query($params, '', '&', PHP_QUERY_RFC3986);
 }
-
 
 /* ===== Data ===== */
 $languages   = aggFromColumn($conn, 'languages');
@@ -135,7 +123,7 @@ $colors = [
   "#e0f7fa","#fce4ec","#f1f8e9","#fff8e1","#e3f2fd","#ede7f6"
 ];
 
-/* אייקונים לכל מחלקה */
+/* אייקונים */
 $icons = [
   'languages'   => '🌐 ',
   'countries'   => '🌍 ',
@@ -153,295 +141,195 @@ $icons = [
   'types'       => '🧪 ',
 ];
 
-/* ===== Sections (עם תאימות לאחור) ===== */
+/* Sections */
 $sections = [
-    ['languages',   'שפות',          $languages,   function($lbl){ return 'home.php?'.buildSearchQuery(['lang_code'=>$lbl]); }],
-    ['countries',   'מדינות',        $countries,   function($lbl){ return 'home.php?'.buildSearchQuery(['country'=>$lbl]); }],
-    ['genres',      'ז׳אנרים',       $genres,      function($lbl){ return 'home.php?'.buildSearchQuery(['genre'=>$lbl]); }],
-    ['networks',    'רשתות',         $networks,    function($lbl){ return 'home.php?'.buildSearchQuery(['network'=>$lbl]); }],
-
-    ['actors',      'שחקנים',        $actors,      function($lbl){ return 'home.php?'.buildSearchQuery(['actor'=>$lbl]); }],
-    ['directors',   'במאים',         $directors,   function($lbl){ return 'home.php?'.buildSearchQuery(['directors'=>$lbl]); }],
-    ['writers',     'תסריטאים',      $writers,     function($lbl){ return 'home.php?'.buildSearchQuery(['writers'=>$lbl]); }],
-    ['producers',   'מפיקים',        $producers,   function($lbl){ return 'home.php?'.buildSearchQuery(['producers'=>$lbl]); }],
-    ['composers',   'מלחינים',       $composers,   function($lbl){ return 'home.php?'.buildSearchQuery(['composers'=>$lbl]); }],
-    ['cinematog',   'צלמים',         $cinematog,   function($lbl){ return 'home.php?'.buildSearchQuery(['cinematographers'=>$lbl]); }],
-
-    ['years',       'שנים',          $years,       function($lbl){ return 'home.php?'.buildSearchQuery(['year'=>$lbl]); }],
-    ['collections', 'אוספים',        $collections, function($lbl, $row){ return 'collection.php?id='.urlencode($row['id'] ?? $lbl); }],
-    ['user_tags',   'תגיות',         $user_tags,   function($lbl){ return 'home.php?'.buildSearchQuery(['user_tag'=>$lbl]); }],
-    ['types',       'סוגים',         $types,       function($lbl, $row){ return 'home.php?'.buildSearchQuery(['type[]'=>(string)($row['id'] ?? $lbl)]); }],
+  ['languages',   'שפות',          $languages,   fn($lbl)=>'home.php?'.buildSearchQuery(['lang_code'=>$lbl])],
+  ['countries',   'מדינות',        $countries,   fn($lbl)=>'home.php?'.buildSearchQuery(['country'=>$lbl])],
+  ['genres',      'ז׳אנרים',       $genres,      fn($lbl)=>'home.php?'.buildSearchQuery(['genre'=>$lbl])],
+  ['networks',    'רשתות',         $networks,    fn($lbl)=>'home.php?'.buildSearchQuery(['network'=>$lbl])],
+  ['actors',      'שחקנים',        $actors,      fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+  ['directors',   'במאים',         $directors,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+  ['writers',     'תסריטאים',      $writers,     fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+  ['producers',   'מפיקים',        $producers,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+  ['composers',   'מלחינים',       $composers,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+  ['cinematog',   'צלמים',         $cinematog,   fn($lbl)=>'actor.php?name='.urlencode($lbl)],
+  ['years',       'שנים',          $years,       fn($lbl)=>'home.php?'.buildSearchQuery(['year'=>$lbl])],
+  ['collections', 'אוספים',        $collections, fn($lbl,$row)=>'collection.php?id='.urlencode($row['id'] ?? $lbl)],
+  ['user_tags',   'תגיות',         $user_tags,   fn($lbl)=>'home.php?'.buildSearchQuery(['user_tag'=>$lbl])],
+  ['types',       'סוגים',         $types,       fn($lbl,$row)=>'home.php?'.buildSearchQuery(['type[]'=>(string)($row['id'] ?? $lbl)])],
 ];
+
+/* Count posters */
+$total_posters = (int)($conn->query("SELECT COUNT(*) AS c FROM posters")->fetch_assoc()['c'] ?? 0);
 ?>
 <!doctype html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>Full Info — כל המידע (צבעוני + אייקונים)</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Full Info — כל המידע</title>
   <style>
     body { background:#fff; margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial; }
     .wrap { max-width:1200px; margin:22px auto; padding:0 12px; }
     h1 { text-align:center; margin:0 0 14px; }
-
-    /* תפריט קפיצה */
     .toc { text-align:center; margin:10px 0 18px; }
-    .toc a {
-      display:inline-block; margin:4px 5px; padding:6px 12px;
+    .toc a { display:inline-block; margin:4px 5px; padding:6px 12px;
       border-radius:999px; text-decoration:none; color:#123; font-size:14px;
-      background:white; border:1px solid #d8e6ff;
-    }
+      background:#fff; border:1px solid #d8e6ff; }
     .toc a:hover { background:#dff0ff; }
-    .toc .cnt { margin-inline-start:4px; }
     .ico { font-size:16px; margin-inline-start:6px; }
-
+    .bulk-controls { text-align:center; margin:8px 0 10px; }
+    .btn { font-size:13px; padding:6px 12px; border:1px solid #cfd8ea; border-radius:10px;
+      background:#f1f6ff; cursor:pointer; margin:0 4px; }
+    .btn:hover { background:#e7f1ff; }
     .sec { margin:22px 0; }
-    .sec h2 { margin:0 0 12px; font-size:20px; display:flex; align-items:center; gap:10px; }
-    .toggle-btn { font-size:13px; padding:4px 10px; border:1px solid #cfd8ea; border-radius:10px; background:#f1f6ff; cursor:pointer; }
-    .toggle-btn:hover { background:#e7f1ff; }
-
-    /* גריד: עד 6 בעמודה */
-    .grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; }
-    @media (max-width:1100px){ .grid{ grid-template-columns:repeat(4, minmax(0,1fr)); } }
-    @media (max-width:800px){  .grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
-    @media (max-width:560px){  .grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
-
-    /* "כדור" צבעוני — ללא חיתוך, המספר והשם באותו צבע */
-    .pill {
-      display:flex; align-items:center; justify-content:flex-start; gap:8px;
-      padding:8px 12px; border-radius:16px; text-decoration:none; color:#222;
-      border:1px solid rgba(0,0,0,.06); transition:transform .1s ease, box-shadow .1s ease;
-      direction:rtl; white-space:normal;
-    }
-    .pill:hover { transform:scale(1.03); box-shadow:0 2px 6px rgba(0,0,0,.15); }
-    .nm { }
-    .cnt { color:inherit; }
-
-    /* מצב מוסתר: רק הגריד נסגר, הכותרת/כפתור נשארים */
+    .sec h2 { margin:0 0 12px; font-size:20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .sec-toggle { font-size:13px; padding:4px 10px; border:1px solid #cfd8ea; border-radius:10px; background:#f1f6ff; cursor:pointer; }
+    .sec-toggle:hover { background:#e7f1ff; }
     .sec.collapsed .grid { display:none; }
+    .grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; }
+    @media (max-width:1100px){ .grid{ grid-template-columns:repeat(4,1fr);} }
+    @media (max-width:800px){ .grid{ grid-template-columns:repeat(3,1fr);} }
+    @media (max-width:560px){ .grid{ grid-template-columns:repeat(2,1fr);} }
+    .pill { display:flex; align-items:center; gap:8px;
+      padding:8px 12px; border-radius:16px; text-decoration:none; color:#222;
+      border:1px solid rgba(0,0,0,.06); transition:transform .1s ease, box-shadow .1s ease; direction:rtl; }
+    .pill:hover { transform:scale(1.03); box-shadow:0 2px 6px rgba(0,0,0,.15); }
   </style>
 </head>
 <body>
 <div class="wrap">
   <h1>📚 כל הערכים באתר</h1>
-  <div style="text-align:center;margin:8px 0 10px;">
-    <a href="full-info-he.php" class="toggle-btn">↗ אל העמוד בעברית</a>
+  <div style="text-align:center;margin:8px 0 10px;"></div>
+  <a href="full-info-text.php" class="btn">↗ אל הגרסא הטקסטואלית</a>
+    <a href="full-info-he.php" class="btn">↗ אל העמוד בעברית</a>
+  </div>
+
+  <div class="bulk-controls">
+    <button type="button" class="btn btn-show-all">הצג הכל</button>
+    <button type="button" class="btn btn-hide-all">הסתר הכל</button>
   </div>
 
   <div class="toc" id="toc">
-    <?php foreach ($sections as $section): 
-        list($id, $title, $data) = $section;
-        $cnt = is_array($data) ? count($data) : 0;
-    ?>
+    <?php foreach ($sections as $section):
+      [$id,$title,$data] = $section;
+      $cnt = is_array($data)?count($data):0; ?>
       <a href="#sec-<?=h($id)?>" data-sec="<?=h($id)?>">
-        <span class="ico"><?= h($icons[$id] ?? '•') ?></span><?=h($title)?>
-        <span class="cnt">(<?= (int)$cnt ?>)</span>
+        <span class="ico"><?=h($icons[$id]??'•')?></span><?=h($title)?>
+        <span class="cnt">(<?=$cnt?>)</span>
       </a>
     <?php endforeach; ?>
+    <a href="#sec-posters" data-sec="posters">
+      <span class="ico">🎬</span> פוסטרים <span class="cnt">(<?=$total_posters?>)</span>
+    </a>
   </div>
 
   <?php
-  $palette = $colors; $paletteCount = count($palette);
-  $fixedCols = 6; // מקסימום 6 בעמודה
+  $palette=$colors;
+  $paletteCount=count($palette);
+  $fixedCols=6;
+
   foreach ($sections as $section):
-    list($id, $title, $data, $linkFn) = $section;
-    $totalItems = is_array($data) ? count($data) : 0;
-    $icon = $icons[$id] ?? '•';
+    [$id,$title,$data,$linkFn]=$section;
+    $icon=$icons[$id]??'•';
+    $totalItems=is_array($data)?count($data):0;
   ?>
     <section class="sec" id="sec-<?=h($id)?>" data-sec="<?=h($id)?>">
       <h2>
-        <span class="ico"><?= h($icon) ?></span>
-        <?=h($title)?>
-        <button type="button" class="toggle-btn" data-sec="<?=h($id)?>" data-state="open">הסתר</button>
+        <span class="ico"><?=h($icon)?></span>
+        <?=h($title)?> <span class="cnt">(<?=$totalItems?>)</span>
+        <button type="button" class="sec-toggle" data-sec="<?=h($id)?>" data-state="open">הסתר</button>
       </h2>
 
-      <?php if (empty($data)): ?>
-        <p style="color:#777; margin:8px 0 16px;">אין נתונים להצגה.</p>
-      <?php else: ?>
+      <?php if(empty($data)):?>
+        <p style="color:#777">אין נתונים להצגה.</p>
+      <?php else:?>
         <div class="grid">
           <?php
           $i=0;
-          foreach ($data as $k=>$row):
-            $label = is_array($row) ? ($row['label'] ?? (string)$k) : (string)$row;
-            $count = (int)($row['count'] ?? 0);
-            $href  = ($id==='collections' || $id==='types') ? $linkFn($label, $row) : $linkFn($label);
-
-            // צבע לא חוזר באותה עמודה
-            $col = $i % $fixedCols;
-            // -- התיקון כאן --
-            $rowIdx = floor($i / $fixedCols); // החלפה של intdiv ל-floor שעובד בכל הגרסאות
-            $colorIndex = ($rowIdx + $col) % $paletteCount;
-            $bg = $palette[$colorIndex];
-
-            $i++;
+          foreach($data as $k=>$row):
+            $label=is_array($row)?($row['label']??(string)$k):(string)$row;
+            $count=(int)($row['count']??0);
+            $href=($id==='collections'||$id==='types')?$linkFn($label,$row):$linkFn($label);
+            $col=$i%$fixedCols;
+            $rowIdx=floor($i/$fixedCols);
+            $colorIndex=($rowIdx+$col)%$paletteCount;
+            $bg=$palette[$colorIndex];
           ?>
-            <a class="pill" href="<?=h($href)?>" style="background: <?=h($bg)?>;">
-              <span class="cnt">(<?= $count ?>)</span>
+            <a class="pill" href="<?=h($href)?>" style="background:<?=h($bg)?>;">
+              <span class="cnt"><?=$i+1?>. (<?=$count?>)</span>
               <span class="nm"><?=h($label)?></span>
             </a>
-          <?php endforeach; ?>
+          <?php
+          $i++;
+          endforeach;
+          ?>
         </div>
-      <?php endif; ?>
+      <?php endif;?>
     </section>
   <?php endforeach; ?>
+
+  <!-- סקשן פוסטרים -->
+  <section class="sec" id="sec-posters" data-sec="posters">
+    <h2>
+      <span class="ico">🎬</span>
+      פוסטרים <span class="cnt">(<?=$total_posters?>)</span>
+      <button type="button" class="sec-toggle" data-sec="posters" data-state="open">הסתר</button>
+    </h2>
+    <div class="grid">
+      <?php
+      $res=$conn->query("SELECT id,title_he,title_en,year FROM posters ORDER BY id DESC");
+      $i=0;
+      while($row=$res->fetch_assoc()):
+        $title_he=trim((string)$row['title_he']);
+        $title_en=trim((string)$row['title_en']);
+        $parts=array_values(array_filter([$title_he,$title_en],fn($x)=>$x!==''));
+        $name=count($parts)?implode(' / ',$parts):'ללא שם';
+        $year=$row['year']?" [{$row['year']}]":"";
+        $label=$name.$year;
+        $col=$i%$fixedCols;
+        $rowIdx=floor($i/$fixedCols);
+        $colorIndex=($rowIdx+$col)%$paletteCount;
+        $bg=$palette[$colorIndex];
+      ?>
+        <a class="pill" href="poster.php?id=<?=$row['id']?>" style="background:<?=h($bg)?>;">
+          <span class="cnt"><?=$i+1?>.</span>
+          <span class="nm"><?=h($label)?></span>
+        </a>
+      <?php
+      $i++;
+      endwhile;
+      ?>
+    </div>
+  </section>
 </div>
 
 <script>
-// כפתור יחיד "הצג/הסתר" — משנה טקסט בהתאם למצב
-document.addEventListener('click', function(e){
-  const btn = e.target.closest('.toggle-btn');
-  if (!btn) return;
-  const id = btn.getAttribute('data-sec');
-  const sec = document.querySelector('.sec[data-sec="'+id+'"]');
-  if (!sec) return;
-
-  const isOpen = btn.getAttribute('data-state') !== 'closed';
-  if (isOpen) {
-    sec.classList.add('collapsed');
-    btn.setAttribute('data-state','closed');
-    btn.textContent = 'הצג';
-  } else {
-    sec.classList.remove('collapsed');
-    btn.setAttribute('data-state','open');
-    btn.textContent = 'הסתר';
-  }
-});
-
-// קפיצה מהתפריט: אם מוסתר — נפתח וגם מעדכן טקסט הכפתור
-document.getElementById('toc').addEventListener('click', function(e){
-  const a = e.target.closest('a[data-sec]');
-  if (!a) return;
-  const id = a.getAttribute('data-sec');
-  const sec = document.querySelector('.sec[data-sec="'+id+'"]');
-  if (!sec) return;
-  if (sec.classList.contains('collapsed')) {
-    sec.classList.remove('collapsed');
-    const btn = document.querySelector('.toggle-btn[data-sec="'+id+'"]');
-    if (btn) { btn.setAttribute('data-state','open'); btn.textContent='הסתר'; }
-  }
-});
-</script>
-<script>
-// === זיכרון מצב הצגה/הסתרה למקטעים (ללא שינוי קוד קיים) ===
-(function () {
-  const KEY = 'fi_hidden_sections_v1';
-
-  function getHidden() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || []; }
-    catch (e) { return []; }
-  }
-  function setHidden(arr) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.from(new Set(arr)))); }
-    catch (e) {}
-  }
-  function addHidden(id) {
-    const a = getHidden();
-    if (!a.includes(id)) { a.push(id); setHidden(a); }
-  }
-  function removeHidden(id) {
-    setHidden(getHidden().filter(function(x){ return x !== id; })); // תאימות לאחור
-  }
-
-  // שחזור מצב בהטענה
-  document.addEventListener('DOMContentLoaded', function () {
-    getHidden().forEach(function (id) {
-      const sec = document.querySelector('.sec[data-sec="' + id + '"]');
-      const btn = document.querySelector('.toggle-btn[data-sec="' + id + '"]');
-      if (sec) sec.classList.add('collapsed');
-      if (btn) { btn.setAttribute('data-state', 'closed'); btn.textContent = 'הצג'; }
-    });
-  });
-
-  // בעת לחיצה על כפתור הצג/הסתר – לעדכן זיכרון אחרי שהקוד המקורי סיים
-  document.addEventListener('click', function (e) {
-    const btn = e.target.closest && e.target.closest('.toggle-btn');
-    if (btn) {
-      const id = btn.getAttribute('data-sec');
-      // להריץ אחרי המאזין המקורי כדי לקרוא את המצב הסופי
-      setTimeout(function () {
-        const sec = document.querySelector('.sec[data-sec="' + id + '"]');
-        if (!sec) return;
-        if (sec.classList.contains('collapsed')) addHidden(id);
-        else removeHidden(id);
-      }, 0);
+(function(){
+  function toggle(id,open){
+    const s=document.querySelector('.sec[data-sec="'+id+'"]');
+    const b=document.querySelector('.sec-toggle[data-sec="'+id+'"]');
+    if(!s) return;
+    if(open){
+      s.classList.remove('collapsed');
+      if(b){b.dataset.state='open';b.textContent='הסתר';}
+    } else {
+      s.classList.add('collapsed');
+      if(b){b.dataset.state='closed';b.textContent='הצג';}
     }
-
-    // קפיצה מתפריט הניווט למקטע — אם הוא נפתח על־ידי הקוד הקיים, להסיר מהזיכרון
-    const tocLink = e.target.closest && e.target.closest('#toc a[data-sec]');
-    if (tocLink) {
-      const id = tocLink.getAttribute('data-sec');
-      setTimeout(function () { removeHidden(id); }, 0);
+  }
+  document.addEventListener('click',e=>{
+    if(e.target.closest('.sec-toggle')){
+      const id=e.target.dataset.sec;
+      const sec=document.querySelector('.sec[data-sec="'+id+'"]');
+      if(sec.classList.contains('collapsed')) toggle(id,true);
+      else toggle(id,false);
     }
-  });
-})();
-</script>
-<script>
-(function () {
-  const KEY = 'fi_hidden_sections_v1';
-
-  function getAllIds() {
-    return Array.from(document.querySelectorAll('.sec[data-sec]'))
-      .map(function(s){ return s.getAttribute('data-sec'); }); // תאימות לאחור
-  }
-
-  function saveHiddenFromDOM() {
-    const hidden = getAllIds().filter(function(id){
-      const sec = document.querySelector('.sec[data-sec="'+id+'"]');
-      return sec && sec.classList.contains('collapsed');
-    });
-    try { localStorage.setItem(KEY, JSON.stringify(hidden)); } catch(e) {}
-  }
-
-  function setAll(open) {
-    document.querySelectorAll('.sec[data-sec]').forEach(function(sec){
-      const id  = sec.getAttribute('data-sec');
-      const btn = document.querySelector('.toggle-btn[data-sec="'+id+'"]');
-      if (open) {
-        sec.classList.remove('collapsed');
-        if (btn) { btn.setAttribute('data-state','open'); btn.textContent='הסתר'; }
-      } else {
-        sec.classList.add('collapsed');
-        if (btn) { btn.setAttribute('data-state','closed'); btn.textContent='הצג'; }
-      }
-    });
-    try {
-      localStorage.setItem(KEY, JSON.stringify(open ? [] : getAllIds()));
-    } catch(e) {}
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    // יצירת שני הכפתורים והזרקתם למעלה (לפני תפריט הקפיצה)
-    const toc = document.getElementById('toc');
-    const wrap = document.querySelector('.wrap');
-    const box = document.createElement('div');
-    box.style.textAlign = 'center';
-    box.style.margin = '8px 0 10px';
-
-    const btnShowAll = document.createElement('button');
-    btnShowAll.type = 'button';
-    btnShowAll.className = 'toggle-btn';
-    btnShowAll.textContent = 'הצג הכל';
-    btnShowAll.addEventListener('click', function(){ setAll(true); }); // תאימות לאחור
-
-    const btnHideAll = document.createElement('button');
-    btnHideAll.type = 'button';
-    btnHideAll.className = 'toggle-btn';
-    btnHideAll.style.marginInlineStart = '8px';
-    btnHideAll.textContent = 'הסתר הכל';
-    btnHideAll.addEventListener('click', function(){ setAll(false); }); // תאימות לאחור
-
-    box.appendChild(btnShowAll);
-    box.appendChild(btnHideAll);
-
-    if (wrap && toc) wrap.insertBefore(box, toc);
-    else if (wrap) wrap.insertBefore(box, wrap.firstChild);
-
-    // שמירה אוטומטית בזיכרון אחרי כל לחיצה על כפתור מקומי של מקטע
-    document.addEventListener('click', function (e) {
-      const btn = e.target.closest && e.target.closest('.toggle-btn');
-      if (!btn || btn === btnShowAll || btn === btnHideAll) return;
-      setTimeout(saveHiddenFromDOM, 0); // אחרי שהמאזין המקורי סיים
-    });
+    if(e.target.closest('.btn-show-all')){
+      document.querySelectorAll('.sec').forEach(s=>toggle(s.dataset.sec,true));
+    }
+    if(e.target.closest('.btn-hide-all')){
+      document.querySelectorAll('.sec').forEach(s=>toggle(s.dataset.sec,false));
+    }
   });
 })();
 </script>
