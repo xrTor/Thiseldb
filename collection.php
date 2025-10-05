@@ -524,6 +524,15 @@ function generate_home_search_link($param, $value) {
             <a href="#" onclick="deleteAllContent(<?= $id ?>)" class="action-btn" style="background:#f9e7cf; color: #856404; border-color: #f7ddb2;">מחק את כל התוכן</a>
             <a href="#" id="togglePinBtn" onclick="togglePin()" class="action-btn">📌 הצג נעיצה</a>
             <a href="#" id="toggleDeleteBtn" onclick="toggleDelete()" class="action-btn">🧹 הצג מחיקה</a>
+            <form action="unpin_all_in_collection.php" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך להסיר נעיצה מכל הפוסטרים באוסף זה?');" style="display: inline-block; margin-left: 10px;">
+    
+    <input type="hidden" name="collection_id" value="<?php echo htmlspecialchars($id); ?>">
+    
+    <button type="submit" class="action-btn" style="background-color: #dc3545; border-color: #dc3545; color: white;">
+        <i class="fas fa-thumbtack"></i> הסר נעיצה מהכל
+    </button>
+    
+</form>
         </div>
     </div>
 

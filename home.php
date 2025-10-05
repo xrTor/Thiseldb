@@ -773,6 +773,40 @@ if ($end_page - $start_page < $max_links - 1) {
   }
 })();
 </script>
+<script>
+// === פתיחת טריילר כפופ־אפ ===
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.trailer-btn');
+  if (!btn) return;
+
+  e.preventDefault();
+  const videoUrl = btn.getAttribute('data-trailer-url');
+  const modal = document.getElementById('trailer-modal');
+  const container = document.getElementById('video-container');
+  if (!modal || !container || !videoUrl) return;
+
+  // הפוך את קישור ה־YouTube ל־embed אם צריך
+  let embedUrl = videoUrl;
+  if (videoUrl.includes('watch?v=')) {
+    embedUrl = videoUrl.replace('watch?v=', 'embed/') + '?autoplay=1';
+  } else if (!videoUrl.includes('autoplay=1')) {
+    embedUrl += (videoUrl.includes('?') ? '&' : '?') + 'autoplay=1';
+  }
+
+  container.innerHTML = `<iframe src="${embedUrl}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+  modal.style.display = 'block';
+});
+
+// === סגירה בלחיצה על X או רקע ===
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('trailer-modal');
+  if (!modal) return;
+  if (e.target.classList.contains('close-btn') || e.target === modal) {
+    modal.style.display = 'none';
+    document.getElementById('video-container').innerHTML = '';
+  }
+});
+</script>
 
 </body>
 </html>
