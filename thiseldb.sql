@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.2
+-- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost:3306
--- Generation Time: ספטמבר 18, 2025 בזמן 08:33 PM
--- גרסת שרת: 10.6.23-MariaDB-log
--- PHP Version: 8.4.11
+-- Host: 127.0.0.1
+-- Generation Time: אוקטובר 05, 2025 בזמן 08:15 PM
+-- גרסת שרת: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `thiseldb_index`
+-- Database: `empty`
 --
 
 -- --------------------------------------------------------
@@ -50,6 +50,26 @@ CREATE TABLE `categories` (
 -- --------------------------------------------------------
 
 --
+-- מבנה טבלה עבור טבלה `chat_messages`
+--
+
+CREATE TABLE `chat_messages` (
+  `id` int(11) NOT NULL,
+  `nickname` varchar(50) DEFAULT 'אורח',
+  `message` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- הוצאת מידע עבור טבלה `chat_messages`
+--
+
+INSERT INTO `chat_messages` (`id`, `nickname`, `message`, `created_at`) VALUES
+(8, 'מייקל', 'ברוכים הבאים!', '2025-10-04 19:23:00');
+
+-- --------------------------------------------------------
+
+--
 -- מבנה טבלה עבור טבלה `collections`
 --
 
@@ -62,6 +82,7 @@ CREATE TABLE `collections` (
   `image_url` text DEFAULT NULL,
   `pinned` tinyint(1) NOT NULL DEFAULT 0,
   `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
+  `is_private` tinyint(1) NOT NULL DEFAULT 0,
   `poster_image_url` varchar(255) DEFAULT NULL,
   `is_public` tinyint(1) NOT NULL DEFAULT 0,
   `cover_poster_id` int(11) DEFAULT NULL
@@ -174,7 +195,7 @@ CREATE TABLE `posters` (
   `poster` text DEFAULT NULL,
   `metacritic_link` varchar(255) DEFAULT NULL,
   `rt_link` varchar(255) DEFAULT NULL,
-  `imdb_id` varchar(15) DEFAULT NULL,
+  `imdb_id` varchar(20) DEFAULT NULL,
   `pending` tinyint(4) DEFAULT 0,
   `collection_name` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
@@ -427,7 +448,7 @@ CREATE TABLE `unique_visitors` (
 --
 
 INSERT INTO `unique_visitors` (`id`, `count`) VALUES
-(1, 4);
+(1, 12);
 
 -- --------------------------------------------------------
 
@@ -459,7 +480,7 @@ CREATE TABLE `visitors` (
 --
 
 INSERT INTO `visitors` (`id`, `count`) VALUES
-(1, 141);
+(1, 5843);
 
 --
 -- Indexes for dumped tables
@@ -475,6 +496,12 @@ ALTER TABLE `actors`
 -- אינדקסים לטבלה `categories`
 --
 ALTER TABLE `categories`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- אינדקסים לטבלה `chat_messages`
+--
+ALTER TABLE `chat_messages`
   ADD PRIMARY KEY (`id`);
 
 --
@@ -659,6 +686,12 @@ ALTER TABLE `categories`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `chat_messages`
+--
+ALTER TABLE `chat_messages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
 -- AUTO_INCREMENT for table `collections`
 --
 ALTER TABLE `collections`
@@ -704,7 +737,7 @@ ALTER TABLE `posters`
 -- AUTO_INCREMENT for table `poster_akas`
 --
 ALTER TABLE `poster_akas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=835760;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=925373;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
@@ -716,7 +749,7 @@ ALTER TABLE `poster_bookmarks`
 -- AUTO_INCREMENT for table `poster_connections`
 --
 ALTER TABLE `poster_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38860;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45472;
 
 --
 -- AUTO_INCREMENT for table `poster_genres_user`
@@ -764,7 +797,7 @@ ALTER TABLE `unique_visitors`
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14148;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18175;
 
 --
 -- AUTO_INCREMENT for table `visitors`
