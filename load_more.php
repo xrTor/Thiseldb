@@ -104,15 +104,7 @@ if (!empty($rows)):
         <img src="<?= htmlspecialchars((!empty($row['image_url'])) ? $row['image_url'] : 'images/no-poster.png') ?>" alt="<?= htmlspecialchars($row['title_en']) ?>" loading="lazy">
       </a> 
 
-      <?php if (isset($stickers_by_poster_id[$row['id']])): ?>
-        <div class="collection-sticker-container">
-            <?php foreach ($stickers_by_poster_id[$row['id']] as $sticker): ?>
-                <a href="collection.php?id=<?= (int)$sticker['collection_id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($sticker['collection_name']) ?>">
-                    <img src="<?= htmlspecialchars($sticker['poster_image_url']) ?>" class="collection-sticker-image" alt="<?= htmlspecialchars($sticker['collection_name']) ?>" style="width: 50px; height: 50px; object-fit: contain;">
-                </a>
-            <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
+      
       <div class="poster-title ltr">
         <a href="poster.php?id=<?= $row['id'] ?>" style="text-decoration: none; color: inherit;">
             <b><?= htmlspecialchars($row['title_en']) ?>
@@ -158,7 +150,15 @@ if (!empty($rows)):
             }
           ?>
       </div>
-
+<?php if (isset($stickers_by_poster_id[$row['id']])): ?>
+        <div class="collection-sticker-container">
+            <?php foreach ($stickers_by_poster_id[$row['id']] as $sticker): ?>
+                <a href="collection.php?id=<?= (int)$sticker['collection_id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($sticker['collection_name']) ?>">
+                    <img src="<?= htmlspecialchars($sticker['poster_image_url']) ?>" class="collection-sticker-image" alt="<?= htmlspecialchars($sticker['collection_name']) ?>" style="width: 50px; height: 50px; object-fit: contain;">
+                </a>
+            <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
       <div class="poster-tags">
           <?php
             $official_genres = array_filter(array_map('trim', explode(',', $row['genres'] ?? '')));
@@ -186,8 +186,10 @@ if (!empty($rows)):
                         if (isset($lang_map[$lang_key])):
                             $flag_data = $lang_map[$lang_key];
                     ?>
-                        <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
-                            <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                        <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
+                                                        <span><?= htmlspecialchars($flag_data['label']) ?></span>
+
+                                                        <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
                         </a>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -202,7 +204,7 @@ if (!empty($rows)):
                         if (isset($lang_map[$lang_key])):
                             $flag_data = $lang_map[$lang_key];
                     ?>
-                        <a href="home.php?lang_code=<?= urlencode($flag_data['label']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
+                        <a href="home.php?lang_code=<?= urlencode($flag_data['label']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
                              <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
                         </a>
                     <?php endif; ?>
@@ -213,10 +215,14 @@ if (!empty($rows)):
 
       <div class="poster-actions rtl" style="margin-top:10px; font-size:13px; text-align:center;">
         <?php if (!empty($row['trailer_url'])): ?>
-            <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button><span style="margin: 0 4px;">|</span>
+            <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
         <?php endif; ?>
-        <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a><span style="margin: 0 4px;">|</span>
-        <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
+        <span class="admin-actions">
+            <?php if (!empty($row['trailer_url'])): ?><span style="margin: 0 4px;">|</span><?php endif; ?>
+            <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
+            <span style="margin: 0 4px;">|</span>
+            <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
+        </span>
       </div>
     </div>
 <?php

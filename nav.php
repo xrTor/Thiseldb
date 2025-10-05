@@ -83,7 +83,7 @@ echo "";
     //'series.php' => '📺 סדרות', 
     'random.php' => '🎲 סרט רנדומלי',
     'new-movie-imdb.php' => '🎞️ סרט חדש', 
-    'collections.php' => '📦 אוספים',
+    'collections.php' => '📁 אוספים',
     'universe.php' => '🌌 ציר זמן',
     'spotlight.php' => '🎯 זרקור', 
     'top.php' => '🏆 TOP 10',
@@ -93,6 +93,7 @@ echo "";
      'contact.php' => '📩 צור קשר',
      'about.php' => '🎉 אודות',
     'export.php' => '💾 ייצוא לCSV',
+    'https://api.thiseldb.me/' => 'ניהול',
   ];
 
     foreach ($pages as $file => $label) {

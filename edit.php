@@ -94,7 +94,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $cols=[
       'type_id'=>['i',$data['type_id']],'is_tv'=>['i',$data['is_tv']],
       'title_en'=>['s',$data['title_en']],'title_he'=>['s',$data['title_he']],'year'=>['s',$data['year']],
-      'imdb_id'=>['s',$data['imdb_id']],'tmdb_url'=>['s',$data['tmdb_url']],'tvdb_url'=>['s',$data['tvdb_url']],
+      'imdb_id'=>['s', ($data['imdb_id'] === '' ? null : $data['imdb_id'])],
+
+      'tmdb_url'=>['s',$data['tmdb_url']],'tvdb_url'=>['s',$data['tvdb_url']],
       'imdb_rating'=>['s',$data['imdb_rating']],'imdb_votes'=>['i',($data['imdb_votes']===''||$data['imdb_votes']===null?null:(int)$data['imdb_votes'])],
       'mc_score'=>['i',($data['mc_score']===''||$data['mc_score']===null?null:(int)$data['mc_score'])],
       'mc_url'=>['s',$data['mc_url']],'rt_score'=>['s',$data['rt_score']],'rt_url'=>['s',$data['rt_url']],

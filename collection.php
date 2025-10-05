@@ -406,7 +406,20 @@ function generate_home_search_link($param, $value) {
         cursor: default;
     }
 
-  </style>
+  
+/* ===== Admin visibility (page-local defaults) =====
+   כברירת מחדל: הכל מוסתר. כפתור הניהול עצמו מסומן ב־.admin-toggle,
+   ואם ב-CSS החיצוני תרצה להציג/להסתיר אותו – פשוט שנה שם.
+*/
+.admin-only { display: none !important; }            /* אלמנטים של ניהול – מוסתרים כברירת מחדל */
+#manage-controls { display: none !important; }       /* פאנל ניהול – מוסתר כברירת מחדל */
+.admin-mode .admin-only { display: inline-flex !important; }  /* הצגה במצב ניהול */
+.admin-mode #manage-controls { display: block !important; }   /* הצג את הפאנל במצב ניהול */
+
+/* כפתור מצב ניהול (ניתן להסתיר/להציג ע״י CSS חיצוני) */
+.admin-toggle { display: none; } /* ברירת מחדל: הכפתור מוסתר. ניתן לשנות בקובץ ה-CSS החיצוני. */
+
+</style>
 </head>
 <body><br>
 <?php if (isset($_GET['csv_success'])): ?>
@@ -416,7 +429,7 @@ function generate_home_search_link($param, $value) {
   </div>
 <?php endif; ?>
 <div class="container">
-  <h2>📦 אוסף: <?= htmlspecialchars($collection['name']) ?></h2>
+  <h2>📂 אוסף: <?= htmlspecialchars($collection['name']) ?></h2>
   <?php if (!empty($collection['image_url'])): ?>
     <img src="<?= htmlspecialchars($collection['image_url']) ?>" alt="תמונה" class="header-img">
   <?php endif; ?>
@@ -486,35 +499,43 @@ function generate_home_search_link($param, $value) {
 
   <div class="controls-wrapper">
     <div class="action-bar">
-        <strong>ניהול:</strong>
-        <form id="csvUploadForm" action="collection_upload_csv_api.php" method="post" enctype="multipart/form-data">
-            <input type="hidden" name="collection_id" value="<?= $id ?>">
-            <input type="file" name="ids_file" id="ids_file" accept=".csv,.txt,text/csv,text/plain" style="display:none" onchange="uploadCsvToCollection(this.form)" multiple>
-            <button type="button" class="action-btn" onclick="document.getElementById('ids_file').click()" style="background-color: #6f42c1; color: #fff; border-color: #6f42c1;">⬆️ העלאת CSV/TXT</button>
-        </form>
-        <button type="button" onclick="openBatchAddModal()" class="action-btn" style="background-color: #d4edda; border-color: #c3e6cb; color: #155724;">➕ הוספה מרובה</button>
-        <a href="edit_collection.php?id=<?= $collection['id'] ?>" class="action-btn">✏️ ערוך</a>
-        
-        <?php if (!empty($collection['is_pinned'])): ?>
-            <a href="collection.php?unpin_collection=<?= $collection['id'] ?>&<?= $redirect_query_string ?>" class="action-btn" style="background:#fff3cd; color:#856404; border-color: #ffeeba;">📌 הסר נעיצת אוסף</a>
-        <?php else: ?>
-            <a href="collection.php?pin_collection=<?= $collection['id'] ?>&<?= $redirect_query_string ?>" class="action-btn" style="background:#d1e7dd; color:#0f5132; border-color: #badbcc;">📌 נעיצת אוסף</a>
-        <?php endif; ?>
+        <!-- <button type="button" id="toggleManageBtn" class="action-btn" onclick="toggleManageMode()" style="background:; color:white;">⚙️ מצב ניהול</button> -->
+    </div>
 
-        <a href="manage_collections.php?delete=<?= $collection['id'] ?>" onclick="return confirm('למחוק את האוסף?')" class="action-btn" style="background:#f8d7da;color:#721c24; border-color: #f5c6cb;">🗑️ מחק אוסף</a>
+    <div id="manage-controls" class="admin-only">
+        <div class="action-bar">
+            <strong>ניהול ועריכה:</strong>
+            <form id="csvUploadForm" action="collection_upload_csv_api.php" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="collection_id" value="<?= $id ?>">
+                <input type="file" name="ids_file" id="ids_file" accept=".csv,.txt,text/csv,text/plain" style="display:none" onchange="uploadCsvToCollection(this.form)" multiple>
+                <button type="button" class="action-btn" onclick="document.getElementById('ids_file').click()" style="background-color: #6f42c1; color: #fff; border-color: #6f42c1;">⬆️ העלאת CSV/TXT</button>
+            </form>
+            <button type="button" onclick="openBatchAddModal()" class="action-btn" style="background-color: #d4edda; border-color: #c3e6cb; color: #155724;">➕ הוספה מרובה</button>
+            <a href="edit_collection.php?id=<?= $collection['id'] ?>" class="action-btn">✏️ ערוך</a>
+            
+            <?php if (!empty($collection['is_pinned'])): ?>
+                <a href="collection.php?unpin_collection=<?= $collection['id'] ?>&<?= $redirect_query_string ?>" class="action-btn" style="background:#fff3cd; color:#856404; border-color: #ffeeba;">📌 הסר נעיצת אוסף</a>
+            <?php else: ?>
+                <a href="collection.php?pin_collection=<?= $collection['id'] ?>&<?= $redirect_query_string ?>" class="action-btn" style="background:#d1e7dd; color:#0f5132; border-color: #badbcc;">📌 נעיצת אוסף</a>
+            <?php endif; ?>
+            
+            <a href="collections.php?delete_collection=<?= $collection['id'] ?>" onclick="return confirm('האם אתה בטוח שברצונך למחוק את האוסף כולו? הפעולה תעביר אותך לדף האוספים הראשי.')" class="action-btn" style="background:#f8d7da;color:#721c24; border-color: #f5c6cb;">🗑️ מחק אוסף</a>
+
+            <a href="#" onclick="deleteAllContent(<?= $id ?>)" class="action-btn" style="background:#f9e7cf; color: #856404; border-color: #f7ddb2;">מחק את כל התוכן</a>
+            <a href="#" id="togglePinBtn" onclick="togglePin()" class="action-btn">📌 הצג נעיצה</a>
+            <a href="#" id="toggleDeleteBtn" onclick="toggleDelete()" class="action-btn">🧹 הצג מחיקה</a>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <strong>תצוגה וכלים:</strong>
+        <button type="button" id="toggleManageBtn" class="action-btn admin-toggle" onclick="toggleManageMode()">🔑 מצב ניהול</button>
+        <button type="button" id="toggleListBtn" onclick="toggleNameList()" class="action-btn" style="background: #e7f5ff; color: #1971c2; border-color: #a5d8ff;">📄 הצג רשימה שמית</button>
+        <a href="collection_csv.php?id=<?= $id ?>" target="_blank" class="action-btn" style="background:#2a964a; color:#fff; border-color: #2a964a;">⬇️ ייצא כ־CSV</a>
         <a href="universe.php?collection_id=<?= $collection['id'] ?>" class="action-btn" style="background:#d1ecf1;color:#0c5460; border-color: #bee5eb;">🌌 הצג בציר זמן</a>
-        <a href="#" onclick="deleteAllContent(<?= $id ?>)" class="action-btn" style="background:#f9e7cf; color: #856404; border-color: #f7ddb2;">מחק את כל התוכן</a>
         <a href="collections.php" class="action-btn" style="margin-right: auto;">⬅ חזרה לרשימת האוספים</a>
     </div>
     <div class="action-bar">
-        <strong>תצוגה:</strong>
-        <button type="button" id="toggleListBtn" onclick="toggleNameList()" class="action-btn" style="background: #e7f5ff; color: #1971c2; border-color: #a5d8ff;">📄 הצג רשימה שמית</button>
-        <a href="collection_csv.php?id=<?= $id ?>" target="_blank" class="action-btn" style="background:#2a964a; color:#fff; border-color: #2a964a;">⬇️ ייצא כ־CSV</a>
-        <a href="#" id="togglePinBtn" onclick="togglePin()" class="action-btn">📌 הצג נעיצה</a>
-        <a href="#" id="toggleDeleteBtn" onclick="toggleDelete()" class="action-btn">🧹 הצג מחיקה</a>
-        
-        <div style="margin-right: auto;"></div>
-
         <span>גודל פוסטרים:</span>
         <div class="btn-group">
             <button onclick="setSize('small')" class="action-btn" id="size-small">קטן</button>
@@ -538,7 +559,7 @@ function generate_home_search_link($param, $value) {
             ?>
         </div>
     </div>
-</div>
+    </div>
   <form method="get" action="collection.php" style="margin:12px 0 15px 0; display:flex; gap:10px; align-items:center; justify-content:center;">
     <input type="hidden" name="id" value="<?= $id ?>">
     <input type="text" name="q" value="<?= htmlspecialchars($filters['q']) ?>" class="main-search-box" placeholder="🔎 חפש שם, שנה, במאי... בתוך האוסף">
@@ -669,14 +690,14 @@ function generate_home_search_link($param, $value) {
               </div>
             </div>
 
-            <div class="pin-box">
+            <div class="pin-box admin-only">
               <?php if (!empty($p['is_pinned'])): ?>
                 <a href="collection.php?unpin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 הסר נעיצה</a>
               <?php else: ?>
                 <a href="collection.php?pin_poster=<?= $p['id'] ?>&<?= $base_link_params ?>" class="pin-btn">📌 נעיצה</a>
               <?php endif; ?>
             </div>
-            <div class="delete-box">
+            <div class="delete-box admin-only">
               <form method="post" action="remove_from_collection.php">
                 <input type="hidden" name="collection_id" value="<?= $collection['id'] ?>">
                 <input type="hidden" name="poster_id" value="<?= $p['id'] ?>">
@@ -890,7 +911,6 @@ tt1375666
     if (btn) btn.classList.add('active');
   }
 
-  // START: MODIFIED FUNCTION
   function toggleNameList() {
     const sidebar = document.getElementById('name-list-sidebar');
     const button = document.getElementById('toggleListBtn');
@@ -901,7 +921,31 @@ tt1375666
         localStorage.setItem('isNameListHidden', isHidden); // Save state
     }
   }
-  // END: MODIFIED FUNCTION
+
+  // === START: NEW MANAGEMENT MODE SCRIPT ===
+function toggleManageMode(){
+  var body = document.body;
+  var isOn = body.classList.toggle('admin-mode');
+  localStorage.setItem('adminMode', isOn ? '1' : '0');
+  var btn = document.getElementById('toggleManageBtn');
+  if (btn){
+    btn.innerHTML = isOn ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול';
+    if (isOn) { btn.classList.add('active'); } else { btn.classList.remove('active'); }
+  }
+}
+
+function initManageFromStorage(){
+  var saved = (localStorage.getItem('adminMode') === '1');
+  if (saved){ document.body.classList.add('admin-mode'); }
+  var btn = document.getElementById('toggleManageBtn');
+  if (btn){
+    btn.innerHTML = saved ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול';
+    if (saved) { btn.classList.add('active'); } else { btn.classList.remove('active'); }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initManageFromStorage);
+// === END: NEW MANAGEMENT MODE SCRIPT ===
 
 
   window.addEventListener('DOMContentLoaded', () => {
@@ -930,7 +974,6 @@ tt1375666
         pinBtn.innerHTML = '📌 הצג נעיצה';
     }
     
-    // START: ADDED LOGIC FOR NAME LIST MEMORY
     const nameListSidebar = document.getElementById('name-list-sidebar');
     const toggleListBtn = document.getElementById('toggleListBtn');
     if (localStorage.getItem('isNameListHidden') === 'true') {
@@ -940,14 +983,17 @@ tt1375666
         if(nameListSidebar) nameListSidebar.classList.remove('hide-list');
         if(toggleListBtn) toggleListBtn.innerHTML = '📄 הסתר רשימה שמית';
     }
-    // END: ADDED LOGIC
+
+    // Initialize Management Mode
+    const savedManage = localStorage.getItem('isManageMode') === 'true';
+    updateManageUI(savedManage);
 
     document.querySelectorAll('.batch-add-form').forEach(form => {
       form.addEventListener('submit', function(event) {
         const textarea = this.querySelector('textarea[name="poster_ids_raw"]');
         if (textarea) {
           let content = textarea.value;
-          const cleanedContent = content.replace(/https?:\/\/[^\s/]+\/.*?poster\.php\?id=(\d+)/g, '$1');
+          const cleanedContent = content.replace(/https?:\/\/[^\s\/]+\/.*?poster\.php\?id=(\d+)/g, '$1');
           textarea.value = cleanedContent;
         }
       });

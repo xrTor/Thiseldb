@@ -151,6 +151,11 @@ foreach ($languages as $lang) {
     margin: 0 4px;
     color: #ccc;
 }
+.flags-container a { 
+        font-size: 16px; /* הקטנת הגופן כדי להתאים לתצוגה צפופה */
+        color: #333;    /* צבע הטקסט - ניתן לשנות */
+        font-weight: 500;
+    }
 </style>
 <?php
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
@@ -250,8 +255,24 @@ if (!empty($rows)) {
   <meta charset="UTF-8">
   <title>Thiseldb</title>
   <link rel="stylesheet" href="style.css">
+<style>
+.admin-actions{display:none !important;}
+.admin-mode .admin-actions{display:inline !important;}
+</style>
+
 </head>
 <body class="rtl">
+
+
+<div style="width:100%; max-width:900px; margin:20px auto;">
+    <iframe src="chat.php" style="width:100%; height:470px; border:1px solid #444; border-radius:10px;"></iframe>
+</div>
+
+<!-- <?php include 'chat.php'; ?> -->
+
+<div style="text-align:center; margin:10px;">
+  <button id="toggle-admin" style="padding:6px 12px; cursor:pointer;">🔑 מצב ניהול</button>
+</div>
 
 <div class="poster-wall" id="poster-wall">
 <?php if (empty($rows) && $page === 1): ?>
@@ -309,15 +330,7 @@ if (!empty($rows)) {
           ?>
       </div>
       
-      <?php if (isset($stickers_by_poster_id[$row['id']])): ?>
-        <div class="collection-sticker-container">
-            <?php foreach ($stickers_by_poster_id[$row['id']] as $sticker): ?>
-                <a href="collection.php?id=<?= (int)$sticker['collection_id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($sticker['collection_name']) ?>">
-                    <img src="<?= htmlspecialchars($sticker['poster_image_url']) ?>" class="collection-sticker-image" alt="<?= htmlspecialchars($sticker['collection_name']) ?>" style="width: 50px; height: 50px; object-fit: contain;">
-                </a>
-            <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
+      
       <div class="poster-tags">
           <?php
             $official_genres = array_filter(array_map('trim', explode(',', $row['genres'] ?? '')));
@@ -345,8 +358,10 @@ if (!empty($rows)) {
                         if (isset($lang_map[$lang_key])):
                             $flag_data = $lang_map[$lang_key];
                     ?>
-                        <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
-                            <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                        <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
+                                                        <span><?= htmlspecialchars($flag_data['label']) ?></span>
+
+                                                        <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
                         </a>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -361,7 +376,7 @@ if (!empty($rows)) {
                         if (isset($lang_map[$lang_key])):
                             $flag_data = $lang_map[$lang_key];
                     ?>
-                        <a href="home.php?lang_code=<?= urlencode($flag_data['label']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
+                        <a href="home.php?lang_code=<?= urlencode($flag_data['label']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
                              <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
                         </a>
                     <?php endif; ?>
@@ -369,16 +384,27 @@ if (!empty($rows)) {
                 </div>
             <?php endif; ?>
       </div>
-
+<?php if (isset($stickers_by_poster_id[$row['id']])): ?>
+        <div class="collection-sticker-container">
+            <?php foreach ($stickers_by_poster_id[$row['id']] as $sticker): ?>
+                <a href="collection.php?id=<?= (int)$sticker['collection_id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($sticker['collection_name']) ?>">
+                    <img src="<?= htmlspecialchars($sticker['poster_image_url']) ?>" class="collection-sticker-image" alt="<?= htmlspecialchars($sticker['collection_name']) ?>" style="width: 50px; height: 50px; object-fit: contain;">
+                </a>
+            <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
       <div class="poster-actions">
-        <?php if (!empty($row['trailer_url'])): ?>
-            <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
-            <span class="separator">|</span>
-        <?php endif; ?>
-        <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
-        <span class="separator">|</span>
-        <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
-      </div>
+  <?php if (!empty($row['trailer_url'])): ?>
+      <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
+  <?php endif; ?>
+  <span class="admin-actions">
+      <?php if (!empty($row['trailer_url'])): ?><span class="separator">|</span><?php endif; ?>
+      <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
+      <span class="separator">|</span>
+      <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
+  </span>
+</div>
+
       <br>
     </div>
   <?php endforeach; ?>
@@ -487,6 +513,40 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const toggleBtn = document.getElementById("toggle-admin");
+  if (!toggleBtn) return;
+  let adminMode = false;
+  toggleBtn.addEventListener("click", () => {
+    adminMode = !adminMode;
+    document.querySelectorAll(".admin-actions").forEach(el => {
+      el.style.display = adminMode ? "inline" : "none";
+    });
+    toggleBtn.textContent = adminMode ? "🚪 יציאה ממצב ניהול" : "🔑 מצב ניהול";
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var body = document.body;
+  var btn = document.getElementById('toggle-admin');
+  if (localStorage.getItem('adminMode') === '1') {
+    body.classList.add('admin-mode');
+    if (btn) btn.textContent = '🚪 יציאה ממצב ניהול';
+  }
+  if (btn) {
+    btn.addEventListener('click', function() {
+      body.classList.toggle('admin-mode');
+      var on = body.classList.contains('admin-mode');
+      localStorage.setItem('adminMode', on ? '1' : '0');
+      btn.textContent = on ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול';
+    });
+  }
+});
+</script>
 </body>
 </html>
 

@@ -24,5 +24,7 @@ if (isset($conn) && $conn instanceof mysqli) {
    </div><br><br>
 </footer>
 
+<script src="admin_script.js"></script>
+
 </body>
 </html>

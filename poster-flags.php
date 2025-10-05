@@ -38,7 +38,7 @@ function safeJoin($arr, $sep=', '){
   if($arr===null) return '';
   if(!is_array($arr)) $arr = [$arr];
   $vals=array_map(fn($t)=>trim((string)$t),flatten_strings($arr));
-  $vals=array_values(array_filter($vals,fn($x)=>$x!=='')); 
+  $vals=array_values(array_filter($vals,fn($x)=>$x!==''));
   return htmlspecialchars(implode($sep,$vals),ENT_QUOTES,'UTF-8');
 }
 function H($v){return (is_array($v)||is_object($v))?safeJoin($v):safeHtml($v);}
@@ -63,50 +63,7 @@ if (isset($_GET['id']) && ctype_digit((string)$_GET['id'])) {
 }
 if (!$posterRow) {
   http_response_code(404);
-  $__HTML404 = <<<'HTML'
-<!doctype html><html><head><title>404 Not Found</title></head><body>
-<!-- Admin Toggle (all-in-one, visible by default) -->
-<div class="manage-toggle-bar" style="display:flex;justify-content:flex-end;margin:10px 0;">
-  <button id="manage-toggle-visible" type="button">🔑 מצב ניהול</button>
-</div>
-<h1>Poster Not Found</h1><script>
-(function(){
-  function btn(){ return document.getElementById('manage-toggle-visible') || document.getElementById('toggle-admin') || document.getElementById('admin-toggle') || document.querySelector('.admin-toggle'); }
-  function label(active){ var b = btn(); if (b) b.textContent = active ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול'; }
-  function apply(active){
-    document.body.classList.toggle('admin-mode', !!active);
-    // Make sure .admin-only responds even if CSS is strict
-    document.querySelectorAll('.admin-only').forEach(function(el){
-      el.style.removeProperty('display');
-      if (!active) el.style.display = 'none';
-      else if (getComputedStyle(el).display === 'none') {
-        el.style.display = (el.classList.contains('actions') || el.classList.contains('flex')) ? 'flex' : 'inline-flex';
-      }
-    });
-    label(active);
-  }
-  function getActive(){ return localStorage.getItem('adminMode') === '1'; }
-  function setActive(a){ localStorage.setItem('adminMode', a ? '1' : '0'); apply(a); }
-
-  function init(){
-    if (localStorage.getItem('adminMode') === null) localStorage.setItem('adminMode','0');
-    apply(getActive());
-    var b = btn();
-    if (b) b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setActive(!getActive()); }, {capture:false});
-    // delegation fallback
-    document.addEventListener('click', function(e){
-      var t = e.target && e.target.closest && e.target.closest('#manage-toggle-visible, #toggle-admin, #admin-toggle, .admin-toggle');
-      if (!t) return;
-      e.preventDefault(); e.stopPropagation();
-      setActive(!getActive());
-    }, {capture:true});
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-})();
-</script>
-</body></html>
-HTML;
-die($__HTML404);
+  die('<!doctype html><html><head><title>404 Not Found</title></head><body><h1>Poster Not Found</h1></body></html>');
 }
 
 /* חשוב: לזהות את ה-id מתוך השורה שנשלפה (מטפל במצב של tt=) */
@@ -223,7 +180,7 @@ if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
     if ($raw_input !== '') {
         // Split input by newlines, commas, or semicolons
         $tags = preg_split('/[,\n;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
-        
+
         $stmt_check = $conn->prepare("SELECT 1 FROM user_tags WHERE poster_id=? AND genre=?");
         $stmt_insert = $conn->prepare("INSERT INTO user_tags (poster_id, genre) VALUES (?, ?)");
         $existing_genres_lc = array_map(fn($g) => mb_strtolower($g, 'UTF-8'), $genres);
@@ -262,7 +219,7 @@ if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
     if ($raw_input !== '') {
         // Split input by newlines, spaces, commas, or semicolons.
         $identifiers = preg_split('/[\s,;]+/', $raw_input, -1, PREG_SPLIT_NO_EMPTY);
-        
+
         $stmt_imdb = $conn->prepare("SELECT id FROM posters WHERE imdb_id=?");
 
         foreach ($identifiers as $__in) {
@@ -299,11 +256,24 @@ if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
         $stmt_imdb->close();
     }
   }
-  
+
   if (isset($_POST['sim_remove'])) {
     $__sid=(int)$_POST['sim_remove'];
     $conn->query("DELETE FROM poster_similar WHERE poster_id={$__pa_id} AND similar_id={$__sid}");
     $conn->query("DELETE FROM poster_similar WHERE poster_id={$__sid} AND similar_id={$__pa_id}");
+  }
+
+  /* poster_languages (עדכון שפות/דגלים) */
+  if (isset($_POST['lang_flags']) && is_array($_POST['lang_flags'])) {
+      $new_flags = array_map('trim', $_POST['lang_flags']);
+      $new_flags = array_filter($new_flags, fn($x)=>$x!=='');
+      $conn->query("DELETE FROM poster_languages WHERE poster_id={$__pa_id}");
+      $ins = $conn->prepare("INSERT INTO poster_languages (poster_id, lang_code) VALUES (?, ?)");
+      foreach ($new_flags as $lc) {
+          $ins->bind_param("is", $__pa_id, $lc);
+          $ins->execute();
+      }
+      $ins->close();
   }
 }
 
@@ -330,6 +300,19 @@ if (isset($conn) && $__pa_id>0){
   if($r=$conn->query("SELECT c.id, c.name, c.poster_image_url FROM poster_collections pc JOIN collections c ON c.id=pc.collection_id WHERE pc.poster_id={$__pa_id} ORDER BY c.name")){
     while($r && $c=$r->fetch_assoc()){ $__pa_collections[]=$c; }
   }
+}
+
+/* poster_languages — שליפה לתצוגה/סימון בטופס העליון */
+$__pa_flags = [];
+if ($__pa_id > 0 && isset($conn)) {
+  $stf = $conn->prepare("SELECT lang_code FROM poster_languages WHERE poster_id=? ORDER BY lang_code");
+  $stf->bind_param("i", $__pa_id);
+  $stf->execute();
+  $rsf = $stf->get_result();
+  while ($rsf && ($ln = $rsf->fetch_assoc())) {
+    $__pa_flags[] = strtolower(trim($ln['lang_code']));
+  }
+  $stf->close();
 }
 /* =================== /ADD-ONLY BLOCK =================== */
 
@@ -653,13 +636,7 @@ body.theme-light footer a {
 body.view-commas .collection-list .chip::after {
   content: "" !important;
 }
-  
-/* Admin-only visibility (page-scoped) */
-.admin-only { display: none !important; }
-.admin-mode .admin-only { display: inline-flex !important; }
-.admin-mode .actions.admin-only { display: flex !important; }
-
-</style>
+  </style>
 </head>
 <body>
 <script>document.addEventListener('DOMContentLoaded',()=>{document.body.classList.add('mgmt-hidden');});</script>
@@ -703,8 +680,8 @@ body.view-commas .collection-list .chip::after {
     echo '<a href="' . htmlspecialchars($typeLink, ENT_QUOTES) . '" class="chip-static type-chip" style="text-decoration:none;">';
 
     if (!empty($tr['image']) && is_file("images/types/".$tr['image'])) {
-        echo '<img src="images/types/'.htmlspecialchars($tr['image'],ENT_QUOTES).'" 
-                   alt="'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'" 
+        echo '<img src="images/types/'.htmlspecialchars($tr['image'],ENT_QUOTES).'"
+                   alt="'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'"
                    class="type-chip-img">';
         echo '<div class="type-chip-label">'.htmlspecialchars($tr['label_he'],ENT_QUOTES).'</div>';
     } elseif (!empty($tr['icon'])) {
@@ -758,8 +735,8 @@ if (!empty($networks)) {
                 }
 
                 echo '<a href="home.php?network='.urlencode($net).'">';
-                echo '<img src="'.htmlspecialchars($logoPath, ENT_QUOTES, "UTF-8").'" 
-                           alt="'.htmlspecialchars($net, ENT_QUOTES, "UTF-8").'" 
+                echo '<img src="'.htmlspecialchars($logoPath, ENT_QUOTES, "UTF-8").'"
+                           alt="'.htmlspecialchars($net, ENT_QUOTES, "UTF-8").'"
                            class="'.$class.'">';
                 echo '</a>';
                 break; // מצאנו → מפסיקים לבדוק סיומות נוספות
@@ -830,16 +807,38 @@ if (!empty($networks)) {
 
       <div class="content">
 
-        <div class="toolbar">
-          <button id="toggle-admin" class="btn" type="button">🔑 מצב ניהול</button>
+        <!-- ====== בלוק ניהול דגלים – מוצג תמיד בראש התוכן ====== -->
+        <div class="section">
+          <h3>🎌 ניהול שפות (דגלים)</h3>
+          <form method="post" class="row-forms">
+            <div class="flags-box" style="display:flex; flex-wrap:wrap; gap:8px;">
+              <?php
+                ob_start(); include 'flags.php'; $flags_html=ob_get_clean();
+                $flags_html = str_replace('name="languages[]"','name="lang_flags[]"',$flags_html);
+                $flags_html = str_replace("name='languages[]'","name='lang_flags[]'",$flags_html);
 
+                if(!empty($__pa_flags)){
+                  foreach($__pa_flags as $lc2){
+                    $pat='~(<input\b[^>]*\bname=(["\'])lang_flags\[\]\2[^>]*\bvalue=(["\'])'.preg_quote($lc2,'~').'\3[^>]*)(?=>)~i';
+                    $flags_html=preg_replace($pat,'$1 checked',$flags_html);
+                  }
+                }
+                echo $flags_html;
+              ?>
+            </div>
+            <button type="submit" class="btn">💾 שמור דגלים</button>
+          </form>
+        </div>
+        <!-- ====== /בלוק ניהול דגלים ====== -->
+
+        <div class="toolbar">
           <button type="button" id="btn-theme-toggle" class="btn" title="החלף מצב תצוגה">🌞 מצב בהיר</button>
 <button type="button" id="btn-view-toggle" class="btn">🔀 מצב פסיקים</button>
 
           <a class="btn" href="report.php?poster_id=<?= (int)$__pa_id ?>">🚨 דווח</a>
-          <a class="btn admin-only" href="edit.php?id=<?= (int)$__pa_id ?>">✏️ ערוך</a>
-          <a class="btn admin-only" href="delete.php?id=<?= (int)$__pa_id ?>" onclick="return confirm('למחוק את הפוסטר?')">🗑️ מחק</a>
-          <button type="button" id="btn-mgmt-toggle" class="btn admin-only">⚙️ הצג/הסתר ניהול</button>
+          <a class="btn" href="edit.php?id=<?= (int)$__pa_id ?>">✏️ ערוך</a>
+          <a class="btn" href="delete.php?id=<?= (int)$__pa_id ?>" onclick="return confirm('למחוק את הפוסטר?')">🗑️ מחק</a>
+          <button type="button" id="btn-mgmt-toggle" class="btn">⚙️ הצג/הסתר ניהול</button>
 
           <form method="post" style="display:inline-flex;gap:8px;align-items:center;margin-inline-start:8px;">
             <button type="submit" name="pv_action" value="like" class="btn" style="<?= ($__pa_user_vote==='like'?'outline:2px solid #3d6c42;':'') ?>">❤️ אהבתי (<?= (int)$__pa_like ?>)</button>
@@ -870,7 +869,7 @@ if (!empty($networks)) {
             </div>
           </div>
         <?php endif; ?>
-        
+
 
         <?php if (!empty($languages)): ?>
   <div class="section">
@@ -903,7 +902,6 @@ if (!empty($networks)) {
 
 
 
-   
 
         <?php if (!empty($genres)): ?>
           <div class="section">
@@ -927,7 +925,7 @@ if (!empty($networks)) {
           </div>
         <?php endif; ?>
 
-        <div id="mgmt-panel" class="mgmt-only admin-only">
+        <div id="mgmt-panel" class="mgmt-only">
           <h4>ניהול תגיות וסרטים דומים</h4>
 
           <div class="section" style="border-top:none;padding-top:0;">
@@ -1110,10 +1108,10 @@ if (!empty($networks)) {
     var btn = e.target.closest && e.target.closest('#btn-mgmt-toggle');
     if(btn){
       if(document.body.classList.contains('mgmt-hidden')){
-        document.body.classList.remove('mgmt-hidden'); 
+        document.body.classList.remove('mgmt-hidden');
         document.body.classList.add('mgmt-open');
       } else {
-        document.body.classList.remove('mgmt-open'); 
+        document.body.classList.remove('mgmt-open');
         document.body.classList.add('mgmt-hidden');
       }
       return;
@@ -1134,7 +1132,7 @@ if (!empty($networks)) {
           var ell = document.querySelector(ellSel);
           if (ell) {
             ell.classList.toggle('hidden', wasHidden);
- 
+
           }
         }
 
@@ -1210,41 +1208,6 @@ if (!empty($networks)) {
 })();
 </script>
 
-<script>
-(function(){
-  function btn(){ return document.getElementById('manage-toggle-visible') || document.getElementById('toggle-admin') || document.getElementById('admin-toggle') || document.querySelector('.admin-toggle'); }
-  function label(active){ var b = btn(); if (b) b.textContent = active ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול'; }
-  function apply(active){
-    document.body.classList.toggle('admin-mode', !!active);
-    // Make sure .admin-only responds even if CSS is strict
-    document.querySelectorAll('.admin-only').forEach(function(el){
-      el.style.removeProperty('display');
-      if (!active) el.style.display = 'none';
-      else if (getComputedStyle(el).display === 'none') {
-        el.style.display = (el.classList.contains('actions') || el.classList.contains('flex')) ? 'flex' : 'inline-flex';
-      }
-    });
-    label(active);
-  }
-  function getActive(){ return localStorage.getItem('adminMode') === '1'; }
-  function setActive(a){ localStorage.setItem('adminMode', a ? '1' : '0'); apply(a); }
-
-  function init(){
-    if (localStorage.getItem('adminMode') === null) localStorage.setItem('adminMode','0');
-    apply(getActive());
-    var b = btn();
-    if (b) b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setActive(!getActive()); }, {capture:false});
-    // delegation fallback
-    document.addEventListener('click', function(e){
-      var t = e.target && e.target.closest && e.target.closest('#manage-toggle-visible, #toggle-admin, #admin-toggle, .admin-toggle');
-      if (!t) return;
-      e.preventDefault(); e.stopPropagation();
-      setActive(!getActive());
-    }, {capture:true});
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-})();
-</script>
 </body>
 </html>
 <?php include 'footer.php'; ?>

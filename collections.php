@@ -13,8 +13,7 @@ if (isset($_GET['pin'])) {
   $stmt = $conn->prepare("UPDATE collections SET is_pinned = 1, updated_at = NOW() WHERE id = ?");
   $stmt->bind_param("i", $pin_id);
   $stmt->execute();
-  $redirect_params = $_GET;
-  unset($redirect_params['pin']);
+  $redirect_params = $_GET; unset($redirect_params['pin']);
   header("Location: collections.php?" . http_build_query($redirect_params));
   exit;
 }
@@ -23,8 +22,27 @@ if (isset($_GET['unpin'])) {
   $stmt = $conn->prepare("UPDATE collections SET is_pinned = 0, updated_at = NOW() WHERE id = ?");
   $stmt->bind_param("i", $unpin_id);
   $stmt->execute();
-  $redirect_params = $_GET;
-  unset($redirect_params['unpin']);
+  $redirect_params = $_GET; unset($redirect_params['unpin']);
+  header("Location: collections.php?" . http_build_query($redirect_params));
+  exit;
+}
+
+// --- לוגיקה להפיכת אוסף לפרטי/ציבורי ---
+if (isset($_GET['make_private'])) {
+  $private_id = (int)$_GET['make_private'];
+  $stmt = $conn->prepare("UPDATE collections SET is_private = 1, is_pinned = 0, updated_at = NOW() WHERE id = ?");
+  $stmt->bind_param("i", $private_id);
+  $stmt->execute();
+  $redirect_params = $_GET; unset($redirect_params['make_private']);
+  header("Location: collections.php?" . http_build_query($redirect_params));
+  exit;
+}
+if (isset($_GET['make_public'])) {
+  $public_id = (int)$_GET['make_public'];
+  $stmt = $conn->prepare("UPDATE collections SET is_private = 0, updated_at = NOW() WHERE id = ?");
+  $stmt->bind_param("i", $public_id);
+  $stmt->execute();
+  $redirect_params = $_GET; unset($redirect_params['make_public']);
   header("Location: collections.php?" . http_build_query($redirect_params));
   exit;
 }
@@ -44,13 +62,14 @@ $per_page = intval($per_page_value);
 $per_page_for_query = ($per_page === 0) ? 999999 : $per_page;
 $offset = ($page - 1) * $per_page_for_query;
 
-$sort = $_GET['sort'] ?? 'created_desc';
+$sort = $_GET['sort'] ?? 'updated_desc';
 switch ($sort) {
   case 'created_asc': $order = "c.created_at ASC"; break;
+  case 'created_desc':$order = "c.created_at DESC"; break;
   case 'name':        $order = "c.name ASC";        break;
   case 'count':       $order = "total_items DESC";  break;
-  case 'updated_desc':$order = "c.updated_at DESC"; break;
-  default:            $order = "c.created_at DESC";
+  case 'updated_desc':
+  default:            $order = "c.updated_at DESC";
 }
 
 // פרמטרי חיפוש
@@ -63,47 +82,86 @@ if (isset($_GET['txt'])) {
     $search_in_desc = true;
 }
 
-// --- בניית שאילתות דינמית (בשיטה חדשה ויציבה) ---
-$where_conditions = ["c.is_pinned = 0"];
+// פרמטרים להצגת קבוצות מיוחדות
+$show_private = isset($_GET['show_private']);
+$show_pinned = !isset($_GET['hide_pinned']);
 
+// --- בניית שאילתות דינמית ---
+
+// פיצול לוגיקת החיפוש לחלק נפרד לשימוש חוזר
+$search_sql_part = '';
 if ($search_txt !== '' && ($search_in_title || $search_in_desc)) {
-    // מנקים את טקסט החיפוש כדי למנוע SQL Injection
-    $safe_search_txt = $conn->real_escape_string($search_txt);
-    $search_term_like = "%{$safe_search_txt}%";
-    
-    $search_or_conditions = [];
-    if ($search_in_title) {
-        $search_or_conditions[] = "c.name LIKE '{$search_term_like}'";
+    $search_words = array_filter(explode(' ', $search_txt));
+    $search_and_conditions = [];
+    foreach ($search_words as $word) {
+        $safe_word = $conn->real_escape_string($word);
+        $search_term_like = "%{$safe_word}%";
+        $search_or_conditions_for_word = [];
+        if ($search_in_title) $search_or_conditions_for_word[] = "c.name LIKE '{$search_term_like}'";
+        if ($search_in_desc) $search_or_conditions_for_word[] = "c.description LIKE '{$search_term_like}'";
+        if (!empty($search_or_conditions_for_word)) {
+            $search_and_conditions[] = "(" . implode(" OR ", $search_or_conditions_for_word) . ")";
+        }
     }
-    if ($search_in_desc) {
-        $search_or_conditions[] = "c.description LIKE '{$search_term_like}'";
-    }
-    
-    if (!empty($search_or_conditions)) {
-        $where_conditions[] = "(" . implode(" OR ", $search_or_conditions) . ")";
+    if (!empty($search_and_conditions)) {
+        $search_sql_part = implode(" AND ", $search_and_conditions);
     }
 }
 
+// בניית תנאי השאילתה הראשית (אוספים ציבוריים)
+$where_conditions = ["c.is_pinned = 0", "c.is_private = 0"];
+if ($search_sql_part !== '') {
+    $where_conditions[] = $search_sql_part;
+}
 $final_where_clause = implode(" AND ", $where_conditions);
 
 // ספירות
 $total_all_collections = $conn->query("SELECT COUNT(*) FROM collections")->fetch_row()[0];
 $count_sql = "SELECT COUNT(DISTINCT c.id) FROM collections c WHERE " . $final_where_clause;
-$total_unpinned_collections = $conn->query($count_sql)->fetch_row()[0] ?? 0;
-$total_pages = $per_page_for_query > 0 ? ceil($total_unpinned_collections / $per_page_for_query) : 0;
+$total_public_collections = $conn->query($count_sql)->fetch_row()[0] ?? 0;
+$total_pages = $per_page_for_query > 0 ? ceil($total_public_collections / $per_page_for_query) : 0;
 
 // שליפת נעוצים
-$pinned_res = $conn->query("
-  SELECT c.*, COUNT(pc.poster_id) AS total_items
-  FROM collections c
-  LEFT JOIN poster_collections pc ON c.id = pc.collection_id
-  WHERE c.is_pinned = 1
-  GROUP BY c.id
-  ORDER BY c.name ASC
-");
+$pinned_data = [];
+// שינוי: שליפת נעוצים תתבצע רק אם לא הוסתרו ורק בעמוד הראשון
+if ($show_pinned && $page == 1) {
+    $pinned_sql = "
+      SELECT c.*, COUNT(pc.poster_id) AS total_items
+      FROM collections c
+      LEFT JOIN poster_collections pc ON c.id = pc.collection_id
+      WHERE c.is_pinned = 1 AND c.is_private = 0
+    ";
+    
+    if ($search_sql_part !== '') {
+        $pinned_sql .= " AND ({$search_sql_part})";
+    }
 
-// שליפת לא-נעוצים
-$unpinned_sql = "
+    $pinned_sql .= " GROUP BY c.id ORDER BY c.name ASC";
+    
+    $pinned_res = $conn->query($pinned_sql);
+    while ($row = $pinned_res->fetch_assoc()) {
+        $pinned_data[] = $row;
+    }
+}
+
+// שליפת פרטיים (רק אם המשתמש ביקש)
+$private_data = [];
+if ($show_private) {
+    $private_res = $conn->query("
+      SELECT c.*, COUNT(pc.poster_id) AS total_items
+      FROM collections c
+      LEFT JOIN poster_collections pc ON c.id = pc.collection_id
+      WHERE c.is_private = 1
+      GROUP BY c.id
+      ORDER BY $order
+    ");
+    while ($row = $private_res->fetch_assoc()) {
+        $private_data[] = $row;
+    }
+}
+
+// שליפת אוספים ציבוריים (לא נעוצים)
+$public_sql = "
   SELECT c.*, COUNT(pc.poster_id) AS total_items
   FROM collections c
   LEFT JOIN poster_collections pc ON c.id = pc.collection_id
@@ -113,14 +171,13 @@ $unpinned_sql = "
   LIMIT ? OFFSET ?
 ";
 
-$unpinned_data = [];
-if ($stmt_data = $conn->prepare($unpinned_sql)) {
-    // כאן נשתמש ב-bind_param רק עבור מספרים (LIMIT/OFFSET), שזה עובד תמיד
+$public_data = [];
+if ($stmt_data = $conn->prepare($public_sql)) {
     $stmt_data->bind_param('ii', $per_page_for_query, $offset);
     $stmt_data->execute();
     $result = $stmt_data->get_result();
     while ($row = $result->fetch_assoc()) {
-        $unpinned_data[] = $row;
+        $public_data[] = $row;
     }
     $stmt_data->close();
 }
@@ -133,20 +190,22 @@ include 'header.php';
 <head>
   <meta charset="UTF-8">
   <title>📁 רשימת אוספים</title>
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
+    /* ---- CSS קיים שלך (נשמר) ---- */
     body { font-family:Arial, sans-serif; direction:rtl; background:#f9f9f9; padding:10px; }
     .collection-card {
       background:white; padding:20px; margin:10px auto;
       border-radius:6px; box-shadow:0 0 4px rgba(0,0,0,0.1); max-width:1100px; position:relative; text-align:right;
     }
     .collection-card.pinned { background-color:#fffff0; border-left:5px solid #ffd700; }
+    .collection-card.private { background-color:#f0f8ff; border-left:5px solid #4682b4; }
     .collection-card h3 { margin:0 0 10px 0; font-size:20px; }
     .collection-card .description { color:#555; margin-bottom:10px; }
     .collection-card .meta-info { display: flex; align-items: center; gap: 15px; color: #888; font-size: 13px; }
-    .collection-card .actions { position:absolute; top:20px; left:20px; }
+    .collection-card .actions { display: flex; flex-wrap: wrap; gap: 12px; position:absolute; top:20px; left:20px; }
     .collection-card .actions a, .collection-card .actions button {
-      margin-right:6px; text-decoration:none; font-size:14px; background:none; border:none; color:#007bff; cursor:pointer;
+      text-decoration:none; font-size:14px; background:none; border:none; color:#007bff; cursor:pointer;
     }
     .collection-card .actions a:hover, .collection-card .actions button:hover { text-decoration:underline; }
     .message {
@@ -168,17 +227,15 @@ include 'header.php';
     .modal-content textarea { width:100%; font-size:15px; padding:8px; border-radius:7px; border:1px solid #bbb; background:#fafcff; margin-bottom:10px; resize:vertical; min-height:120px; }
     .modal-content button { width:100%; font-size:16px; padding:10px 0; border-radius:7px; border:none; background:#007bff; color:#fff; margin-top:6px; cursor:pointer; }
 
-    /* --- עיצוב חדש לבקרות העליונות --- */
+    /* --- עיצוב קיים לבקרות העליונות --- */
     .main-controls { display:flex; flex-direction: column; align-items: center; gap: 20px; margin-top:30px; }
     .search-form { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 15px; }
     .search-form input[type="text"] { font-size: 16px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 300px; }
     .search-form .checkbox-group { display: flex; gap: 15px; }
     .search-form label { font-size: 14px; user-select: none; }
     
-    .action-buttons { display: flex; justify-content: center; gap: 15px; width: 100%; }
-    .filter-controls { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-    .sort-box, .per-page-selector { display:flex; align-items:center; gap:8px; }
-    .sort-box select, .per-page-selector select { font-size:16px; padding:8px; border-radius:6px; cursor:pointer; }
+    .action-buttons { display: flex; justify-content: center; gap: 15px; width: 100%; flex-wrap:wrap; }
+    .filter-controls { display: flex; flex-direction: column; justify-content: center; gap: 15px; flex-wrap: wrap; }
     
     .btn-main {
       display: inline-flex; align-items: center; justify-content: center;
@@ -189,66 +246,125 @@ include 'header.php';
     }
     .btn-main:hover { transform: translateY(-2px); color: #fff !important; }
     .btn-search { background: #28a745; }
-    .btn-search:hover { background: #218838; }
     .btn-create { background: #007bff; }
-    .btn-create:hover { background: #0056b3; }
-    .btn-reset { background: deepskyblue; }
-    .btn-reset:hover { background: deepskyblue; }
+    .btn-reset { background: purple; color: white; }
+    .btn-toggle { background: deepskyblue; }
+    .btn-toggle:hover { background: #5a6268; }
+
+    .button-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .button-group label { font-weight: bold; font-size: 16px; color: #555; margin-left:10px;}
+    .btn-filter {
+        text-decoration: none; padding: 8px 15px; border-radius: 6px;
+        background: #f0f0f0; color: #333; border: 1px solid #ccc;
+        font-size: 14px; transition: background-color 0.2s;
+    }
+    .btn-filter:hover { background: #e2e2e2; }
+    .btn-filter.active {
+        background: #007bff; color: white; border-color: #007bff; font-weight: bold;
+    }
+    .section-divider { max-width:1100px; margin: 25px auto; border: 0; border-top: 1px solid #ccc; }
+
+    /* ========== CSS מינימלי למצב ניהול (לא משנה עיצוב קיים) ========== */
+    .admin-only { display: none !important; } /* ברירת מחדל: מוסתר */
+    .admin-switch { position:absolute; opacity:0; pointer-events:none; } /* checkbox נסתר */
+    .admin-switch:checked ~ .page .admin-only { display: inline-flex !important; } /* מציג במצב ניהול */
+    .admin-switch:checked ~ .page .actions.admin-only { display:flex !important; } /* דיבים שלמים */
+    /* החלפת טקסט בכפתור לפי המצב (ללא JS) */
+    .admin-toggle .when-on { display:none; }
+    .admin-switch:checked ~ .page .admin-toggle .when-on { display:inline; }
+    .admin-switch:checked ~ .page .admin-toggle .when-off { display:none; }
+
+    /* מספיקה אחת מהשתיים — בחר את שאתה מעדיף */
+.admin-toggle {
+  background: #dc3545 !important;
+  color: #fff !important;
+}
+label[for="admin-switch"] {
+  background: #dc3545 !important;
+  color: #fff !important;
+}
+
   </style>
 </head>
-<body>
+<body class="rtl">
+
+<!-- 0) מתג מצב ניהול (נסתר) -->
+<input id="admin-switch" type="checkbox" class="admin-switch">
 
 <h2 style="text-align:center;">📁 רשימת אוספים: <?= $total_all_collections ?></h2>
 
-<div class="main-controls">
+<div class="main-controls page"><!-- עטפתי ב.page כדי שהסלקטור יעבוד -->
   <form method="get" action="collections.php" class="search-form" id="search-form">
     <input type="text" name="txt" placeholder="🔍 חיפוש אוסף..." value="<?= htmlspecialchars($search_txt) ?>">
     <div class="checkbox-group">
       <label><input type="checkbox" name="search_title" value="1" <?= $search_in_title ? 'checked' : '' ?>> בכותרת</label>
       <label><input type="checkbox" name="search_desc" value="1" <?= $search_in_desc ? 'checked' : '' ?>> בתיאור</label>
     </div>
-    <input type="hidden" name="sort" value="<?= htmlspecialchars($sort) ?>">
-    <input type="hidden" name="per_page" value="<?= htmlspecialchars($per_page_value) ?>">
   </form>
 
   <div class="action-buttons">
     <button type="submit" form="search-form" class="btn-main btn-search">🔍 חפש</button>
-    <a href="create_collection.php" class="btn-main btn-create">➕ צור אוסף חדש</a>
     <a href="collections.php" class="btn-main btn-reset">🔄 איפוס</a>
+    
+    <?php
+      $current_params = $_GET;
+      $pinned_params = $current_params;
+      if ($show_pinned) {
+          $pinned_params['hide_pinned'] = '1';
+          echo '<a href="?'.http_build_query($pinned_params).'" class="btn-main btn-toggle">🙈 הסתר נעוצים</a>';
+      } else {
+          unset($pinned_params['hide_pinned']);
+          echo '<a href="?'.http_build_query($pinned_params).'" class="btn-main btn-toggle">📌 הצג נעוצים</a>';
+      }
+    ?>
+    
+    <a href="create_collection.php" class="btn-main btn-create admin-only">➕ צור אוסף חדש</a>
+    
+    <?php
+      $private_params = $current_params;
+      if ($show_private) {
+          unset($private_params['show_private']);
+          echo '<a href="?'.http_build_query($private_params).'" class="btn-main btn-toggle admin-only">🙈 הסתר פרטיים</a>';
+      } else {
+          $private_params['show_private'] = '1';
+          echo '<a href="?'.http_build_query($private_params).'" class="btn-main btn-toggle admin-only">🔒 הצג פרטיים</a>';
+      }
+    ?>
+
+    <!-- כפתור ניהול — כתווית למתג (עובד גם בלי JS) -->
+    <label for="admin-switch" class="btn-main btn-toggle admin-toggle">
+      <span class="when-off">🔑 מצב ניהול</span>
+      <span class="when-on">🚪 יציאה ממצב ניהול</span>
+    </label>
   </div>
 
   <div class="filter-controls">
-    <div class="sort-box">
-      <form method="get" action="collections.php" id="sort-form">
-        <label>מיון:</label>
-        <select name="sort" onchange="this.form.submit()">
-          <option value="created_desc" <?= $sort==='created_desc'?'selected':''; ?>>חדש → ישן</option>
-          <option value="created_asc"  <?= $sort==='created_asc'?'selected':''; ?>>ישן → חדש</option>
-          <option value="updated_desc" <?= $sort==='updated_desc'?'selected':''; ?>>עדכון אחרון</option>
-          <option value="name"         <?= $sort==='name'?'selected':''; ?>>שם (א-ת)</option>
-          <option value="count"        <?= $sort==='count'?'selected':''; ?>>מס' פוסטרים</option>
-        </select>
-        <input type="hidden" name="per_page" value="<?= htmlspecialchars($per_page_value) ?>">
-        <input type="hidden" name="txt" value="<?= htmlspecialchars($search_txt) ?>">
-        <?php if ($search_in_title): ?><input type="hidden" name="search_title" value="1"><?php endif; ?>
-        <?php if ($search_in_desc): ?><input type="hidden" name="search_desc" value="1"><?php endif; ?>
-      </form>
-    </div>
-    <div class="per-page-selector">
-      <form method="get" action="collections.php" id="per-page-form">
-          <select name="per_page" onchange="this.form.submit()">
-              <option value="20"  <?= ($per_page_value == 20)  ? 'selected' : '' ?>>הצג 20</option>
-              <option value="50"  <?= ($per_page_value == 50)  ? 'selected' : '' ?>>הצג 50</option>
-              <option value="100" <?= ($per_page_value == 100) ? 'selected' : '' ?>>הצג 100</option>
-              <option value="250" <?= ($per_page_value == 250) ? 'selected' : '' ?>>הצג 250</option>
-              <option value="0"   <?= ($per_page_value == 0)   ? 'selected' : '' ?>>הצג הכל</option>
-          </select>
-          <input type="hidden" name="sort" value="<?= htmlspecialchars($sort) ?>">
-          <input type="hidden" name="txt" value="<?= htmlspecialchars($search_txt) ?>">
-          <?php if ($search_in_title): ?><input type="hidden" name="search_title" value="1"><?php endif; ?>
-          <?php if ($search_in_desc): ?><input type="hidden" name="search_desc" value="1"><?php endif; ?>
-      </form>
-    </div>
+    <?php
+      // --- כפתורי מיון ---
+      $sort_options = [
+        'updated_desc' => 'עדכון אחרון', 'created_desc' => 'חדש → ישן', 'created_asc' => 'ישן → חדש',
+        'name' => 'שם (א-ת)', 'count' => 'מס׳ פוסטרים'
+      ];
+      echo '<div class="button-group"><label>מיון:</label>';
+      foreach ($sort_options as $key => $label) {
+          $sort_params = $_GET;
+          $sort_params['sort'] = $key;
+          $is_active = ($sort === $key) ? 'active' : '';
+          echo '<a href="?'.http_build_query($sort_params).'" class="btn-filter '.$is_active.'">'.$label.'</a>';
+      }
+      echo '</div>';
+
+      // --- כפתורי כמות לעמוד ---
+      $per_page_options = [ 20 => '20', 50 => '50', 100 => '100', 250 => '250', 0 => 'הכל' ];
+      echo '<div class="button-group"><label>הצג:</label>';
+      foreach ($per_page_options as $value => $label) {
+          $page_params = $_GET;
+          $page_params['per_page'] = $value;
+          $is_active = ($per_page_value == $value) ? 'active' : '';
+          echo '<a href="?'.http_build_query($page_params).'" class="btn-filter '.$is_active.'">'.$label.'</a>';
+      }
+      echo '</div>';
+    ?>
   </div>
 </div>
 <br>
@@ -257,18 +373,27 @@ include 'header.php';
   <div class="message"><?= $message ?></div>
 <?php endif; ?>
 
-<div id="collections-list">
+<div id="collections-list" class="page"><!-- גם כאן בתוך .page -->
 <?php
 // פונקציה שמציגה כרטיס אוסף יחיד
 function render_collection_card($c) {
   $desc = trim($c['description'] ?? '');
   $default_desc = "[עברית]\n\n[/עברית]\n\n\n[אנגלית]\n\n[/אנגלית]";
-  $is_default = (trim(str_replace(["\r","\n"," "], '', $desc)) === trim(str_replace(["\r","\n"," "], '', $default_desc)));
+  $is_default = (trim(str_replace(array("\r","\n"," "), '', $desc)) === trim(str_replace(array("\r","\n"," "), '', $default_desc)));
+  
+  $card_class = '';
+  if (!empty($c['is_pinned'])) $card_class = 'pinned';
+  if (!empty($c['is_private'])) $card_class = 'private';
+  
+  $icon = '📁';
+  if (!empty($c['is_pinned'])) $icon = '📌';
+  if (!empty($c['is_private'])) $icon = '🔒';
+
   ?>
-  <div class="collection-card <?= !empty($c['is_pinned']) ? 'pinned' : '' ?>">
+  <div class="collection-card <?= $card_class ?>">
     <h3>
       <a href="collection.php?id=<?= (int)$c['id'] ?>">
-        <?= !empty($c['is_pinned']) ? '📌' : '📁' ?>
+        <?= $icon ?>
         <?= htmlspecialchars($c['name']) ?>
       </a>
     </h3>
@@ -289,15 +414,20 @@ function render_collection_card($c) {
         <?php endif; ?>
     </div>
 
-    <div class="actions">
-      <?php if (!empty($c['is_pinned'])): ?>
-        <a href="?<?= http_build_query(array_merge($_GET, ['unpin' => $c['id']])) ?>">📌 הסר נעיצה</a>
+    <div class="actions admin-only">
+      <?php if (!empty($c['is_private'])): ?>
+        <a href="?<?= http_build_query(array_merge($_GET, ['make_public' => $c['id']])) ?>">🔓 הפוך לציבורי</a>
       <?php else: ?>
-        <a href="?<?= http_build_query(array_merge($_GET, ['pin' => $c['id']])) ?>">📌 נעיצה</a>
+        <a href="?<?= http_build_query(array_merge($_GET, ['make_private' => $c['id']])) ?>">🔒 הפוך לפרטי</a>
+        <?php if (!empty($c['is_pinned'])): ?>
+          <a href="?<?= http_build_query(array_merge($_GET, ['unpin' => $c['id']])) ?>">📌 הסר נעיצה</a>
+        <?php else: ?>
+          <a href="?<?= http_build_query(array_merge($_GET, ['pin' => $c['id']])) ?>">📌 נעיצה</a>
+        <?php endif; ?>
       <?php endif; ?>
       <a href="edit_collection.php?id=<?= (int)$c['id'] ?>">✏️ ערוך</a>
       <form method="post" action="?<?= http_build_query($_GET)?>" style="display:inline;">
-        <button type="submit" name="delete_collection" value="<?= (int)$c['id'] ?>" onclick="return confirm('למחוק את האוסף?')">🗑️ מחק</button>
+        <button type="submit" name="delete_collection" value="<?= (int)$c['id'] ?>" onclick="return confirm('למחוק את האוסף?')" style="padding:0;">🗑️ מחק</button>
       </form>
       <a href="#" class="open-modal-btn" data-id="<?= (int)$c['id'] ?>" data-name="<?= htmlspecialchars($c['name']) ?>">➕ הוסף פוסטר</a>
     </div>
@@ -305,31 +435,40 @@ function render_collection_card($c) {
   <?php
 }
 
-// הצגת נעוצים בראש (רק בעמוד 1 וללא חיפוש)
-if ($page == 1 && $search_txt === '' && $pinned_res && $pinned_res->num_rows > 0) {
-  while ($c = $pinned_res->fetch_assoc()) {
+// הצגת נעוצים (אם לא הוסתרו ורק בעמוד הראשון)
+if ($show_pinned && $page == 1 && !empty($pinned_data)) {
+  foreach($pinned_data as $c) {
     render_collection_card($c);
   }
-  echo '<hr style="max-width:1100px; margin: 20px auto; border-top: 1px solid #ccc;">';
+  echo '<hr class="section-divider">';
 }
 
-// הצגת יתר האוספים (או תוצאות חיפוש)
-if (!empty($unpinned_data)) {
-  foreach ($unpinned_data as $c) {
+// הצגת פרטיים (אם המשתמש ביקש)
+if ($show_private && !empty($private_data)) {
+  foreach ($private_data as $c) {
+    render_collection_card($c);
+  }
+  echo '<hr class="section-divider">';
+}
+
+
+// הצגת יתר האוספים (ציבוריים ולא נעוצים)
+if (!empty($public_data)) {
+  foreach ($public_data as $c) {
     render_collection_card($c);
   }
 } else {
     if ($search_txt !== '') {
-        echo '<p style="text-align:center;">😢 לא נמצאו אוספים התואמים לחיפוש.</p>';
-    } elseif ($total_all_collections === 0) {
-        echo '<p style="text-align:center;">😢 לא קיימים אוספים כרגע.</p>';
+        echo '<p style="text-align:center;">😢 לא נמצאו אוספים ציבוריים התואמים לחיפוש.</p>';
+    } elseif ($total_public_collections === 0 && !$show_private && empty($pinned_data)) {
+        echo '<p style="text-align:center;">😢 לא קיימים אוספים ציבוריים כרגע.</p>';
     }
 }
 ?>
 </div>
 
 <?php if ($total_pages > 1): ?>
-  <div class="pagination">
+  <div class="pagination page">
     <?php 
     $page_params = $_GET;
     unset($page_params['page']);
@@ -344,7 +483,7 @@ if (!empty($unpinned_data)) {
   </div>
 <?php endif; ?>
 
-<div id="add-poster-modal" class="modal">
+<div id="add-poster-modal" class="modal page">
   <div class="modal-content">
     <span class="close-btn">&times;</span>
     <h3 id="modal-title">הוספת פוסטר לאוסף: <span></span></h3>
@@ -359,47 +498,47 @@ tt1375666
     </form>
   </div>
 </div>
+
+<!-- ===== JS מינימלי: שימור מצב ומודאל/תיאורים (לא חובה למתג עצמו) ===== -->
+<script>
+try{
+  // שמירת מצב ניהול
+  var key='adminMode';
+  var sw=document.getElementById('admin-switch');
+  if(sw){
+    if(localStorage.getItem(key)==='1'){ sw.checked=true; }
+    sw.addEventListener('change', function(){ localStorage.setItem(key, sw.checked?'1':'0'); });
+  }
+
+  // הסתר/הצג תיאור
+  document.querySelectorAll('.toggle-desc-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var d=btn.nextElementSibling;
+      if(d && d.classList.contains('collapsible')) d.classList.toggle('open');
+    });
+  });
+
+  // מודאל הוספת פוסטר
+  (function(){
+    var modal=document.getElementById('add-poster-modal');
+    if(!modal) return;
+    var closeBtn=modal.querySelector('.close-btn');
+    var titleSpan=modal.querySelector('#modal-title span');
+    var idInput=modal.querySelector('#modal-collection-id');
+    document.querySelectorAll('.open-modal-btn').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        ev.preventDefault();
+        if(idInput) idInput.value=a.dataset.id||'';
+        if(titleSpan) titleSpan.textContent=a.dataset.name||'';
+        modal.style.display='block';
+      });
+    });
+    if(closeBtn) closeBtn.addEventListener('click', function(){ modal.style.display='none'; });
+    window.addEventListener('click', function(ev){ if(ev.target===modal) modal.style.display='none'; });
+  })();
+}catch(e){/* ignore */}
+</script>
+
+<?php include 'footer.php'; ?>
 </body>
 </html>
-
-<script>
-// -------- מודאל הוספת פוסטר --------
-const modal = document.getElementById('add-poster-modal');
-const closeBtn = modal.querySelector('.close-btn');
-const modalTitleSpan = modal.querySelector('#modal-title span');
-const modalCollectionIdInput = modal.querySelector('#modal-collection-id');
-const openModalButtons = document.querySelectorAll('.open-modal-btn');
-
-openModalButtons.forEach(button => {
-  button.addEventListener('click', function(event) {
-    event.preventDefault();
-    modalCollectionIdInput.value = this.dataset.id;
-    modalTitleSpan.textContent = this.dataset.name;
-    modal.style.display = 'block';
-  });
-});
-closeBtn.addEventListener('click', () => modal.style.display = 'none');
-window.addEventListener('click', function(event) { if (event.target == modal) modal.style.display = 'none'; });
-
-// -------- הסתרת/הצגת תיאור --------
-document.querySelectorAll('.toggle-desc-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const desc = btn.nextElementSibling;
-        if (desc && desc.classList.contains('collapsible')) {
-            desc.classList.toggle('open');
-        }
-    });
-});
-
-// --- קישור כפתור החיפוש לטופס הנכון ---
-document.addEventListener('DOMContentLoaded', function() {
-    const searchForm = document.querySelector('.search-form');
-    if(searchForm) {
-        const searchBtn = document.querySelector('.btn-search');
-        if(searchBtn) {
-            searchBtn.setAttribute('form', 'search-form');
-        }
-    }
-});
-</script>
-<?php include 'footer.php'; ?>

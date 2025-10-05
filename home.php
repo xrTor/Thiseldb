@@ -253,34 +253,34 @@ if ($end_page - $start_page < $max_links - 1) {
 <head>
   <meta charset="UTF-8">
   <title>ספריית פוסטרים</title>
-  <style>
+  <link rel="stylesheet" href="style.css"> <style>
     .poster-title {
-    font-family: Assistant, "Segoe UI", Arial, sans-serif;
-    line-height: 1.0;
-    margin-top: 4px;
-    font-weight: bold; /* ברירת מחדל לכל הטקסט בכותרת */
-}
-.poster-title b { /* שם באנגלית */
-    font-size: 16px;
-    font-weight: 700;
-    color: #000;
-}
-.poster-title .hebrew-title { /* שם בעברית */
-    font-size: 16px;
-    font-weight: 700; /* משקל רגיל */
-    color: #666;
-    font-family: Arial !important;
-}
-.poster-title .year-link { /* שנה */
-    font-size: 14px;
-    font-weight: 400;
-}
+      font-family: Assistant, "Segoe UI", Arial, sans-serif;
+      line-height: 1.0;
+      margin-top: 4px;
+      font-weight: bold;
+    }
+    .poster-title b {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+    }
+    .poster-title .hebrew-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #666;
+      font-family: Arial !important;
+    }
+    .poster-title .year-link {
+      font-size: 14px;
+      font-weight: 400;
+    }
     .poster:hover {
-    position: relative;
-    z-index: 10;
-    transform: scale(1.25);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
+      position: relative;
+      z-index: 10;
+      transform: scale(1.25);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
     body { background-color:white; margin:0; }
     h1, .results-summary { text-align:center; margin:10px 0 15px 0; }
     .pager {
@@ -305,37 +305,54 @@ if ($end_page - $start_page < $max_links - 1) {
     .poster-title { font-weight:bold; margin-top: 4px;}
     .title-link { text-decoration: none; color: inherit; }
     .imdb-container {
-        display: flex; justify-content: center; align-items: center;
-        gap: 5px; padding: 5px 0; text-decoration: none; color: inherit;
+      display: flex; justify-content: center; align-items: center;
+      gap: 5px; padding: 5px 0; text-decoration: none; color: inherit;
     }
     .imdb-container span { white-space: nowrap; }
     .imdb-container img {
-        height: 50px;
-        width: auto;
-        object-fit: contain;
+      height: 50px;
+      width: auto;
+      object-fit: contain;
     }
     .poster-type-link { text-decoration: none; }
     .poster-type-display {
-        font-size: 12px; color: #555; display: flex; align-items: center; justify-content: center;
-        gap: 8px; padding: 4px 0;
+      font-size: 12px; color: #555; display: flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 4px 0;
     }
     .poster-tags { text-align: center; padding: 4px 0; }
     .tag-badge {
-        display: inline-block; background: linear-gradient(to bottom, #f7f7f7, #e0e0e0); color: #333;
-        padding: 4px 12px; border-radius: 16px; font-size: 12px; margin: 3px;
-        text-decoration: none; font-weight: 500; border: 1px solid #ccc;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out;
+      display: inline-block; background: linear-gradient(to bottom, #f7f7f7, #e0e0e0); color: #333;
+      padding: 4px 12px; border-radius: 16px; font-size: 12px; margin: 3px;
+      text-decoration: none; font-weight: 500; border: 1px solid #ccc;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out;
     }
     .user-tag { background: linear-gradient(to bottom, #e3f2fd, #bbdefb); border-color: #90caf9; }
     .tag-badge:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .network-logo-container { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 0;}
     .flags-container { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; padding: 4px 0; }
-    .poster-actions {
-        margin-top: auto; padding-top: 8px;
-        display: flex; justify-content: center; align-items: center;
-        direction: rtl;
+    /* keep flag + name on one line */
+    .flag-row a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: inherit;
+      white-space: nowrap;
+      font-size: 14px;
     }
-    .poster-actions a, .poster-actions button { text-decoration: none; font-size: 18px; margin: 0 3px; display: inline-flex; align-items: center; }
+    .flag-row img {
+      height: 16px; width: auto; object-fit: contain; vertical-align: middle;
+    }
+
+    .poster-actions {
+      margin-top: auto; padding-top: 8px;
+      display: flex; justify-content: center; align-items: center;
+      direction: rtl;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .poster-actions a, .poster-actions button { text-decoration: none; font-size: 18px; margin: 0; display: inline-flex; align-items: center; }
     .trailer-btn { background-color: #d92323; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; }
     
     .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); }
@@ -355,114 +372,89 @@ if ($end_page - $start_page < $max_links - 1) {
     
     .network-logo-container:empty,
     .poster-tags:empty,
-    .flags-container:empty {
-        display: none;
-    }
-    .flag-row { width: 100%; display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .flags-container:empty { display: none; }
+    .flag-row { width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
     .flag-row + .flag-row { margin-top: 4px; }
 
     .collection-sticker-container {
-        padding: 8px 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
+      padding: 8px 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-    .collection-sticker-image:hover {
-        transform: scale(1.1);
-    }
-    /* ========== START: STYLES FOR collections_view (Gallery View) ========== */
-.collections-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px;
-    padding: 20px;
-    justify-content: center;
-    margin: 0 auto;
-    max-width: 1400px;
-}
+    .collection-sticker-image:hover { transform: scale(1.1); }
 
-.collection-card {
-    border: 1px solid #ddd;      /* ✅ גבול עדין */
-    border-radius: 1px;         /* אזהרה: כאן משנים תרדיוס של התמונה*/
-    overflow: hidden;            /* ✅ חיתוך לפי הפינות */
-    text-decoration: none;
-    color: black;
-    background-color: #fff;      /* ✅ רקע לבן לכרטיס */
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.collection-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-.collection-card .card-image-link img {
-    width: 100%;
-    height: 100%;       /* גובה קבוע כאן הכי חשוב שיש שהתמונה לא תחתך!!! אזהרה!!!
-    400px*/ 
-    object-fit: cover;   /* חותך */
-    display: block;
-}
-
-
-.collection-card .card-details {
-    padding: 12px;
-    text-align: right;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    justify-content: space-between;
-    min-height: 100px;
-    background: #fff;           /* ✅ אזור טקסט עם רקע לבן */
-}
-
-.card-details .card-title-link {
-    text-decoration: none;
-    color: inherit;
-}
-.card-details .title-en {
-    font-weight: bold;
-    font-size: 1.05em;
-    line-height: 1.2;
-    margin-bottom: 2px;
-    color: #333;
-}
-.card-details .title-he {
-    font-size: 1em;
-    color: #666;
-    margin-bottom: 8px;
-    line-height: 1.2;
-}
-.card-details .meta-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.9em;
-    color: #555;
-    border-top: 1px solid #eee;
-    padding-top: 8px;
-    margin-top: auto;
-}
-.card-details .meta-info a {
-    text-decoration: none;
-    color: #0056b3;
-    font-weight: bold;
-}
-.card-details .meta-info a:hover {
-    text-decoration: underline;
-}
-/* ========== END: STYLES FOR collections_view ========== */
-
-
+    /* Admin toggle placement */
+    .admin-toggle-wrap { text-align: center; margin: 6px 0 12px; }
+    .admin-toggle { padding: 6px 12px; font-size: 14px; cursor: pointer; }
     
+    /* ========== START: STYLES FOR collections_view (Gallery View) ========== */
+    .collections-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
+      padding: 20px;
+      justify-content: center;
+      margin: 0 auto;
+      max-width: 1400px;
+    }
+
+    .collection-card {
+      border: 1px solid #ddd;
+      border-radius: 1px;
+      overflow: hidden;
+      text-decoration: none;
+      color: black;
+      background-color: #fff;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .collection-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .collection-card .card-image-link img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .collection-card .card-details {
+      padding: 12px;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      justify-content: space-between;
+      min-height: 100px;
+      background: #fff;
+    }
+
+    .card-details .card-title-link { text-decoration: none; color: inherit; }
+    .card-details .title-en { font-weight: bold; font-size: 1.05em; line-height: 1.2; margin-bottom: 2px; color: #333; }
+    .card-details .title-he { font-size: 1em; color: #666; margin-bottom: 8px; line-height: 1.2; }
+    .card-details .meta-info {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.9em; color: #555; border-top: 1px solid #eee;
+      padding-top: 8px; margin-top: auto;
+    }
+    .card-details .meta-info a { text-decoration: none; color: #0056b3; font-weight: bold; }
+    .card-details .meta-info a:hover { text-decoration: underline; }
+    /* ========== END: STYLES FOR collections_view ========== */
   </style>
 </head>
 <body>
   <h1>🎬 ספריית פוסטרים</h1>
+  <div class="admin-toggle-wrap">
+    <button id="toggle-admin" class="admin-toggle" type="button">🔑 מצב ניהול</button>
+  </div>
+
   <div class="results-summary">
     <b>הצגת <?= $start ?>-<?= $end ?> מתוך <?= $total_rows ?> — עמוד <?= $page ?> מתוך <?= $total_pages ?></b>
   </div>
@@ -561,7 +553,8 @@ if ($end_page - $start_page < $max_links - 1) {
                                 $flag_data = $lang_map[$lang_key];
                         ?>
                             <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
-                                <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                          <span><?= htmlspecialchars($flag_data['label']) ?></span>
+                         <img src="<?= htmlspecialchars($flag_data['flag']) ?>">
                             </a>
                         <?php endif; ?>
                     <?php endforeach; ?>
@@ -577,7 +570,8 @@ if ($end_page - $start_page < $max_links - 1) {
                                 $flag_data = $lang_map[$lang_key];
                         ?>
                             <a href="home.php?lang_code=<?= urlencode($flag_data['label']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
-                                 <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                                 <img src="<?= htmlspecialchars($flag_data['flag']) ?>">
+                                
                             </a>
                         <?php endif; ?>
                     <?php endforeach; ?>
@@ -586,14 +580,17 @@ if ($end_page - $start_page < $max_links - 1) {
           </div>
       
           <div class="poster-actions">
-            <?php if (!empty($row['trailer_url'])): ?>
-                <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
-                <span style="margin: 0 4px;">|</span>
-            <?php endif; ?>
-            <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
-            <span style="margin: 0 4px;">|</span>
-            <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
-          </div>
+    <?php if (!empty($row['trailer_url'])): ?>
+        <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
+    <?php endif; ?>
+    
+    <span class="admin-only">
+      <?php if (!empty($row['trailer_url'])): ?><span>|</span><?php endif; ?>
+      <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
+      <span>|</span>
+      <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
+    </span>
+</div>
         </div>
       <?php endforeach; ?>
     </div>
@@ -694,48 +691,88 @@ if ($end_page - $start_page < $max_links - 1) {
       <div class="video-container" id="video-container"></div>
     </div>
   </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const wall = document.querySelector('.poster-wall, .poster-list, .poster-regular');
-      const modal = document.getElementById('trailer-modal');
-      const videoContainer = document.getElementById('video-container');
-      const closeBtn = modal.querySelector('.close-btn');
+  
 
-      const getYouTubeEmbedUrl = (url) => {
-        try {
-            const urlObj = new URL(url);
-            let videoId = urlObj.searchParams.get('v');
-            if (urlObj.hostname === 'youtu.be') videoId = urlObj.pathname.slice(1);
-            if (videoId) return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {}
-        return null;
-      };
-      
-      const openModal = (url) => {
-        const embedUrl = getYouTubeEmbedUrl(url);
-        if(embedUrl) {
-          videoContainer.innerHTML = `<iframe src="${embedUrl}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-          modal.style.display = 'block';
-        }
-      };
-      const closeModal = () => {
-        modal.style.display = 'none';
-        videoContainer.innerHTML = '';
-      };
 
-      if (wall) {
-        wall.addEventListener('click', (e) => {
-          const btn = e.target.closest('.trailer-btn');
-          if (btn && btn.dataset.trailerUrl) {
-            e.preventDefault();
-            openModal(btn.dataset.trailerUrl);
-          }
-        });
+<script>
+(function(){
+  function findToggleBtn(){
+    return document.getElementById('toggle-admin')
+        || document.getElementById('admin-toggle')
+        || document.querySelector('.admin-toggle');
+  }
+
+  function normalizeSaved(){
+    var v = localStorage.getItem('adminMode');
+    if (v !== '1' && v !== '0') {
+      localStorage.setItem('adminMode', '0'); // default OFF
+      return '0';
+    }
+    return v;
+  }
+
+  function applyState(active){
+    var body = document.body;
+    var btn = findToggleBtn();
+    // Clear any forced classes then set
+    body.classList.remove('admin-mode');
+    if (active) body.classList.add('admin-mode');
+
+    // Ensure admin-only elements follow the state even if CSS had !important earlier
+    var els = document.querySelectorAll('.admin-only');
+    els.forEach(function(el){
+      // Clear any previous inline display to let CSS rule apply
+      el.style.removeProperty('display');
+      // If inactive, force hide to beat any stray styles
+      if (!active) el.style.display = 'none';
+      // If active, prefer CSS (.admin-mode .admin-only) but if still hidden, fallback:
+      if (active && getComputedStyle(el).display === 'none') {
+        // Guess an appropriate display for admin controls
+        el.style.display = (el.classList.contains('actions') || el.classList.contains('flex')) ? 'flex' : 'inline-flex';
       }
-      closeBtn.addEventListener('click', closeModal);
-      window.addEventListener('click', (e) => { if (e.target == modal) closeModal(); });
     });
-  </script>
+
+    if (btn) {
+      try { btn.textContent = active ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול'; } catch(e){}
+    }
+  }
+
+  function toggle(){
+    var now = normalizeSaved() === '1' ? '0' : '1';
+    localStorage.setItem('adminMode', now);
+    applyState(now === '1');
+  }
+
+  function init(){
+    var saved = normalizeSaved(); // '0' or '1'
+    applyState(saved === '1');
+
+    var btn = findToggleBtn();
+    if (btn) {
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        toggle();
+      }, {capture:false});
+    }
+
+    // Delegation fallback in case button is replaced dynamically
+    document.addEventListener('click', function(ev){
+      var t = ev.target && ev.target.closest && ev.target.closest('#toggle-admin, #admin-toggle, .admin-toggle');
+      if (!t) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggle();
+    }, {capture:true});
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
 
 </body>
 </html>

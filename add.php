@@ -226,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['fetch_omdb'])) {
       'year'           => ['s', $data['year']],
 
       // external
-      'imdb_id'        => ['s', $data['imdb_id']],
+      'imdb_id' => ['s', ($data['imdb_id'] === '' ? null : $data['imdb_id'])],
       'tmdb_url'       => ['s', $data['tmdb_url']],
       'tvdb_url'       => ['s', $data['tvdb_url']],
 
