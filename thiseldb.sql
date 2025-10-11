@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: אוקטובר 05, 2025 בזמן 08:15 PM
+-- Generation Time: אוקטובר 11, 2025 בזמן 09:30 PM
 -- גרסת שרת: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -448,7 +448,7 @@ CREATE TABLE `unique_visitors` (
 --
 
 INSERT INTO `unique_visitors` (`id`, `count`) VALUES
-(1, 12);
+(1, 14);
 
 -- --------------------------------------------------------
 
@@ -480,7 +480,7 @@ CREATE TABLE `visitors` (
 --
 
 INSERT INTO `visitors` (`id`, `count`) VALUES
-(1, 5843);
+(1, 8146);
 
 --
 -- Indexes for dumped tables
@@ -689,7 +689,7 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `chat_messages`
 --
 ALTER TABLE `chat_messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `collections`
@@ -713,7 +713,7 @@ ALTER TABLE `contact_reports`
 -- AUTO_INCREMENT for table `contact_requests`
 --
 ALTER TABLE `contact_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `genres`
@@ -737,7 +737,7 @@ ALTER TABLE `posters`
 -- AUTO_INCREMENT for table `poster_akas`
 --
 ALTER TABLE `poster_akas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=925373;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=926388;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
@@ -767,7 +767,7 @@ ALTER TABLE `poster_likes`
 -- AUTO_INCREMENT for table `poster_reports`
 --
 ALTER TABLE `poster_reports`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `poster_types`
@@ -797,7 +797,7 @@ ALTER TABLE `unique_visitors`
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18175;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18176;
 
 --
 -- AUTO_INCREMENT for table `visitors`
