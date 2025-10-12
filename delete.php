@@ -1,4 +1,5 @@
 <?php
+require_once 'force_post.php';
  require_once 'server.php';
 $id = $_GET['id'] ?? null;
 if ($id) {

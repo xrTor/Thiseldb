@@ -5,54 +5,76 @@ require_once 'bbcode.php'; // המרת BBCode ל-HTML
 // ==========================================================
 // == כל הלוגיקה לפני ה-HTML ==
 // ==========================================================
+
+// הפעלת סשן + CSRF token
+if (function_exists('opcache_reset')) { @opcache_reset(); }
+if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+if (empty($_SESSION['csrf_token'])) {
+  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+function csrf_input() {
+  $t = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
+  return "<input type='hidden' name='csrf_token' value='{$t}'>";
+}
+
+// נטרול GET מסוכן — מפנים מיידית ללא ביצוע פעולה
+$danger_keys = ['pin','unpin','make_private','make_public'];
+foreach ($danger_keys as $k) {
+  if (isset($_GET[$k])) {
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+  }
+}
+
 $message = '';
 
-// --- לוגיקת נעיצה / ביטול נעיצה ---
-if (isset($_GET['pin'])) {
-  $pin_id = (int)$_GET['pin'];
-  $stmt = $conn->prepare("UPDATE collections SET is_pinned = 1, updated_at = NOW() WHERE id = ?");
-  $stmt->bind_param("i", $pin_id);
-  $stmt->execute();
-  $redirect_params = $_GET; unset($redirect_params['pin']);
-  header("Location: collections.php?" . http_build_query($redirect_params));
-  exit;
-}
-if (isset($_GET['unpin'])) {
-  $unpin_id = (int)$_GET['unpin'];
-  $stmt = $conn->prepare("UPDATE collections SET is_pinned = 0, updated_at = NOW() WHERE id = ?");
-  $stmt->bind_param("i", $unpin_id);
-  $stmt->execute();
-  $redirect_params = $_GET; unset($redirect_params['unpin']);
-  header("Location: collections.php?" . http_build_query($redirect_params));
-  exit;
-}
+// --- לוגיקה בטוחה לפעולות (POST בלבד + CSRF) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  // אימות CSRF
+  if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+    http_response_code(403);
+    exit('CSRF check failed');
+  }
 
-// --- לוגיקה להפיכת אוסף לפרטי/ציבורי ---
-if (isset($_GET['make_private'])) {
-  $private_id = (int)$_GET['make_private'];
-  $stmt = $conn->prepare("UPDATE collections SET is_private = 1, is_pinned = 0, updated_at = NOW() WHERE id = ?");
-  $stmt->bind_param("i", $private_id);
-  $stmt->execute();
-  $redirect_params = $_GET; unset($redirect_params['make_private']);
-  header("Location: collections.php?" . http_build_query($redirect_params));
-  exit;
-}
-if (isset($_GET['make_public'])) {
-  $public_id = (int)$_GET['make_public'];
-  $stmt = $conn->prepare("UPDATE collections SET is_private = 0, updated_at = NOW() WHERE id = ?");
-  $stmt->bind_param("i", $public_id);
-  $stmt->execute();
-  $redirect_params = $_GET; unset($redirect_params['make_public']);
-  header("Location: collections.php?" . http_build_query($redirect_params));
-  exit;
-}
+  // מחיקת אוסף (קיים בקוד המקורי — נשמר, רק מוגן ב-CSRF)
+  if (isset($_POST['delete_collection'])) {
+    $cid = (int)$_POST['delete_collection'];
+    $conn->query("DELETE FROM collections WHERE id = $cid");
+    $conn->query("DELETE FROM poster_collections WHERE collection_id = $cid");
+    $message = "🗑️ האוסף נמחק בהצלחה";
+  }
 
-// מחיקת אוסף
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['delete_collection'])) {
-  $cid = (int)$_POST['delete_collection'];
-  $conn->query("DELETE FROM collections WHERE id = $cid");
-  $conn->query("DELETE FROM poster_collections WHERE collection_id = $cid");
-  $message = "🗑️ האוסף נמחק בהצלחה";
+  // פעולות: pin / unpin / make_private / make_public (הועברו מ-GET ל-POST)
+  if (isset($_POST['action']) && isset($_POST['collection_id'])) {
+    $action = $_POST['action'];
+    $act_id = (int)$_POST['collection_id'];
+
+    if ($action === 'pin') {
+      $stmt = $conn->prepare("UPDATE collections SET is_pinned = 1, updated_at = NOW() WHERE id = ?");
+      $stmt->bind_param("i", $act_id);
+      $stmt->execute();
+      $stmt->close();
+    } elseif ($action === 'unpin') {
+      $stmt = $conn->prepare("UPDATE collections SET is_pinned = 0, updated_at = NOW() WHERE id = ?");
+      $stmt->bind_param("i", $act_id);
+      $stmt->execute();
+      $stmt->close();
+    } elseif ($action === 'make_private') {
+      $stmt = $conn->prepare("UPDATE collections SET is_private = 1, is_pinned = 0, updated_at = NOW() WHERE id = ?");
+      $stmt->bind_param("i", $act_id);
+      $stmt->execute();
+      $stmt->close();
+    } elseif ($action === 'make_public') {
+      $stmt = $conn->prepare("UPDATE collections SET is_private = 0, updated_at = NOW() WHERE id = ?");
+      $stmt->bind_param("i", $act_id);
+      $stmt->execute();
+      $stmt->close();
+    }
+    // שמירה על פרמטרי החיפוש/מיון לאחר פעולה
+    $redirect_params = $_GET;
+    header("Location: collections.php?" . http_build_query($redirect_params));
+    exit;
+  }
 }
 
 // --- פרמטרים: פאגינציה, מיון וחיפוש ---
@@ -415,18 +437,49 @@ function render_collection_card($c) {
     </div>
 
     <div class="actions admin-only">
-      <?php if (!empty($c['is_private'])): ?>
-        <a href="?<?= http_build_query(array_merge($_GET, ['make_public' => $c['id']])) ?>">🔓 הפוך לציבורי</a>
-      <?php else: ?>
-        <a href="?<?= http_build_query(array_merge($_GET, ['make_private' => $c['id']])) ?>">🔒 הפוך לפרטי</a>
-        <?php if (!empty($c['is_pinned'])): ?>
-          <a href="?<?= http_build_query(array_merge($_GET, ['unpin' => $c['id']])) ?>">📌 הסר נעיצה</a>
-        <?php else: ?>
-          <a href="?<?= http_build_query(array_merge($_GET, ['pin' => $c['id']])) ?>">📌 נעיצה</a>
-        <?php endif; ?>
-      <?php endif; ?>
+      <?php
+        // נשמרים פרמטרי ה-GET הנוכחיים כדי לא לאבד חיפוש/מיון
+        $qs = http_build_query($_GET);
+
+        if (!empty($c['is_private'])) {
+          // 🔓 הפוך לציבורי
+          echo "<form method='post' action='?{$qs}' style='display:inline;'>";
+          echo csrf_input();
+          echo "<input type='hidden' name='action' value='make_public'>";
+          echo "<input type='hidden' name='collection_id' value='".(int)$c['id']."'>";
+          echo "<button type='submit' style='padding:0;'>🔓 הפוך לציבורי</button>";
+          echo "</form>";
+        } else {
+          // 🔒 הפוך לפרטי
+          echo "<form method='post' action='?{$qs}' style='display:inline;'>";
+          echo csrf_input();
+          echo "<input type='hidden' name='action' value='make_private'>";
+          echo "<input type='hidden' name='collection_id' value='".(int)$c['id']."'>";
+          echo "<button type='submit' style='padding:0;'>🔒 הפוך לפרטי</button>";
+          echo "</form>";
+
+          if (!empty($c['is_pinned'])) {
+            // 📌 הסר נעיצה
+            echo "<form method='post' action='?{$qs}' style='display:inline;'>";
+            echo csrf_input();
+            echo "<input type='hidden' name='action' value='unpin'>";
+            echo "<input type='hidden' name='collection_id' value='".(int)$c['id']."'>";
+            echo "<button type='submit' style='padding:0;'>📌 הסר נעיצה</button>";
+            echo "</form>";
+          } else {
+            // 📌 נעיצה
+            echo "<form method='post' action='?{$qs}' style='display:inline;'>";
+            echo csrf_input();
+            echo "<input type='hidden' name='action' value='pin'>";
+            echo "<input type='hidden' name='collection_id' value='".(int)$c['id']."'>";
+            echo "<button type='submit' style='padding:0;'>📌 נעיצה</button>";
+            echo "</form>";
+          }
+        }
+      ?>
       <a href="edit_collection.php?id=<?= (int)$c['id'] ?>">✏️ ערוך</a>
       <form method="post" action="?<?= http_build_query($_GET)?>" style="display:inline;">
+        <?= csrf_input() ?>
         <button type="submit" name="delete_collection" value="<?= (int)$c['id'] ?>" onclick="return confirm('למחוק את האוסף?')" style="padding:0;">🗑️ מחק</button>
       </form>
       <a href="#" class="open-modal-btn" data-id="<?= (int)$c['id'] ?>" data-name="<?= htmlspecialchars($c['name']) ?>">➕ הוסף פוסטר</a>
