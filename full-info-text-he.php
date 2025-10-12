@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded',function(){
   </h2>
   <ol id="list-<?=h($id)?>" class="open" style="display:block;">
     <?php foreach($data as $row): ?>
-    <li><a href="<?=h($linkFn($row))?>"><?=h($row['label'])?></a> [<?=$row['count']?>]</li>
+    <li><a href="<?=h($linkFn($row))?>"><?=h($row['label'])?></a> (<?=$row['count']?>)</li>
     <?php endforeach; ?>
   </ol>
 </div>

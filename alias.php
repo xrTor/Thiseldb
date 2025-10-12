@@ -21,6 +21,7 @@ $ALIASES = [
     'ארצות הברית' => 'United States',
     'בריטניה' => 'United Kingdom',
     'הממלכה המאוחדת' => 'United Kingdom',
+    'בריטניה' => 'United Kingdom',
     'US' => 'United States',
     'UK' => 'United Kingdom',
     'צרפת' => 'France',

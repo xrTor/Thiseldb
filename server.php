@@ -6,8 +6,8 @@
 // ===== חיבור למסד =====
 $servername = "localhost";
 $username   = "root";
-$password   = "";
-$dbname     = "thiseldb";
+$password   = "";           // בXAMPP אין סיסמא כברירת מחדל
+$dbname     = "thiseldb"; // תוכלו לקרוא איך שתרצו למסד טבלה 
 
 $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
@@ -16,12 +16,19 @@ if ($conn->connect_error) {
 $conn->set_charset("utf8mb4");
 
 // ===== מפתחות API =====
-define('TMDB_KEY',     '931b94936ba364daf0fd91fb38ecd91e');
-define('RAPIDAPI_KEY', 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'); // IMDb rating/votes בלבד
-define('TVDB_KEY',     '1c93003f-ab80-4baf-b5c4-58c7b96494a2');               // TheTVDB v4
-define('OMDB_KEY',     'f7e4ae0b');                                          // OMDb — RT/MC
-?>
-<?php
+define('TMDB_KEY',     'Insert_KEY');
+define('RAPIDAPI_KEY', 'Insert_KEY');                // IMDb rating/votes בלבד
+define('TVDB_KEY',     'Insert_KEY');               // TheTVDB v4
+define('OMDB_KEY',     'Insert_KEY');               // OMDb — RT/MC
+
+
+$tmdb_key = 'Insert_KEY';
+$omdb_key = 'Insert_KEY';
+
+$TMDB_KEY      = 'Insert_KEY';
+$RAPIDAPI_KEY  = 'Insert_KEY';
+$TVDB_KEY      = 'Insert_KEY'; 
+
 
 $host = 'localhost';
 $db   = 'thiseldb';
@@ -35,13 +42,19 @@ if ($conn->connect_error) {
 
 $conn->set_charset("utf8mb4");
 
-$tmdb_key = '931b94936ba364daf0fd91fb38ecd91e';
-$omdb_key = 'f7e4ae0b';
-$tvdbKey = '1c93003f-ab80-4baf-b5c4-58c7b96494a2'; // TVDB v4
-$rapidApiKey = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'; // הוספת מפתח RapidAPI
 
-$TMDB_KEY      = '931b94936ba364daf0fd91fb38ecd91e';
-$RAPIDAPI_KEY  = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1';
-$TVDB_KEY      = '1c93003f-ab80-4baf-b5c4-58c7b96494a2'; // <<< הוסף כאן את המפתח שלך ל-TheTVDB v4
+// שדה הסברה
 
+// // ===== מפתחות API =====
+// // החליפו רק את הInsert_KEY במפתחות שקיבלת מהשירות השונים
+// define('TMDB_KEY',     'Insert_KEY');           // TMDB
+// define('RAPIDAPI_KEY', 'Insert_KEY');          // IMDb rating/votes בלבד
+// define('TVDB_KEY',     'Insert_KEY');         // TheTVDB v4
+// define('OMDB_KEY',     'Insert_KEY');       // OMDb — RT/MC
+
+// לינקים
+// https://www.themoviedb.org/settings/api/request
+// https://rapidapi.com/rapidapi-org1-rapidapi-org-default/api/imdb236
+// https://www.thetvdb.com/api-information/signup
+// https://www.omdbapi.com/apikey.aspx
 ?>
