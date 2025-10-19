@@ -1,8 +1,6 @@
 * {font-family: Arial;}
-/* a { text-decoration: none !important;
-} */
  a {color: #2d89ef !important;text-decoration: none !important}
-* a:hover {
+ a:hover {
   text-decoration: underline !important; color:#2d89ef !important;
 }
 
@@ -10,10 +8,6 @@ body {
   padding:10px !important;
     background-image: url("images/pattern.png") !important;
       font-family: Arial, sans-serif;
-         /* 
-      background: #B3B3B3; 
-      background-image: url("paper.gif");
-      */
     }
     .line-btn {background-image: url("images/pattern.png") !important;}
     .line-btn-up {background-image: url("images/menu.png") !important;}
@@ -29,15 +23,13 @@ body {
     }
     .poster {
       background: #F7F7F7;
-      border-radius: 2px; 
-/* border-radius: 8px;  0px;  */
+      border-radius: 2px;
       overflow: hidden;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       transition: transform 0.2s;
     }
     .poster:hover {
-transform: scale(1.30);
-      /*transform: scale(1.04); */
+    transform: scale(1.30);
     }
     .poster img {
       width: 100%;
@@ -50,8 +42,7 @@ transform: scale(1.30);
       padding: 10px;
       text-align: center;
       font-size: 1.1em;
-
-color:black !important;
+    color:black !important;
     }
     a {color:black  !important}
 .poster-title b {
@@ -90,38 +81,12 @@ display: flex!important;padding: 5px;
   margin-top: 30px;
 }
 
-/*
-להציג באותה שורה
-display: flex
-*/
-
 .poster-tags {
   font-size: 12px;
   margin-top: 6px;
   text-align: center;
 }
 
-.tag-link {
-  background-color: #eee;
-  padding: 4px 8px;
-  margin: 3px;
-  border-radius: 4px;
-  display: inline-block;
-  text-decoration: none;
-  color: #333;
-  font-size: 12px;
-  transition: background-color 0.2s;
-}
-
-.tag-link:hover {
-  background-color: #ccc;
-}
-
-.poster-tags {
-  font-size: 12px;
-  margin-top: 6px;
-  text-align: center;
-}
 .tag-link {
   background-color: #eee;
   padding: 4px 8px;
@@ -154,43 +119,17 @@ display: flex
   text-decoration: underline;
 }
 
-
-/*
-, .w3-button, .w3-black !important, .w3-black !important, .w3-xlarge, .w3-padding-32
-*/
-
 .w3-white{color:black !important; }
 
 
 .active {
   font-weight: bold;
-  /*background-color: #000 !important;*/
   color: black !important;
-  /*border-bottom: 2px solid #fff;*/
 }
 .w3-button.active {
   font-weight: bold;
-  color:  white !important; /*white #5CABED*/
-  /*border-bottom: 2px solid #fff;*/
+  color:  white !important;
 }
-
-/*
-.active {
-  font-weight: bold;
-  background-color: #000 !important;
-  color: white !important;
-  */
-  /*border-bottom: 2px solid #fff;*/
-/*
-.w3-button.active {
-  font-weight: bold;
-  background-color: #000 !important;
-  color: white !important;
-  */
-  /*border-bottom: 2px solid #fff;*/
-
-
-/* btn text blue #5CABED */
 
 .flag-inline {
   display: inline-flex;
@@ -232,11 +171,36 @@ display: flex
 
    body {background-color:#EDEDEE !important} 
 .bb-img {
-  max-width: 400px;  /* או 100% אם אתה רוצה שיתאים לרוחב התיבה */
+  max-width: 400px;
   height: auto;
   display: block;
-  margin: 10px auto; /* למרכז */
+  margin: 10px auto;
   border-radius: 6px;
 }
 
 
+/* ===================================
+   כללים לגרסת ניהול (ADMIN)
+   =================================== */
+
+/* 1. הצג את כפתור הניהול הראשי */
+#toggle-admin {
+    display: inline-block !important;
+}
+
+/* 2. הסתר את כפתורי הפעולה (עריכה/מחיקה) כברירת מחדל */
+.admin-actions {
+    display: none !important;
+}
+
+/* 3. כאשר מצב ניהול פעיל, הצג את כפתורי הפעולה */
+body.admin-mode .admin-actions {
+    display: inline-flex !important;
+}
+
+.imdb {
+    width: 50px !important;
+    height: 30px !important;
+    margin-right: 8px !important;
+    vertical-align: middle; /* מיישר את האייקון יפה יותר ליד הטקסט */
+}

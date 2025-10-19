@@ -25,6 +25,8 @@ if (isset($conn) && $conn instanceof mysqli) {
 </footer>
 
 <script src="admin_script.js"></script>
+<script src="admin-toggle.js"></script>
+
 
 </body>
 </html>

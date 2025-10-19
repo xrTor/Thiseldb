@@ -71,3 +71,39 @@ function extractImdbId($input) {
 }
 
 ?>
+
+<?php
+/**
+ * יוצר טופס POST מאובטח לפעולות במערכת.
+ *
+ * @param string $action - שם הפעולה (למשל, 'delete_poster').
+ * @param int $collection_id - מזהה האוסף.
+ * @param int $poster_id - מזהה הפוסטר (אופציונלי).
+ * @param string $button_text - הטקסט שיופיע על הכפתור.
+ * @param string $button_class - ה-class של ה-CSS עבור הכפתור.
+ * @param string $confirm_message - הודעת האישור שתוצג למשתמש (אופציונלי).
+ * @return string - מחרוזת ה-HTML של הטופס.
+ */
+function generate_action_form($action, $collection_id, $poster_id, $button_text, $button_class = '', $confirm_message = '') {
+    // בנה את אירוע ה-onsubmit אם נדרש אישור
+    $onsubmit_attr = '';
+    if (!empty($confirm_message)) {
+        $escaped_message = htmlspecialchars($confirm_message, ENT_QUOTES, 'UTF-8');
+        $onsubmit_attr = "onsubmit=\"return confirm('{$escaped_message}');\"";
+    }
+
+    // בנה את ה-HTML של הטופס
+    $form_html = "<form method='POST' action='collection_actions.php' style='display:inline;' {$onsubmit_attr}>";
+    $form_html .= "<input type='hidden' name='action' value='" . htmlspecialchars($action) . "'>";
+    $form_html .= "<input type='hidden' name='collection_id' value='" . (int)$collection_id . "'>";
+    
+    if ($poster_id) {
+        $form_html .= "<input type='hidden' name='poster_id' value='" . (int)$poster_id . "'>";
+    }
+
+    $form_html .= "<button type='submit' class='" . htmlspecialchars($button_class) . "'>" . $button_text . "</button>";
+    $form_html .= "</form>";
+
+    return $form_html;
+}
+?>

@@ -84,6 +84,15 @@ button:hover { background:#00e6b8; }
 /* .admin-only {
     display: none !important;
 } */
+
+    
+/* --- Hide Admin Button ---
+#admin-toggle {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+} */
 </style>
 </head>
 <body>

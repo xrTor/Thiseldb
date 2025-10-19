@@ -79,8 +79,6 @@ echo "";
   $pages = [
     'index.php' => '🪁 עמוד ראשי',
     'home.php' => '🔎 חיפוש מתקדם',
-    //'movies.php' => '🎬 סרטים',
-    //'series.php' => '📺 סדרות', 
     'random.php' => '🎲 סרט רנדומלי',
     'new-movie-imdb.php' => '🎞️ סרט חדש', 
     'collections.php' => '📁 אוספים',
@@ -90,10 +88,13 @@ echo "";
     'full-info.php' => '🧪 מסוף',
     'similar_all.php' => '🎞️ סרטים דומים',
      'stats.php' => '📈 סטטיסטיקה',
+     'site-map.php' => '📚 מפת אתר',
      'contact.php' => '📩 צור קשר',
      'about.php' => '🎉 אודות',
     'export.php' => '💾 ייצוא לCSV',
-    'https://api.thiseldb.me/' => 'ניהול',
+    //'movies.php' => '🎬 סרטים',
+    //'series.php' => '📺 סדרות', 
+    // 'https://api.thiseldb.me/' => 'ניהול',
   ];
 
     foreach ($pages as $file => $label) {

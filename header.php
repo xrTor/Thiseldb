@@ -1,6 +1,7 @@
 
+<?php require_once 'server.php'; ?>
 <?php require_once 'init.php'; ?>
-
+<?php require_once 'security_guard.php'; ?>
 <!DOCTYPE html>
 <html lang="he">
 <head>

@@ -186,18 +186,7 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
             <?php endif; ?>
         </div>
 
-        <div class="card">
-            <h2 class="card-header">🗳️ הצבעות אחרונות</h2>
-            <?php if ($latest_votes && $latest_votes->num_rows > 0): while ($row = $latest_votes->fetch_assoc()): ?>
-                <div class="activity-entry">
-                    <strong><?= $row['vote_type'] === 'like' ? '❤️ אהבתי' : '💔 לא אהבתי' ?> על "<?= htmlspecialchars($row['title_en']) ?>"</strong>
-                    <small><?= htmlspecialchars($row['created_at']) ?> | מזהה: <?= htmlspecialchars($row['visitor_token']) ?></small>
-                </div>
-            <?php endwhile; else: ?>
-                <p class="no-data">אין הצבעות זמינות.</p>
-            <?php endif; ?>
-        </div>
-        
+<!--         
         <div class="card">
             <h2 class="card-header">🆕 פוסטרים שנוספו</h2>
             <?php if ($latest_posters && $latest_posters->num_rows > 0): while ($row = $latest_posters->fetch_assoc()): ?>
@@ -208,8 +197,9 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
             <?php endwhile; else: ?>
                 <p class="no-data">אין פוסטרים חדשים.</p>
             <?php endif; ?>
-        </div>
+        </div> -->
 
+        
         <div class="card reports">
             <h2 class="card-header">🚨 דיווחים אחרונים</h2>
             <?php if ($latest_reports && $latest_reports->num_rows > 0): while ($row = $latest_reports->fetch_assoc()): ?>
@@ -223,6 +213,19 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
                 </div>
             <?php endwhile; else: ?>
                 <p class="no-data">אין דיווחים זמינים.</p>
+            <?php endif; ?>
+        </div>
+
+        
+        <div class="card">
+            <h2 class="card-header">🗳️ הצבעות אחרונות</h2>
+            <?php if ($latest_votes && $latest_votes->num_rows > 0): while ($row = $latest_votes->fetch_assoc()): ?>
+                <div class="activity-entry">
+                    <strong><?= $row['vote_type'] === 'like' ? '❤️ אהבתי' : '💔 לא אהבתי' ?> על "<?= htmlspecialchars($row['title_en']) ?>"</strong>
+                    <small><?= htmlspecialchars($row['created_at']) ?> | מזהה: <?= htmlspecialchars($row['visitor_token']) ?></small>
+                </div>
+            <?php endwhile; else: ?>
+                <p class="no-data">אין הצבעות זמינות.</p>
             <?php endif; ?>
         </div>
       </div>

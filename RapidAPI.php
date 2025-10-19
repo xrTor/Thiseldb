@@ -2,7 +2,8 @@
 require_once 'server.php';
 
 // ✅ ה־IMDB SCRAPER (שים את imdb.class.php ליד הקובץ או עדכן נתיב)
-include_once __DIR__ . '/imdb.class.php';
+require_once __DIR__ . '/imdb.class.php';
+
 
 // ===== DEBUG =====
 $DEBUG = true; // שנה ל-true כדי לראות דיבאג

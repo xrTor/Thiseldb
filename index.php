@@ -1,4 +1,8 @@
 <?php
+// FILE: index.php (Universal Version)
+// This file is identical for both admin and public servers.
+// Its behavior is controlled by the version of style.css on the server.
+
 require_once 'server.php';
 include 'header.php';
 include 'languages.php'; // Include for flags array
@@ -11,153 +15,8 @@ foreach ($languages as $lang) {
     $lang_map[strtolower($lang['code'])] = $lang_data;
     $lang_map[strtolower($lang['label'])] = $lang_data;
 }
-?>
 
-<style>
-    .poster {
-    display: flex;
-    flex-direction: column;
-}
-.poster-actions {
-    margin-top: auto; /* דוחף את הפעולות לתחתית הבוקסה */
-    padding-top: 8px; /* מוסיף ריווח קטן מעל */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap; /* מאפשר לכפתורים לרדת שורה אם אין מקום */
-    direction: rtl;
-}
-.poster-actions .separator {
-    margin: 0 4px;
-    color: #ccc;
-}
-    .poster {
-    width: 205px;
-}
-        .poster:hover {
-    position: relative;
-    z-index: 10;
-    transform: scale(1.25);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-    body {background-color:#EDEDEE !important}
-
-    .trailer-btn {
-        background-color: #d92323; color: white; border: none; padding: 5px 10px;
-        border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 13px;
-    }
-    .trailer-btn:hover { background-color: #b01c1c; }
-
-    .modal {
-        display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-        width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7);
-        padding-top: 60px;
-    }
-    .modal-content {
-        position: relative; background-color: #181818; margin: auto; padding: 0;
-        width: 90%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
-        animation-name: animatetop; animation-duration: 0.4s;
-    }
-    @keyframes animatetop { from {top: -300px; opacity: 0} to {top: 0; opacity: 1} }
-    .close-btn { color: white; float: left; font-size: 38px; font-weight: bold; line-height: 1; padding: 0 15px; }
-    .close-btn:hover, .close-btn:focus { color: #999; text-decoration: none; cursor: pointer; }
-    .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
-    .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    .poster-actions a { text-decoration: none; font-size: 18px; margin: 0 3px; }
-
-    .poster-type-link { text-decoration: none; }
-    .poster-type-display {
-        font-size: 12px; color: #555; display: flex; align-items: center; justify-content: center;
-        gap: 8px; margin-top: 5px; padding: 5px 0;
-    }
-    
-    .poster-tags { text-align: center; padding: 5px 0; }
-    .tag-badge {
-        display: inline-block;
-        background: linear-gradient(to bottom, #f7f7f7, #e0e0e0);
-        color: #333;
-        padding: 4px 12px;
-        border-radius: 16px;
-        font-size: 12px;
-        margin: 3px;
-        text-decoration: none;
-        font-weight: 500;
-        border: 1px solid #ccc;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        transition: all 0.2s ease-in-out;
-    }
-    .user-tag {
-        background: linear-gradient(to bottom, #e3f2fd, #bbdefb);
-        border-color: #90caf9;
-    }
-    .tag-badge:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .network-logo-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-        padding: 8px 0;
-    }
-    
-    .flags-container {
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        gap: 4px; flex-wrap: wrap; margin-top: 5px;
-    }
-
-    .network-logo-container:empty,
-    .poster-tags:empty,
-    .flags-container:empty {
-        display: none;
-    }
-
-    .flag-row { width: 100%; display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
-    .flag-row + .flag-row { margin-top: 4px; }
-    
-    .poster {
-        position: relative;
-    }
-    .collection-sticker-container {
-        padding: 8px 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-    }
-    .imdb-container img {
-        height: 18px;
-        width: auto;
-        object-fit: contain;
-    }
-    .poster {
-    display: flex;
-    flex-direction: column;
-}
-.poster-actions {
-    margin-top: auto; /* דוחף את הפעולות לתחתית */
-    padding-top: 8px; /* מוסיף ריווח קטן מעל */
-    margin-bottom: 8px; /* <- הוסף את השורה הזו */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    direction: rtl;
-}
-.poster-actions .separator {
-    margin: 0 4px;
-    color: #ccc;
-}
-.flags-container a { 
-        font-size: 16px; /* הקטנת הגופן כדי להתאים לתצוגה צפופה */
-        color: #333;    /* צבע הטקסט - ניתן לשנות */
-        font-weight: 500;
-    }
-</style>
-<?php
+// --- Data Fetching Logic ---
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $limit = 20;
 
@@ -230,7 +89,6 @@ if (!empty($rows)) {
         $manual_languages_by_poster_id[$lang_row['poster_id']][] = $lang_row['lang_code'];
     }
 
-    // --- שליפת סטיקרים של אוספים עבור כל הפוסטרים בעמוד ---
     if (!empty($poster_ids)) {
         $sql_stickers = "SELECT pc.poster_id, c.poster_image_url, c.id as collection_id, c.name as collection_name
                          FROM poster_collections pc
@@ -248,27 +106,50 @@ if (!empty($rows)) {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="he">
 <head>
   <meta charset="UTF-8">
   <title>Thiseldb</title>
   <link rel="stylesheet" href="style.css">
-<style>
-.admin-actions{display:none !important;}
-.admin-mode .admin-actions{display:inline !important;}
-</style>
-
+  <style>
+    .poster { display: flex; flex-direction: column; }
+    .poster-actions { margin-top: auto; padding-top: 8px; margin-bottom: 8px; display: flex; justify-content: center; align-items: center; direction: rtl; flex-wrap: wrap; }
+    .poster-actions .separator { margin: 0 4px; color: #ccc; }
+    .poster { width: 205px; }
+    .poster:hover { position: relative; z-index: 10; transform: scale(1.25); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    body {background-color:#EDEDEE !important}
+    .trailer-btn { background-color: #d92323; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 13px; }
+    .trailer-btn:hover { background-color: #b01c1c; }
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); padding-top: 60px; }
+    .modal-content { position: relative; background-color: #181818; margin: auto; padding: 0; width: 90%; max-width: 800px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19); animation-name: animatetop; animation-duration: 0.4s; }
+    @keyframes animatetop { from {top: -300px; opacity: 0} to {top: 0; opacity: 1} }
+    .close-btn { color: white; float: left; font-size: 38px; font-weight: bold; line-height: 1; padding: 0 15px; }
+    .close-btn:hover, .close-btn:focus { color: #999; text-decoration: none; cursor: pointer; }
+    .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
+    .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .poster-actions a { text-decoration: none; font-size: 18px; margin: 0 3px; }
+    .poster-type-link { text-decoration: none; }
+    .poster-type-display { font-size: 12px; color: #555; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px; padding: 5px 0; }
+    .poster-tags { text-align: center; padding: 5px 0; }
+    .tag-badge { display: inline-block; background: linear-gradient(to bottom, #f7f7f7, #e0e0e0); color: #333; padding: 4px 12px; border-radius: 16px; font-size: 12px; margin: 3px; text-decoration: none; font-weight: 500; border: 1px solid #ccc; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out; }
+    .user-tag { background: linear-gradient(to bottom, #e3f2fd, #bbdefb); border-color: #90caf9; }
+    .tag-badge:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .network-logo-container { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; }
+    .flags-container { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+    .network-logo-container:empty, .poster-tags:empty, .flags-container:empty { display: none; }
+    .flag-row { width: 100%; display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .flag-row + .flag-row { margin-top: 4px; }
+    .collection-sticker-container { padding: 8px 0; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .imdb-container img { height: 18px; width: auto; object-fit: contain; }
+    .flags-container a { font-size: 16px; color: #333; font-weight: 500; }
+  </style>
 </head>
 <body class="rtl">
 
-
-<div style="width:100%; max-width:900px; margin:20px auto;">
+<!-- <div style="width:100%; max-width:900px; margin:20px auto;">
     <iframe src="chat.php" style="width:100%; height:470px; border:1px solid #444; border-radius:10px;"></iframe>
-</div>
-
-<!-- <?php include 'chat.php'; ?> -->
+</div> -->
 
 <div style="text-align:center; margin:10px;">
   <button id="toggle-admin" style="padding:6px 12px; cursor:pointer;">🔑 מצב ניהול</button>
@@ -329,8 +210,7 @@ if (!empty($rows)) {
             }
           ?>
       </div>
-      
-      
+            
       <div class="poster-tags">
           <?php
             $official_genres = array_filter(array_map('trim', explode(',', $row['genres'] ?? '')));
@@ -359,9 +239,8 @@ if (!empty($rows)) {
                             $flag_data = $lang_map[$lang_key];
                     ?>
                         <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
-                                                        <span><?= htmlspecialchars($flag_data['label']) ?></span>
-
-                                                        <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
+                            <span><?= htmlspecialchars($flag_data['label']) ?></span>
+                            <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
                         </a>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -384,7 +263,7 @@ if (!empty($rows)) {
                 </div>
             <?php endif; ?>
       </div>
-<?php if (isset($stickers_by_poster_id[$row['id']])): ?>
+        <?php if (isset($stickers_by_poster_id[$row['id']])): ?>
         <div class="collection-sticker-container">
             <?php foreach ($stickers_by_poster_id[$row['id']] as $sticker): ?>
                 <a href="collection.php?id=<?= (int)$sticker['collection_id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($sticker['collection_name']) ?>">
@@ -393,18 +272,19 @@ if (!empty($rows)) {
             <?php endforeach; ?>
         </div>
       <?php endif; ?>
+      
       <div class="poster-actions">
-  <?php if (!empty($row['trailer_url'])): ?>
-      <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
-  <?php endif; ?>
-  <span class="admin-actions">
-      <?php if (!empty($row['trailer_url'])): ?><span class="separator">|</span><?php endif; ?>
-      <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
-      <span class="separator">|</span>
-      <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
-  </span>
-</div>
-
+          <?php if (!empty($row['trailer_url'])): ?>
+              <button class="trailer-btn" data-trailer-url="<?= htmlspecialchars($row['trailer_url']) ?>">🎬 טריילר</button>
+          <?php endif; ?>
+          
+          <span class="admin-actions">
+              <?php if (!empty($row['trailer_url'])): ?><span class="separator">|</span><?php endif; ?>
+              <a href="edit.php?id=<?= $row['id'] ?>" title="עריכה">✏️</a>
+              <span class="separator">|</span>
+              <a href="delete.php?id=<?= $row['id'] ?>" title="מחיקה" onclick="return confirm('למחוק את הפוסטר?')">🗑️</a>
+          </span>
+      </div>
       <br>
     </div>
   <?php endforeach; ?>
@@ -424,6 +304,7 @@ if (!empty($rows)) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Trailer and Infinite Scroll Logic ---
     const posterWall = document.getElementById('poster-wall');
     const loadingIndicator = document.getElementById('loading');
     const modal = document.getElementById('trailer-modal');
@@ -484,14 +365,11 @@ document.addEventListener('DOMContentLoaded', function() {
         isLoading = true;
         currentPage++;
         loadingIndicator.style.display = 'block';
-
         const currentUrlParams = new URLSearchParams(window.location.search);
         currentUrlParams.set('page', currentPage);
-
         try {
             const response = await fetch(`load_more.php?${currentUrlParams.toString()}`);
             const newPostersHtml = await response.text();
-            
             if (newPostersHtml.trim().length > 0) {
                 posterWall.insertAdjacentHTML('beforeend', newPostersHtml);
             } else {
@@ -510,45 +388,31 @@ document.addEventListener('DOMContentLoaded', function() {
             loadMorePosters();
         }
     });
-});
-</script>
 
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const toggleBtn = document.getElementById("toggle-admin");
-  if (!toggleBtn) return;
-  let adminMode = false;
-  toggleBtn.addEventListener("click", () => {
-    adminMode = !adminMode;
-    document.querySelectorAll(".admin-actions").forEach(el => {
-      el.style.display = adminMode ? "inline" : "none";
-    });
-    toggleBtn.textContent = adminMode ? "🚪 יציאה ממצב ניהול" : "🔑 מצב ניהול";
-  });
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var body = document.body;
-  var btn = document.getElementById('toggle-admin');
-  if (localStorage.getItem('adminMode') === '1') {
-    body.classList.add('admin-mode');
-    if (btn) btn.textContent = '🚪 יציאה ממצב ניהול';
-  }
-  if (btn) {
-    btn.addEventListener('click', function() {
-      body.classList.toggle('admin-mode');
-      var on = body.classList.contains('admin-mode');
-      localStorage.setItem('adminMode', on ? '1' : '0');
-      btn.textContent = on ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול';
-    });
-  }
+    // --- Admin Mode Toggle Logic ---
+    var body = document.body;
+    var btn = document.getElementById('toggle-admin');
+    
+    // The script checks if the button exists in the HTML.
+    // If the public CSS hides it, it still exists, and this script will run.
+    if (btn) {
+        // Restore admin state from localStorage on page load
+        if (localStorage.getItem('adminMode') === '1') {
+            body.classList.add('admin-mode');
+            btn.textContent = '🚪 יציאה ממצב ניהול';
+        }
+        
+        // Add click listener to the button
+        btn.addEventListener('click', function() {
+            body.classList.toggle('admin-mode');
+            var on = body.classList.contains('admin-mode');
+            localStorage.setItem('adminMode', on ? '1' : '0');
+            btn.textContent = on ? '🚪 יציאה ממצב ניהול' : '🔑 מצב ניהול';
+        });
+    }
 });
 </script>
 </body>
 </html>
-
 <?php $conn->close(); ?>
 <?php include 'footer.php'; ?>

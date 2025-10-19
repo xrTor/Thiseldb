@@ -659,38 +659,20 @@ body.view-commas .collection-list .chip::after {
 .admin-mode .admin-only { display: inline-flex !important; }
 .admin-mode .actions.admin-only { display: flex !important; }
 
-/* === אחידות מלאה בין לוגו רשת לסטיקר אוסף === */
-.network-logos img,
-.collection-stickers img {
-  display: block;
-  margin: 0 auto;
-  width: auto;
-  height: 50px;         /* ← גובה קבוע זהה לכולם */
-  width:auto; 
-  max-width: 100px;
-  object-fit: contain;  /* שמירה על פרופורציות */
-  object-position: center center;
-  border: none;
-}
-
-/* מבנה וריווח */
-.network-logos,
-.collection-stickers {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-/* 
-.sticker 
-{height:50px; width:auto; max-width:150px; object-fit:contain;} */
 </style>
 </head>
 <body>
 <script>document.addEventListener('DOMContentLoaded',()=>{document.body.classList.add('mgmt-hidden');});</script>
 <br>
+
+<div class="section" style="border-top:none;padding-top:0;">
+  <p class="kv"><span class="label">הוספת סרט דומה:</span></p>
+  <form method="post" class="row-forms">
+    <textarea name="sim_value" placeholder="הזן מזהים (tt, id, URL), אחד בכל שורה או מופרדים בפסיק/רווח" required rows="6" style="width:60%; resize: vertical;"></textarea><BR>
+    <button type="submit" name="sim_add" class="btn">📥 הוסף סרט דומה</button><BR><BR>
+  </form>
+</div>
+
 
 <div class="wrap">
   <div class="card" style="margin-bottom:16px">
@@ -755,7 +737,7 @@ body.view-commas .collection-list .chip::after {
     <div class="collection-stickers" style="text-align:center; margin-top:12px; display:flex; flex-direction:column; gap:8px; align-items:center;">
       <?php foreach ($collections_with_stickers as $c): ?>
         <a href="collection.php?id=<?= (int)$c['id'] ?>" title="שייך לאוסף: <?= htmlspecialchars($c['name']) ?>">
-          <img src="<?= htmlspecialchars($c['poster_image_url']) ?>" alt="<?= htmlspecialchars($c['name']) ?>" class="sticker">
+          <img src="<?= htmlspecialchars($c['poster_image_url']) ?>" alt="<?= htmlspecialchars($c['name']) ?>" style="height:50px; width:auto; max-width:150px; object-fit:contain;">
         </a>
       <?php endforeach; ?>
     </div>

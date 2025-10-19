@@ -1,6 +1,8 @@
 <?php
 require_once 'server.php'; // וודא שקובץ זה כולל חיבור למסד הנתונים
-session_start(); // התחל סשן עבור שמירת משתנים אם צריך
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 include 'header.php'; // כלול את קובץ ה-header שלך
 
 // שליפת טבלת סוגים מהמסד

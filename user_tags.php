@@ -1,15 +1,25 @@
 <?php include 'header.php';
 require_once 'server.php';
  
-$name = $conn->real_escape_string($_GET['name'] ?? '');
-
-$sql = "
-  SELECT p.* FROM user_tags g
-  JOIN posters p ON g.poster_id = p.id
-  WHERE g.genre LIKE '%$name%' AND p.pending = 0
-  GROUP BY p.id
-";
-$result = $conn->query($sql);
++ $name = $_GET['name'] ?? '';
++ 
++ // 1. הכנת השאילתה עם Placeholder (?) במקום שרשור המשתנה
++ $sql = "
++   SELECT p.* FROM user_tags g
++   JOIN posters p ON g.poster_id = p.id
++   WHERE g.genre LIKE ? AND p.pending = 0
++   GROUP BY p.id
++ ";
++ 
++ $stmt = $conn->prepare($sql);
++ 
++ // 2. הוספת התו הכללי (%) לערך שיוזרק, לא לשאילתה עצמה
++ $like_name = "%" . $name . "%";
++ 
++ // 3. קשירת הפרמטר בצורה בטוחה והרצת השאילתה
++ $stmt->bind_param("s", $like_name);
++ $stmt->execute();
++ $result = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="he" dir="rtl">

@@ -1,15 +1,8 @@
 <?php
-
-// set_error_handler(function($severity, $message, $file, $line) {
-//     if (!(error_reporting() & $severity)) {
-//         return;
-//     }
-//     throw new ErrorException($message, 0, $severity, $file, $line);
-// });
-
 /****************************************************
  * auto-add.php — ייבוא אוטומטי + AKAs + IMDb Connections (מאוחד)
- * BUILD v49 — תיקון מלא וגורף לכל שגיאות "Array to string conversion"
+ * BUILD v22:
+ * - מתאים את הקריאה ל-build_row() לחתימה החדשה עם 5 פרמטרים
  ****************************************************/
 set_time_limit(3000000);
 mb_internal_encoding('UTF-8');
@@ -25,45 +18,25 @@ require_once __DIR__ . '/server.php';
 if (!isset($conn) || !($conn instanceof mysqli)) { die('DB connection failed'); }
 $conn->set_charset('utf8mb4');
 
-/* טען imdb.php אם קיים (ללא HTML) */
+/* טען imdb.php אם קיים (לקבלת build_row/unify_details ומפתחות, מבלי לפלוט HTML) */
 ob_start();
-if (file_exists(__DIR__ . '/imdb.php')) { require_once __DIR__ . '/imdb.php'; }
+if (file_exists(__DIR__ . '/imdb.php')) {
+    require_once __DIR__ . '/imdb.php';
+}
 ob_end_clean();
 
-/* ========= עזרים ========= */
+/* ========= עזר כללי ========= */
+function H($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function to_csv_val($arr){
     if(!$arr) return null;
     $vals=[];
     foreach((array)$arr as $x){
-        if (is_array($x) || is_object($x)) $x = json_encode($x, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
         $t=trim((string)$x);
         if($t!=='') $vals[]=$t;
     }
     $vals=array_values(array_unique($vals));
     return $vals?implode(', ',$vals):null;
 }
-function H($v){
-  if (is_array($v)) {
-    $csv = to_csv_val($v);
-    $v = $csv !== null ? $csv : json_encode($v, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-  } elseif (is_object($v)) {
-    $v = json_encode($v, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-  }
-  return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-}
-function dbg_to_s($v): string {
-    if ($v === null) return '';
-    if (is_scalar($v)) return (string)$v;
-    if (is_array($v)) {
-        $flat = [];
-        foreach ($v as $x) $flat[] = is_scalar($x) ? (string)$x : json_encode($x, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-        return implode(', ', $flat);
-    }
-    return json_encode($v, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-}
-/* תמיד מחזיר מחרוזת בטוחה ל-HTML */
-function safe_s($v): string { return H(dbg_to_s($v)); }
-
 function parse_runtime_to_minutes($str) {
     if (!$str) return null;
     $h = 0; $m = 0;
@@ -74,47 +47,16 @@ function parse_runtime_to_minutes($str) {
     return $numeric_val > 0 ? $numeric_val : null;
 }
 
-/* ========== Year span utility (מוסיף "Recent" לסדרה פעילה) ========== */
-function is_continuing_status(?string $status): bool {
-    if (!$status) return false;
-    $s = mb_strtolower($status, 'UTF-8');
-    return str_contains($s,'continuing') || str_contains($s,'returning') || str_contains($s,'ongoing') || str_contains($s,'in production');
-}
-function build_year_span(?string $firstAired, ?string $lastAired, bool $is_tv, ?string $statusName=null): ?string {
-    $startY = null; $endY = null;
-    if ($firstAired && preg_match('/^\d{4}/', (string)$firstAired, $m)) $startY = (int)$m[0];
-    if ($lastAired  && preg_match('/^\d{4}/', (string)$lastAired,  $m)) $endY   = (int)$m[0];
-
-    if ($startY) {
-        if ($endY) return $startY . '-' . $endY;
-        if ($is_tv) {
-            if (!$lastAired || is_continuing_status($statusName)) return $startY . '-Recent';
-            return $startY . '-' . (int)date('Y');
-        }
-        return (string)$startY;
-    }
-    return null;
-}
-
 /* ========= מיפוי ל-posters ========= */
 function map_u_to_posters_fields(array $u, array $raw_row): array {
   $m = [];
-  $add = function($col,$val) use (&$m){
-      if (is_array($val) || is_object($val)) $val = to_csv_val($val) ?? json_encode($val, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-      $m[$col]=$val;
-  };
+  $add = function($col,$val) use (&$m){ $m[$col]=$val; };
 
   $add('imdb_id', $u['imdb_id'] ?? null);
-  $add('title_en', $u['display_title'] ?? ($u['title_en'] ?? null));
-  $add('original_title', $u['original_title'] ?? ($raw_row['original_title'] ?? null));
+  $add('title_en', $u['display_title'] ?? null);
+  $add('original_title', $raw_row['original_title'] ?? null);
   $add('title_he', $u['he_title'] ?? null);
-
-  if (!empty($u['year_span'])) {
-      $add('year', (string)$u['year_span']);
-      $add('year_span', (string)$u['year_span']);
-  } else {
-      $add('year', isset($u['year']) ? (string)$u['year'] : null);
-  }
+  $add('year', $u['year'] ?? null);
 
   $is_tv = !empty($u['is_tv']);
   $add('is_tv', $is_tv ? 1 : 0);
@@ -123,15 +65,11 @@ function map_u_to_posters_fields(array $u, array $raw_row): array {
   $add('poster_url', $u['poster'] ?? null);
   $add('image_url',  $u['poster'] ?? null);
   $add('poster',     $u['poster'] ?? null);
-
-  $tr = $u['trailer'] ?? ($u['trailer_url'] ?? ($u['youtube_trailer'] ?? null));
-  $add('trailer_url', $tr);
-  $add('youtube_trailer', $tr);
+  $add('trailer_url', $u['trailer'] ?? null);
+  $add('youtube_trailer', $u['trailer'] ?? null);
 
   $add('tvdb_url', $u['tvdb_url'] ?? null);
-  if (isset($u['tvdb_id'])) $add('tvdb_id', (string)$u['tvdb_id']);
   $add('tmdb_url', $u['tmdb_url'] ?? null);
-
   $add('overview_he', $u['overview_he'] ?? null);
   $add('overview_en', $u['overview_en'] ?? null);
 
@@ -149,24 +87,24 @@ function map_u_to_posters_fields(array $u, array $raw_row): array {
   $add('composers',        to_csv_val($u['composers'] ?? null));
   $add('cinematographers', to_csv_val($u['cinematographers'] ?? null));
   $add('cast',             to_csv_val($u['cast'] ?? null));
-
-  if (empty($u['networks']) && !empty($u['network'])) $u['networks'] = [$u['network']];
-  $add('networks', to_csv_val($u['networks'] ?? null));
-
-  $add('seasons_count',  isset($u['seasons'])  ? (string)(int)$u['seasons']  : null);
-  $add('episodes_count', isset($u['episodes']) ? (string)(int)$u['episodes'] : null);
+  $add('networks',         to_csv_val($u['networks'] ?? null));
 
   $add('imdb_rating', isset($u['imdb_rating']) ? (string)$u['imdb_rating'] : null);
   $add('imdb_votes',  isset($u['imdb_votes'])  ? (string)$u['imdb_votes']  : null);
+
   $add('rt_score', isset($u['rt_score']) ? (string)$u['rt_score'] : null);
   $add('rt_url',   $u['rt_url'] ?? null);
   $add('mc_score', isset($u['mc_score']) ? (string)$u['mc_score'] : null);
   $add('mc_url',   $u['mc_url'] ?? null);
+    /* === Ratings patch applied === */
+
+  $add('seasons_count',  $u['seasons'] ?? null);
+  $add('episodes_count', $u['episodes'] ?? null);
 
   return $m;
 }
 
-/* ========= DB ========= */
+/* ========= עזר DB ========= */
 function db_get_columns(mysqli $conn, $table){
   $cols=[]; $res=$conn->query("SHOW COLUMNS FROM `".$conn->real_escape_string($table)."`");
   if($res) while($r=$res->fetch_assoc()){ $cols[]=$r['Field']; }
@@ -178,22 +116,6 @@ function db_find_existing_row(mysqli $conn, $table, $pkField, $pkValue){
   $stmt->bind_param('s',$pkValue); $stmt->execute();
   $row=$stmt->get_result()->fetch_assoc(); $stmt->close();
   return $row?:null;
-}
-function db_scalarize($v) {
-  if (is_array($v)) { $csv = to_csv_val($v); return $csv !== null ? $csv : json_encode($v, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); }
-  if (is_bool($v)) return $v ? '1' : '0';
-  if (is_object($v)) return json_encode($v, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-  return $v;
-}
-function filter_non_empty_for_update(array $data, string $pkField): array {
-  $out=[];
-  foreach ($data as $k=>$v) {
-    if ($k === $pkField) { $out[$k]=$v; continue; }
-    if ($v === null) continue;
-    if (is_string($v) && trim($v) === '') continue;
-    $out[$k]=$v;
-  }
-  return $out;
 }
 function upsert_row(mysqli $conn, string $table, array $data, string $pkField, string $dup_mode = 'skip'): array {
   if (empty($data[$pkField])) return ['ok'=>false,'error'=>'Empty primary key','id'=>0,'action'=>'error'];
@@ -210,12 +132,8 @@ function upsert_row(mysqli $conn, string $table, array $data, string $pkField, s
       foreach ($existing_row as $k=>$v) {
         if (!empty($v) && $v !== '0' && isset($data[$k])) unset($data[$k]);
       }
-    } else {
-      $data = filter_non_empty_for_update($data, $pkField);
     }
     if (empty($data) || count($data) <= 1) return ['ok'=>true,'error'=>null,'id'=>$poster_id,'action'=>'skipped (nothing to update)'];
-
-    $data = array_map('db_scalarize', $data);
     unset($data[$pkField]); $set=[]; $types=''; $vals=[];
     foreach($data as $k=>$v){ $set[]="`{$k}`=?"; $types.='s'; $vals[]=$v; }
     $vals[]=$pkValue; $types.='s';
@@ -225,9 +143,6 @@ function upsert_row(mysqli $conn, string $table, array $data, string $pkField, s
     if($st->execute()){ $st->close(); return ['ok'=>true,'error'=>null,'id'=>$poster_id,'action'=>'updated']; }
     $err=$st->error; $st->close(); return ['ok'=>false,'error'=>'Update failed: '.$err,'id'=>$poster_id,'action'=>'error'];
   } else {
-    $data = filter_non_empty_for_update($data, $pkField);
-    $data = array_map('db_scalarize', $data);
-
     $cols=array_keys($data); $ph=implode(',', array_fill(0,count($cols),'?'));
     $sql="INSERT INTO `{$table}` (`".implode('`,`',$cols)."`) VALUES ({$ph})";
     $st=$conn->prepare($sql); if(!$st) return ['ok'=>false,'error'=>'Prepare failed: '.$conn->error,'id'=>0,'action'=>'error'];
@@ -240,16 +155,7 @@ function upsert_row(mysqli $conn, string $table, array $data, string $pkField, s
 /* ========= AKAs ========= */
 function replace_akas(mysqli $db, int $poster_id, string $imdb_id, array $akas): int {
   if ($poster_id <= 0) return 0;
-  $processed_akas = [];
-  foreach ((array)$akas as $aka_item) {
-      if (is_scalar($aka_item)) {
-          $trimmed_item = trim((string)$aka_item);
-          if ($trimmed_item !== '') {
-              $processed_akas[] = $trimmed_item;
-          }
-      }
-  }
-  $list = array_values(array_unique($processed_akas));
+  $list = array_values(array_unique(array_filter(array_map('trim', (array)$akas))));
   if ($stmt_delete = $db->prepare("DELETE FROM poster_akas WHERE poster_id = ?")) {
       $stmt_delete->bind_param("i", $poster_id);
       $stmt_delete->execute();
@@ -272,7 +178,7 @@ function replace_akas(mysqli $db, int $poster_id, string $imdb_id, array $akas):
   return $saved;
 }
 
-/* ========= IMDb Connections (ללא regex גורף) ========= */
+/* ========= מחולל Connections — שליפה ========= */
 function http_get_simple(string $url, int $timeout=20): ?string {
   if (!function_exists('curl_init')) return null;
   $ch = curl_init($url);
@@ -283,7 +189,7 @@ function http_get_simple(string $url, int $timeout=20): ?string {
     CURLOPT_TIMEOUT => $timeout,
     CURLOPT_CONNECTTIMEOUT => 10,
     CURLOPT_SSL_VERIFYPEER => true,
-    CURLOPT_ENCODING => '',
+    CURLOPT_ENCODING => '', // gzip/deflate אוטומטי
     CURLOPT_HTTPHEADER => [
       'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
       'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -321,15 +227,18 @@ function dedupe_items(array $items): array {
 function parse_next_data_json(string $html): ?array {
   if (preg_match('#<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>#si', $html, $m)) {
     $json = html_entity_decode($m[1], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $data = json_decode($json, true);
+    try { $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR); }
+    catch (Throwable $e) { $data = json_decode($json, true); }
     return is_array($data) ? $data : null;
   }
   return null;
 }
-function imdb_connections_url(string $id): string { return "https://www.imdb.com/title/{$id}/movieconnections/"; }
+function imdb_connections_url(string $id): string {
+  return "https://www.imdb.com/title/{$id}/movieconnections/";
+}
 function normalize_conn_label(string $s): string {
   $s = trim(preg_replace('/\s+/', ' ', $s));
-  $s = preg_replace('/\s*\(.*$/', '', $s);
+  $s = preg_replace('/\s*\(.*$/', '', $s); // drop "(Spoofs)" וכו'
   $map = [
     'Follows'=>'Follows','Followed by'=>'Followed by','References'=>'References','Referenced in'=>'Referenced in',
     'Features'=>'Features','Featured in'=>'Featured in','Edited from'=>'Edited from','Edited into'=>'Edited into',
@@ -353,17 +262,17 @@ function extract_connections_from_next(array $data, array $keep): array {
       if (!$id && !empty($node[$k]) && preg_match('/^tt\d+$/', (string)$node[$k])) $id = $node[$k];
     }
     foreach (['link','canonicalLink','url'] as $k) {
-      if (!$id && !empty($node[$k]) && is_string($node[$k]) && preg_match('#/title/(tt\d+)/#', $node[$k], $m)) $id = $m[1];
+      if (!$id && !empty($node[$k]) && preg_match('#/title/(tt\d+)/#', (string)$node[$k], $m)) $id = $m[1];
     }
-    if (isset($node['titleText'])) $title = is_array($node['titleText']) ? ($node['titleText']['text'] ?? null) : (is_string($node['titleText'])?$node['titleText']:null);
-    if (!$title && isset($node['originalTitleText']) && is_array($node['originalTitleText'])) $title = $node['originalTitleText']['text'] ?? null;
+    if (isset($node['titleText'])) {
+      $title = is_array($node['titleText']) ? ($node['titleText']['text'] ?? null) : (is_string($node['titleText'])?$node['titleText']:null);
+    }
+    if (!$title && isset($node['originalTitleText']) && is_array($node['originalTitleText'])) {
+      $title = $node['originalTitleText']['text'] ?? null;
+    }
     if (!$title && isset($node['displayableTitle'])) $title = is_string($node['displayableTitle']) ? $node['displayableTitle'] : null;
     if (!$title && isset($node['title'])) $title = is_string($node['title']) ? $node['title'] : null;
-    foreach (['link','canonicalLink','url'] as $k) {
-      if (!$url && !empty($node[$k]) && is_string($node[$k])) {
-        $url = expand_imdb_href($node[$k]);
-      }
-    }
+    foreach (['link','canonicalLink','url'] as $k) { if (!$url && !empty($node[$k])) $url = expand_imdb_href((string)$node[$k]); }
     if (!$url && $id) $url = "https://www.imdb.com/title/{$id}/";
     if ($id) $out[$cat][] = ['id'=>$id,'title'=>$title ?: $id,'url'=>$url];
   };
@@ -379,8 +288,8 @@ function extract_connections_from_next(array $data, array $keep): array {
         isset($node['titleText']) || isset($node['originalTitleText']) || isset($node['displayableTitle']) ||
         (isset($node['id']) && preg_match('/^tt\d+$/', (string)$node['id'])) ||
         (isset($node['const']) && preg_match('/^tt\d+$/', (string)$node['const'])) ||
-        (isset($node['link']) && is_string($node['link']) && preg_match('#/title/tt\d+/#', $node['link'])) ||
-        (isset($node['canonicalLink']) && is_string($node['canonicalLink']) && preg_match('#/title/tt\d+/#', $node['canonicalLink']))
+        (isset($node['link']) && preg_match('#/title/tt\d+/#', (string)$node['link'])) ||
+        (isset($node['canonicalLink']) && preg_match('#/title/tt\d+/#', (string)$node['canonicalLink']))
       )) { $pushItem($cur, $node); }
       foreach ($node as $v) $walk($v, $cur);
     }
@@ -391,12 +300,18 @@ function extract_connections_from_next(array $data, array $keep): array {
 }
 function imdb_connections_all_fetch(string $imdbId, array $keep): array {
   $out = []; foreach ($keep as $k) $out[$k]=[];
-  if (!preg_match('/^tt\d{6,12}$/', $imdbId)) { $out['_source']='none'; return $out; }
+  if (!preg_match('/^tt\d{6,10}$/', $imdbId)) { $out['_source']='none'; return $out; }
 
-  foreach ([ imdb_connections_url($imdbId), imdb_connections_url($imdbId).'?ref_=tt_trv_cnn' ] as $url) {
+  $tryUrls = [
+    imdb_connections_url($imdbId),
+    imdb_connections_url($imdbId).'?ref_=tt_trv_cnn',
+  ];
+
+  foreach ($tryUrls as $url) {
     $html = http_get_simple($url);
     if (!$html) continue;
 
+    // 1) NEXT JSON
     $next = parse_next_data_json($html);
     if ($next) {
       $ex = extract_connections_from_next($next, $keep);
@@ -404,6 +319,7 @@ function imdb_connections_all_fetch(string $imdbId, array $keep): array {
       if ($has) { $ex['_source']='next'; return $ex; }
     }
 
+    // 2) DOM fallback (php-xml)
     if (class_exists('DOMDocument')) {
       libxml_use_internal_errors(true);
       $dom = new DOMDocument(); $dom->loadHTML($html); libxml_clear_errors();
@@ -435,6 +351,34 @@ function imdb_connections_all_fetch(string $imdbId, array $keep): array {
       $has=false; foreach($domOut as $arr){ if (!empty($arr)) { $has=true; break; } }
       if ($has) { $domOut['_source']='dom'; return $domOut; }
     }
+
+    // 3) REGEX fallback — חיפוש גורף
+    $reOut=[]; foreach($keep as $k) $reOut[$k]=[];
+    if (preg_match_all('#<section[^>]*>(.*?)</section>#si', $html, $secs)) {
+      foreach ($secs[1] as $sec) {
+        $label=null;
+        if (preg_match('#<h[2-5][^>]*>(.*?)</h[2-5]>#si', $sec, $mh)) {
+          $label = normalize_conn_label(strip_tags($mh[1]));
+        } elseif (preg_match('#class="[^"]*ipc-title__text[^"]*"[^>]*>(.*?)</#si', $sec, $mh2)) {
+          $label = normalize_conn_label(strip_tags($mh2[1]));
+        }
+        if (!$label || !in_array($label,$keep,true)) continue;
+
+        if (preg_match_all('#/title/(tt\d+)/[^"]*"#i', $sec, $links)) {
+          $arr=[];
+          foreach ($links[1] as $tid) $arr[]=['id'=>$tid,'title'=>$tid,'url'=>"https://www.imdb.com/title/{$tid}/"];
+          if ($arr) $reOut[$label]=dedupe_items($arr);
+        }
+      }
+    } else {
+      if (preg_match_all('#/title/(tt\d+)/[^"]*"#i', $html, $links)) {
+        $fallback = in_array('Referenced in',$keep,true) ? 'Referenced in' : $keep[0];
+        $arr=[]; foreach ($links[1] as $tid) $arr[]=['id'=>$tid,'title'=>$tid,'url'=>"https://www.imdb.com/title/{$tid}/"];
+        if ($arr) $reOut[$fallback]=dedupe_items($arr);
+      }
+    }
+    $has=false; foreach($reOut as $arr){ if (!empty($arr)) { $has=true; break; } }
+    if ($has) { $reOut['_source']='regex'; return $reOut; }
   }
 
   $out['_source']='none';
@@ -445,411 +389,72 @@ function imdb_connections_all(string $tt): array {
   return imdb_connections_all_fetch($tt, $KEEP);
 }
 
-/* ========= שמירת Connections ========= */
-if (!function_exists('sync_connections')) {
-  function sync_connections(mysqli $db, int $poster_id, string $source_imdb_id, array $connections_map): int {
-    if ($poster_id <= 0) return 0;
+/* ========= שמירת Connections לטבלה ========= */
+function sync_connections(mysqli $db, int $poster_id, string $source_imdb_id, array $connections_map): int {
+  if ($poster_id <= 0) return 0;
 
-    $flat=[]; $seen=[];
-    foreach ((array)$connections_map as $label => $items) {
-      if (!is_array($items) || empty($items)) continue;
-      foreach ($items as $it) {
-        $tt = trim(dbg_to_s($it['id'] ?? ''));
-        $title = trim(dbg_to_s($it['title'] ?? ''));
-        if ($tt==='' || $title==='') continue;
-        $k = $label.'|'.$tt;
-        if (isset($seen[$k])) continue;
-        $seen[$k]=true;
-        $flat[]=['label'=>$label,'tt'=>$tt,'title'=>$title];
-      }
-    }
-
-    $db->begin_transaction();
-    try {
-      if ($del = $db->prepare("DELETE FROM poster_connections WHERE poster_id = ?")) {
-        $del->bind_param("i", $poster_id);
-        $del->execute();
-        $del->close();
-      }
-      if (empty($flat)) { $db->commit(); return 0; }
-
-      $sql = "INSERT IGNORE INTO poster_connections
-              (poster_id, relation_label, conn_title, related_imdb_id, conn_imdb_id,
-               related_title, relation_type, imdb_id, source, kind, target_tt, target_title)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-      $st = $db->prepare($sql);
-      if (!$st) throw new Exception("Connections SQL Prepare Failed: ".$db->error);
-
-      $saved=0;
-      foreach ($flat as $row) {
-        $label=(string)$row['label']; $tt=(string)$row['tt']; $title=(string)$row['title'];
-        $src='imdb'; $kind=$label;
-        $st->bind_param("isssssssssss",
-          $poster_id, $label, $title, $tt, $tt, $title, $label, $source_imdb_id, $src, $kind, $tt, $title
-        );
-        if(!$st->execute()) throw new Exception("Connections Execute Failed: ".$st->error);
-        if($st->affected_rows>0) $saved++;
-      }
-      $st->close(); $db->commit(); return $saved;
-    } catch (Throwable $e) {
-      $db->rollback();
-      throw $e;
-    }
-  }
-}
-
-/* ========= TVDB Assist ========= */
-const TVDB_ALLOW_INSECURE_SSL = false;
-function tvdb_curlJson(string $method,string $url,$payload=null,array $headers=[]):array{
-    $ch=curl_init();
-    $opts=[CURLOPT_URL=>$url,CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>25,CURLOPT_HTTPHEADER=>$headers];
-    if(TVDB_ALLOW_INSECURE_SSL){$opts[CURLOPT_SSL_VERIFYPEER]=false;$opts[CURLOPT_SSL_VERIFYHOST]=0;}
-    $m=strtoupper($method);
-    if($m==='POST'){ $opts[CURLOPT_POST]=true; $opts[CURLOPT_POSTFIELDS]=is_string($payload)?$payload:json_encode($payload,JSON_UNESCAPED_UNICODE);
-        $hasCT=false; foreach($headers as $h){ if(stripos($h,'content-type:')===0){$hasCT=true;break;} } if(!$hasCT)$opts[CURLOPT_HTTPHEADER][]='Content-Type: application/json';
-    } elseif($m!=='GET'){ $opts[CURLOPT_CUSTOMREQUEST]=$m; if($payload!==null)$opts[CURLOPT_POSTFIELDS]=is_string($payload)?$payload:json_encode($payload,JSON_UNESCAPED_UNICODE); }
-    curl_setopt_array($ch,$opts); $raw=curl_exec($ch); $http=curl_getinfo($ch,CURLINFO_RESPONSE_CODE); $err=curl_error($ch); curl_close($ch);
-    if($raw===false)return['ok'=>false,'error'=>"cURL error: $err"];
-    $json=json_decode($raw,true); $ok=($http>=200&&$http<300);
-    return $ok?['ok'=>true,'json'=>$json,'http'=>$http]:['ok'=>false,'error'=>"HTTP $http: $raw"];
-}
-function tvdbLogin(string $apiKey, ?string $pin = null, &$err=null): ?string{
-    $payload=['apikey'=>$apiKey]; if($pin)$payload['pin']=$pin;
-    $resp=tvdb_curlJson('POST','https://api4.thetvdb.com/v4/login',$payload,['Content-Type: application/json']);
-    if(!$resp['ok']){ $err=$resp['error']; return null; }
-    return $resp['json']['data']['token']??null;
-}
-function tvdbSearchByImdb(string $tt,string $token,&$err=null):?array{
-    $resp=tvdb_curlJson('GET',"https://api4.thetvdb.com/v4/search/remoteid/".rawurlencode($tt),null,
-        ['Authorization: Bearer '.$token,'Accept: application/json']);
-    return $resp['ok']?$resp['json']:null;
-}
-function tvdbSearchByQuery(string $q,string $type,string $token,&$err=null):?array{
-    $resp=tvdb_curlJson('GET',"https://api4.thetvdb.com/v4/search?query=".rawurlencode($q)."&type=$type",null,
-        ['Authorization: Bearer '.$token,'Accept: application/json']);
-    return $resp['ok']?$resp['json']:null;
-}
-function deepGet(array $arr,array $path){ $cur=$arr; foreach($path as $k){ if(!is_array($cur)||!array_key_exists($k,$cur)) return null; $cur=$cur[$k]; } return $cur; }
-function guessTypeByKeys(array $it): string { foreach(['series','movie','season','episode'] as $k){ if(!empty($it[$k])&&is_array($it[$k])) return $k; } return $it['recordType'] ?? ($it['type'] ?? 'series'); }
-function robustTvdbTypeAndId(array $it): array {
-    $paths=[['id'],['tvdb_id'],['tvdbId'],['series','id'],['series','tvdb_id'],['movie','id'],['movie','tvdb_id'],['season','id'],['episode','id'],['data','id']];
-    $type=strtolower($it['type']??guessTypeByKeys($it)); $id=0; $src='none';
-    foreach($paths as $p){ $val=deepGet($it,$p); if(is_numeric($val)&&(int)$val>0){ $id=(int)$val; $src=implode('.',$p); break; } }
-    if(!$type) $type=guessTypeByKeys($it)?:'series';
-    return [$type,$id,$src];
-}
-function tvdb_series_details(int $id, string $token): ?array {
-    $h=['Authorization: Bearer '.$token,'Accept: application/json'];
-    foreach (["https://api4.thetvdb.com/v4/series/$id/extended","https://api4.thetvdb.com/v4/series/$id"] as $u) {
-        $resp=tvdb_curlJson('GET',$u,null,$h);
-        if($resp['ok'] && !empty($resp['json']['data'])) return $resp['json']['data'];
-    }
-    return null;
-}
-function tvdb_series_episodes_summary(int $id, string $token): ?array {
-    $h=['Authorization: Bearer '.$token,'Accept: application/json'];
-    $u="https://api4.thetvdb.com/v4/series/$id/episodes/summary";
-    $resp=tvdb_curlJson('GET',$u,null,$h);
-    return ($resp['ok'] && !empty($resp['json']['data'])) ? $resp['json']['data'] : null;
-}
-/* ספירת פרקים מלאה (דילוג על עונה 0) */
-function tvdb_series_episodes_count_paged(int $id, string $token, int $maxPages=50): ?int {
-    $h=['Authorization: Bearer '.$token,'Accept: application/json'];
-    $pageParam = null; $total = 0; $seen=false;
-
-    for ($i=0; $i<$maxPages; $i++) {
-        $u = "https://api4.thetvdb.com/v4/series/$id/episodes/default" . ($pageParam!==null ? "?page=".$pageParam : "");
-        $resp=tvdb_curlJson('GET',$u,null,$h);
-        if(!$resp['ok']) break;
-
-        $data = $resp['json']['data'] ?? null;
-        if (!$data) break;
-
-        $episodesList = [];
-        if (is_array($data) && array_is_list($data)) {
-            $episodesList = $data;
-        } elseif (is_array($data) && !empty($data['episodes']) && is_array($data['episodes'])) {
-            $episodesList = $data['episodes'];
-        }
-
-        if (!empty($episodesList)) {
-            $seen=true;
-            foreach ($episodesList as $ep) {
-                $sn = $ep['seasonNumber'] ?? ($ep['season'] ?? null);
-                if (is_numeric($sn) && (int)$sn === 0) continue; // דילוג על עונה 0
-                $total++;
-            }
-        }
-
-        $links = $resp['json']['links'] ?? null;
-        if (!$links || !isset($links['next']) || $links['next'] === null) break;
-        $pageParam = (int)$links['next'];
-    }
-    return $seen ? $total : null;
-}
-function tvdb_extract_network(array $s): ?string {
-    $n = deepGet($s, ['network','name']);
-    if (is_string($n) && $n!=='') return $n;
-    $cands=[];
-    if (!empty($s['networks']) && is_array($s['networks'])) $cands = array_merge($cands,$s['networks']);
-    if (!empty($s['companies']) && is_array($s['companies'])) $cands = array_merge($cands,$s['companies']);
-    $last=null;
-    foreach ($cands as $c) {
-        $name = is_array($c) ? ($c['name'] ?? null) : null;
-        $role = is_array($c) ? (strtolower($c['role'] ?? ($c['type'] ?? ''))) : '';
-        if ($name && ($role==='network' || $role==='broadcaster' || $role==='studio' || $role==='production')) return $name;
-        if ($name) $last=$name;
-    }
-    return $last;
-}
-/* טריילר מ-TVDB */
-function tvdb_extract_trailer(array $details): ?string {
-    $arr = $details['trailers'] ?? null;
-    if (is_array($arr)) {
-        foreach ($arr as $t) {
-            $u = is_array($t) ? ($t['url'] ?? ($t['trailer_url'] ?? null)) : null;
-            if (is_string($u) && preg_match('~^https?://~',$u)) return $u;
-        }
-    }
-    $stack = [$details];
-    while ($stack) {
-        $cur = array_pop($stack);
-        if (!is_array($cur)) continue;
-        foreach ($cur as $k=>$v) {
-            if (is_string($v) && preg_match('~^https?://(www\.)?(youtube\.com|youtu\.be|vimeo\.com)/~i', $v)) {
-                return $v;
-            } elseif (is_array($v)) {
-                $stack[] = $v;
-            }
-        }
-    }
-    return null;
-}
-function tvdb_counts_from_details_or_summary(array $s, ?array $sum, int $seriesId, string $token): array {
-    $seasons=null; $episodes=null;
-    if (isset($s['seasons']) && is_array($s['seasons'])) {
-        $uniq = [];
-        foreach ($s['seasons'] as $row) {
-            $num = null;
-            if (isset($row['number']) && is_numeric($row['number'])) $num = (int)$row['number'];
-            elseif (isset($row['seasonNumber']) && is_numeric($row['seasonNumber'])) $num = (int)$row['seasonNumber'];
-            
-            $row_name_str = dbg_to_s($row['name'] ?? '');
-            if (!empty($row_name_str) && preg_match('~season\s*(\d+)~i', $row_name_str, $m)) {
-                $num = (int)$m[1];
-            }
-
-            $name = strtolower($row_name_str);
-            $type = strtolower(dbg_to_s($row['type'] ?? ''));
-            $is_special = ($num === 0) || str_contains($name,'special') || str_contains($type,'special');
-            if ($num !== null && !$is_special) { $uniq[$num] = 1; }
-        }
-        if (!empty($uniq)) $seasons = count($uniq);
-        elseif (!empty($s['seasons'])) $seasons = count($s['seasons']);
-    }
-    foreach (['episodesCount','episodeCount','totalEpisodes'] as $k) {
-        if (isset($s[$k]) && is_numeric($s[$k])) { $episodes = (int)$s[$k]; break; }
-    }
-    if ($sum && is_array($sum)) {
-        foreach (['total','episodeCount','airedEpisodes','episodesTotal','absolute'] as $k) {
-            if ($episodes===null && isset($sum[$k]) && is_numeric($sum[$k])) { $episodes = (int)$sum[$k]; }
-        }
-        if ($episodes===null && !empty($sum['episodes']) && is_array($sum['episodes'])) {
-            $episodes = 0;
-            foreach($sum['episodes'] as $row){
-                $c = null;
-                foreach (['count','aired','episodes','numberOfEpisodes'] as $ck) {
-                    if (isset($row[$ck]) && is_numeric($row[$ck])) { $c = (int)$row[$ck]; break; }
-                }
-                $sn = $row['season'] ?? ($row['number'] ?? ($row['seasonNumber'] ?? null));
-                if ($c !== null) {
-                    if ($sn !== null && (int)$sn === 0) continue;
-                    $episodes += $c;
-                }
-            }
-            if ($episodes === 0) $episodes = null;
-        }
-    }
-    if ($episodes === null) $episodes = tvdb_series_episodes_count_paged($seriesId, $token, 50);
-    return ['seasons'=>$seasons, 'episodes'=>$episodes];
-}
-function tvdb_series_compact_from_details(array $s, int $id, string $type, ?array $summary, string $token): array {
-    $is_tv = (strtolower($type)!=='movie');
-    $out=['is_tv'=>$is_tv];
-    $out['title_en']    = $s['name'] ?? null;
-    $out['overview_en'] = $s['overview'] ?? null;
-
-    $first = $s['firstAired'] ?? null;
-    $last  = $s['lastAired']  ?? null;
-    $statusName = $s['status']['name'] ?? ($s['status'] ?? null);
-
-    $span = build_year_span($first, $last, $is_tv, is_string($statusName)?$statusName:null);
-    if ($span) { $out['year_span'] = $span; $out['year'] = $span; }
-
-    $net = tvdb_extract_network($s); if ($net) $out['network'] = $net;
-
-    $cnt = tvdb_counts_from_details_or_summary($s, $summary, $id, $token);
-    if ($cnt['seasons']  !== null) $out['s_count'] = (int)$cnt['seasons'];
-    if ($cnt['episodes'] !== null) $out['e_count'] = (int)$cnt['episodes'];
-
-    if (!empty($s['image'])) $out['poster'] = $s['image'];
-
-    $tr = tvdb_extract_trailer($s);
-    if ($tr) $out['trailer'] = $tr;
-
-    $out['tvdb_url'] = tvdbDerefUrl($type,$id);
-    $out['tvdb_id']  = $id;
-    return $out;
-}
-function tvdbDerefUrl(string $t,int $id):string{
-    switch(strtolower($t)){
-        case 'movie':   return "https://www.thetvdb.com/dereferrer/movie/$id";
-        case 'season':  return "https://www.thetvdb.com/dereferrer/season/$id";
-        case 'episode': return "https://www.thetvdb.com/dereferrer/episode/$id";
-        default:        return "https://www.thetvdb.com/dereferrer/series/$id";
-    }
-}
-function merge_tvdb_into_u(array $U, array $T): array {
-  $used=false;
-  if (!empty($T['title_en']) && (empty($U['display_title']) && empty($U['title_en']))) {
-    $U['display_title']=$T['title_en']; $U['title_en']=$T['title_en']; $used=true;
-  }
-  if (!empty($T['overview_en']) && empty($U['overview_en'])) { $U['overview_en']=$T['overview_en']; $used=true; }
-
-  if (!empty($T['year'])) { $U['year']=$T['year']; $used=true; }
-  if (!empty($T['year_span'])) { $U['year_span']=(string)$T['year_span']; $used=true; }
-
-  if (!empty($T['poster']) && empty($U['poster'])) { $U['poster']=$T['poster']; $used=true; }
-
-  if (!empty($T['network'])) {
-    if (empty($U['networks'])) { $U['networks']=[$T['network']]; $used=true; }
-    elseif (is_array($U['networks']) && !in_array($T['network'],$U['networks'])) { $U['networks'][]=$T['network']; $used=true; }
-    elseif (is_string($U['networks']) && stripos($U['networks'],$T['network'])===false) { $U['networks'].=', '.$T['network']; $used=true; }
-  }
-
-  if (isset($T['s_count']) && (empty($U['seasons']) || (int)$U['seasons']===0))   { $U['seasons']=(int)$T['s_count']; $used=true; }
-  if (isset($T['e_count']) && (empty($U['episodes'])|| (int)$U['episodes']===0)) { $U['episodes']=(int)$T['e_count']; $used=true; }
-
-  if (!empty($T['trailer']) && empty($U['trailer'])) { $U['trailer'] = $T['trailer']; $used=true; }
-
-  if (!empty($T['tvdb_url']) && empty($U['tvdb_url'])) { $U['tvdb_url']=$T['tvdb_url']; $used=true; }
-  if (!empty($T['is_tv'])) { $U['is_tv']=true; $U['type_id']=4; $used=true; }
-  if (!empty($T['tvdb_id'])) { $U['tvdb_id'] = (int)$T['tvdb_id']; }
-
-  if ($used) $U['_used_tvdb']=true;
-  return $U;
-}
-
-/* ========= IMDb scrape (Fallback לשם/שנה) ========= */
-function imdb_curlSimple(string $m,string $url):array{
-    $ch=curl_init();$opts=[CURLOPT_URL=>$url,CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>25];
-    curl_setopt_array($ch,$opts);$raw=curl_exec($ch);$http=curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$err=curl_error($ch);curl_close($ch);
-    if($raw===false)return['ok'=>false,'error'=>"cURL error: $err"];
-    return ['ok'=>($http>=200&&$http<300),'body'=>$raw,'http'=>$http];
-}
-function normalizeTitle(string $s):string{
-    $s=mb_strtolower($s,'UTF-8');
-    $s=preg_replace('~\s*\(\d{4}.*?\)$~u','',$s);
-    $s=preg_replace('~[:\-\–\—]\s*.*$~u','',$s);
-    $s=preg_replace('~[^\p{L}\p{N}]+~u','',$s);
-    return $s;
-}
-function scrapeImdbCandidates(string $tt):?array{
-    $resp=imdb_curlSimple('GET',"https://www.imdb.com/title/$tt/"); if(!$resp['ok']) return null; $html=$resp['body'];
-    $titles=[];$year=null;
-
-    if(preg_match('~<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>~si',$html,$m)){
-        $json=json_decode(html_entity_decode($m[1], ENT_QUOTES|ENT_HTML5,'UTF-8'),true);
-        if($json){
-            // Helper function to safely add titles from fields that can be a string or an array of strings
-            $addTitle = function($field) use (&$titles) {
-                if (empty($field)) return;
-                foreach((array)$field as $item) {
-                    if (is_string($item)) {
-                        $titles[] = trim($item);
-                    }
-                }
-            };
-
-            $addTitle($json['name'] ?? null);
-            $addTitle($json['alternateName'] ?? null);
-
-            $date=$json['datePublished']??($json['releasedEvent'][0]['startDate']??null);
-            if($date && is_string($date)) $year=(int)substr($date,0,4);
-        }
-    }
-    if(preg_match('~<meta\s+property="og:title"\s+content="([^"]+)"~i',$html,$m2)){
-        $og=preg_replace('~\s*-\s*IMDb$~i','',trim($m2[1])); if($og!=='') $titles[] = $og;
-    }
-    if(preg_match('~<title>\s*(.*?)\s*- IMDb\s*</title>~si',$html,$m3)){
-        $t=trim($m3[1]); if($t!=='')$titles[]=$t;
-        if(!$year && preg_match('~\((\d{4})~',$t,$my))$year=(int)$my[1];
-    }
-
-    $seen=[];$clean=[];
-    foreach($titles as $t){ $key=mb_strtolower($t,'UTF-8'); if(!isset($seen[$key])){$seen[$key]=1;$clean[]=$t;} }
-    return ['titles'=>$clean,'year'=>$year];
-}
-
-/* ========= השלמה מ-TVDB (ממלא חסרים בלבד) ========= */
-function tvdb_full_fetch_and_merge(string $tt, string $apiKey, ?string $pin, array $U): array {
-  $err=null; $token = tvdbLogin($apiKey, $pin, $err);
-  if (!$token) { return $U; }
-
-  $res = tvdbSearchByImdb($tt, $token, $err);
-  if ($res && !empty($res['data'])) {
-    $priority=['series'=>1,'movie'=>2,'season'=>3,'episode'=>4]; $pick=null; $best=PHP_INT_MAX;
-    foreach($res['data'] as $it){ $t=strtolower($it['type']??guessTypeByKeys($it)); if(!isset($priority[$t]))continue; if($priority[$t]<$best){$best=$priority[$t];$pick=$it;} }
-    if ($pick){
-      [$type,$id] = robustTvdbTypeAndId($pick);
-      if ($id) {
-        $details = (strtolower($type)==='series') ? tvdb_series_details($id, $token) : null;
-        $summary = (strtolower($type)==='series') ? tvdb_series_episodes_summary($id, $token) : null;
-        $T = $details ? tvdb_series_compact_from_details($details,$id,$type,$summary,$token)
-                      : ['is_tv'=>true,'tvdb_url'=>tvdbDerefUrl($type,$id),'tvdb_id'=>$id];
-        return merge_tvdb_into_u($U, $T);
-      }
+  // flatten + dedupe לפי label|tt כדי למנוע כפילויות באותה ריצה
+  $flat=[]; $seen=[];
+  foreach ((array)$connections_map as $label => $items) {
+    if (!is_array($items) || empty($items)) continue;
+    foreach ($items as $it) {
+      $tt = trim((string)($it['id'] ?? ''));
+      $title = trim((string)($it['title'] ?? ''));
+      if ($tt==='' || $title==='') continue;
+      $k = $label.'|'.$tt;
+      if (isset($seen[$k])) continue;
+      $seen[$k]=true;
+      $flat[]=['label'=>$label,'tt'=>$tt,'title'=>$title];
     }
   }
 
-  $meta = scrapeImdbCandidates($tt);
-  if ($meta && !empty($meta['titles'])) {
-    $cands = $meta['titles']; $year = $meta['year'] ?? null;
-    foreach (['series','movie'] as $typeQ) {
-      foreach ($cands as $cand) {
-        $found = tvdbSearchByQuery($cand, $typeQ, $token, $err);
-        if (!$found || empty($found['data'])) continue;
-
-        $pick=null; $best=1e9; $norm=normalizeTitle($cand);
-        foreach($found['data'] as $it){
-          $name=$it['name']??($it['series']['name']??($it['movie']['name']??'')); $y=null;
-          if(!empty($it['year']))$y=(int)$it['year'];
-          elseif(!empty($it['firstAired']))$y=(int)substr($it['firstAired'],0,4);
-          elseif(!empty($it['movie']['year']))$y=(int)$it['movie']['year'];
-          $score=levenshtein($norm, normalizeTitle(dbg_to_s($name)));
-          if($year&&$y)$score+=(abs($year-$y)<=1?-3:+3);
-          if($score<$best){ $best=$score; $pick=$it; }
-        }
-        if ($pick){
-          [$t,$id] = robustTvdbTypeAndId($pick);
-          if ($id) {
-            $details = (strtolower($t)==='series') ? tvdb_series_details($id, $token) : null;
-            $summary = (strtolower($t)==='series') ? tvdb_series_episodes_summary($id, $token) : null;
-            $T = $details ? tvdb_series_compact_from_details($details,$id,$t,$summary,$token)
-                          : ['is_tv'=>true,'tvdb_url'=>tvdbDerefUrl($t,$id),'tvdb_id'=>$id];
-            return merge_tvdb_into_u($U, $T);
-          }
-        }
-      }
+  $db->begin_transaction();
+  try {
+    // נקה connections קיימים לפוסטר הזה (כמו בעמוד שעובד לך)
+    if ($del = $db->prepare("DELETE FROM poster_connections WHERE poster_id = ?")) {
+      $del->bind_param("i", $poster_id);
+      $del->execute();
+      $del->close();
     }
+    if (empty($flat)) { $db->commit(); return 0; }
+
+    // IGNORE כדי לא להתרסק על uniq_conn אם עדיין יש כפילויות "לוגיות"
+    $sql = "INSERT IGNORE INTO poster_connections
+            (poster_id, relation_label, conn_title, related_imdb_id, conn_imdb_id,
+             related_title, relation_type, imdb_id, source, kind, target_tt, target_title)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $st = $db->prepare($sql);
+    if (!$st) throw new Exception("Connections SQL Prepare Failed: ".$db->error);
+
+    $saved=0;
+    foreach ($flat as $row) {
+      $label = (string)$row['label']; $tt=(string)$row['tt']; $title=(string)$row['title'];
+      $conn_title=$title; $related_imdb=$tt; $conn_imdb_id=$tt; $related_title=$title;
+      $relation_type=$label; $source='imdb'; $kind=$label; $target_tt=$tt; $target_title=$title;
+
+      $st->bind_param(
+        "isssssssssss",
+        $poster_id, $label, $conn_title, $related_imdb, $conn_imdb_id,
+        $related_title, $relation_type, $source_imdb_id, $source, $kind, $target_tt, $target_title
+      );
+      if (!$st->execute()) {
+        $dump = json_encode($row, JSON_UNESCAPED_UNICODE);
+        throw new Exception("Connections Execute Failed: ".$st->error." | Data: ".$dump);
+      }
+      if ($st->affected_rows > 0) $saved++;
+    }
+    $st->close(); $db->commit();
+    return $saved;
+  } catch (Throwable $e) {
+    $db->rollback();
+    throw $e;
   }
-  return $U;
 }
 
 /* ========= פירוק קלט מזהי tt ========= */
 function parse_ids($raw_input): array {
   $out=[]; $items=preg_split('~[\s,;]+~',(string)$raw_input,-1,PREG_SPLIT_NO_EMPTY);
-  foreach ($items as $item) if (preg_match('~(tt\d{6,12})~',$item,$m)) $out[]=$m[1];
+  foreach ($items as $item) if (preg_match('~(tt\d{6,10})~',$item,$m)) $out[]=$m[1];
   return array_values(array_unique($out));
 }
 
@@ -869,16 +474,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $done=true;
   } else {
     foreach($ids as $tt){
-      $current=[
-        'tt'=>$tt,'ok'=>true,'error'=>null,'action'=>'',
-        'poster_id'=>0,'akas_count'=>0,'akas_saved'=>0,
-        'conn_count'=>0,'conn_saved'=>0,'conn_source'=>'',
-        'used_tvdb'=>false,
-        'dbg_year'=>null,'dbg_seasons'=>null,'dbg_episodes'=>null,'dbg_network'=>null,
-        'link_imdb'=>"https://www.imdb.com/title/$tt/",'link_tvdb'=>null
-      ];
+      $current=['tt'=>$tt,'ok'=>true,'error'=>null,'action'=>'','poster_id'=>0,'akas_count'=>0,'akas_saved'=>0,'conn_count'=>0,'conn_saved'=>0,'conn_source'=>''];
       try{
-        // בסיס מ-imdb.php
+        // קבלת נתונים מלאים אם יש imdb.php
         $rawRow=$U=[];
         if (function_exists('build_row')) {
           if (!isset($TMDB_KEY)) $TMDB_KEY='';
@@ -891,31 +489,24 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
           if (!isset($TMDB_KEY)) $TMDB_KEY='';
           if (!isset($TVDB_KEY)) $TVDB_KEY='';
           $U = unify_details($rawRow, $TMDB_KEY, $TVDB_KEY);
+        }
+
+        // posters
+        if (empty($U['imdb_id'])) {
+          $existing = db_find_existing_row($conn, 'posters', 'imdb_id', $tt);
+          if ($existing) { $current['poster_id']=(int)$existing['id']; $current['action']='skipped'; }
+          else {
+            $minimal=['imdb_id'=>$tt,'title_en'=>$tt];
+            $res = upsert_row($conn,'posters',$minimal,'imdb_id','skip');
+            if(!$res['ok']) throw new Exception($res['error']);
+            $current['poster_id']=(int)$res['id']; $current['action']=$res['action'];
+          }
         } else {
-          $U = [];
+          $mapped = map_u_to_posters_fields($U, $rawRow);
+          $res = upsert_row($conn,'posters',$mapped,'imdb_id',$dup_mode);
+          if(!$res['ok']) throw new Exception($res['error']);
+          $current['poster_id']=(int)$res['id']; $current['action']=$res['action'];
         }
-        $U['imdb_id'] = $U['imdb_id'] ?? $tt;
-
-        // TVDB Assist — ממלא חסרים (כולל טריילר)
-        if (!empty($TVDB_KEY)) {
-          $pin = isset($TVDB_PIN) ? (string)$TVDB_PIN : null;
-          $U = tvdb_full_fetch_and_merge($tt, $TVDB_KEY, $pin, $U);
-          if (!empty($U['_used_tvdb'])) { $current['used_tvdb']=true; unset($U['_used_tvdb']); }
-        }
-        if (!empty($U['tvdb_url'])) $current['link_tvdb'] = $U['tvdb_url'];
-
-        // posters (upsert)
-        $mapped = map_u_to_posters_fields($U, $rawRow);
-
-        // דיבאג - גרסה משוריינת ובטוחה
-        $current['dbg_year']     = dbg_to_s($U['year_span'] ?? $U['year'] ?? $mapped['year'] ?? null);
-        $current['dbg_seasons']  = $U['seasons'] ?? $mapped['seasons_count'] ?? null;
-        $current['dbg_episodes'] = $U['episodes'] ?? $mapped['episodes_count'] ?? null;
-        $current['dbg_network']  = dbg_to_s($U['networks'] ?? $mapped['networks'] ?? null);
-
-        $res = upsert_row($conn,'posters',$mapped,'imdb_id',$dup_mode);
-        if(!$res['ok']) throw new Exception($res['error']);
-        $current['poster_id']=(int)$res['id']; $current['action']=$res['action'];
 
         // AKAs
         if ($current['poster_id']>0) {
@@ -950,7 +541,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   <title>ייבוא פוסטרים (מאוחד) — Debug + Connections</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --line:#22283a; --accent:#5b8cff; --ok:#6fffbe; --err:#ff7d7d; --warn:#f59e0b;}
+    :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --line:#22283a; --accent:#5b8cff; --ok:#6fffbe; --err:#ff7d7d; --warn: #f59e0b;}
     *{box-sizing:border-box} body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial;direction:rtl;background:var(--bg);color:var(--text);margin:0;padding:24px} .wrap{max-width:980px;margin:0 auto} .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px} textarea{width:100%;min-height:150px;border:1px solid var(--line);background:#0f1422;color:var(--text);border-radius:10px;padding:10px} .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700} .summary{margin-top:18px;} .res{border:1px solid var(--line); padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; } .res-ok{border-left: 4px solid var(--ok); background: #182928; } .res-err{border-left: 4px solid var(--err); background: #2d1c24; } .res-skip{border-left: 4px solid var(--warn); background: #382e1c;}
     input[type="file"] { background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 8px; color: var(--text); }
     body {background-color:#161b26 !important; text-align: right !important;}
@@ -959,14 +550,23 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     .form-group label { display: block; margin-bottom: 6px; font-size: 14px; }
     select { width: 100%; background: #0f1320; color: #e7ecff; border: 1px solid #2a3148; border-radius: 10px; padding: 10px; outline: none; font-family: inherit; font-size: 14px; }
     .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: end; }
+
+    /* .w3-bar */
     .w3-bar { width: 100%; overflow: hidden; }
     .w3-bar .w3-bar-item { padding: 8px 16px; float: left; width: auto; border: none; display: block; outline: 0; }
     .w3-bar .w3-button { color: white !important; white-space: normal; }
     .w3-bar:before, .w3-bar:after { content: ""; display: table; clear: both; }
+
+    /* .w3-padding */
     .w3-padding { padding: 8px 16px !important; }
+
+    /* .w3-button */
     .w3-button { border: none; display: inline-block; padding: 8px 16px; vertical-align: middle; overflow: hidden; text-decoration: none; color: inherit; text-align: center; cursor: pointer; white-space: nowrap; }
+
     .content {text-align: right !important;}
     .content a  {color: #6E8BFC !important;}
+
+    /* צבעים */
     .w3-black, .w3-hover-black:hover { color: #fff !important; background-color: white; }
     .w3-white, .w3-hover-white:hover { color: #000 !important; background-color: #fff !important; }
     .white {color: #f1f1f1 !important;}
@@ -980,7 +580,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   <div class="card">
     <form method="post" action="" enctype="multipart/form-data">
       <label for="ids">הדבק מזהי IMDb או לינקים (למשל: tt1013752, https://www.imdb.com/title/tt0120667/):</label>
-      <textarea name="ids" id="ids"><?= safe_s($_POST['ids']??''); ?></textarea>
+      <textarea name="ids" id="ids"><?= H($_POST['ids']??''); ?></textarea>
 
       <div class="grid" style="margin-top:12px">
         <div>
@@ -1001,7 +601,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         <button class="btn" type="submit">ייבוא</button>
       </div>
       <div style="margin-top:8px; color:var(--muted); font-size:13px">
-        * אם קיימים build_row/unify_details ב־imdb.php, אמלא גם את שדות הפוסטר; בנוסף—אשלים חסרים מ־TVDB (רשת/שנים/עונות/פרקים/פוסטר/טריילר/קישורים).
+        * אם קיימים build_row/unify_details ב־imdb.php, אמלא גם את שדות הפוסטר; בכל מקרה אשמור Connections ו-AKAs.
       </div>
     </form>
   </div>
@@ -1014,18 +614,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
           $act = (string)($r['action'] ?? '');
           $cls = empty($r['ok']) ? 'res-err' : (str_starts_with($act,'skipped') ? 'res-skip' : 'res-ok');
           $pid = (int)($r['poster_id'] ?? 0);
-
-          // קישורים — בנייה לתוך מחרוזת בלבד (למנוע Array→string)
-          $im = (!empty($r['link_imdb'])) ? '<a href="'.H((string)$r['link_imdb']).'" target="_blank">IMDb</a>' : '';
-          $tv = (!empty($r['link_tvdb'])) ? '<a href="'.H((string)$r['link_tvdb']).'" target="_blank">TVDb</a>' : '';
-          $links_s = ($im && $tv) ? ($im.' / '.$tv) : ($im ?: $tv);
         ?>
         <div class="res <?= $cls ?>">
-          <div>
-            <b><?= safe_s($r['tt']) ?></b> — <?= safe_s($act) ?>
-            <?php if(!empty($r['used_tvdb'])): ?><span style="padding:2px 6px;border-radius:6px;background:#24324f;color:#9fc2ff;font-size:12px">[TVDB Assist]</span><?php endif; ?>
-            <?php if ($links_s !== ''): ?> &nbsp; <span style="color:var(--muted)">| קישורים:</span> <?= $links_s ?><?php endif; ?>
-          </div>
+          <div><b><?= H($r['tt']) ?></b> — <?= H($act) ?></div>
 
           <?php if(!empty($r['error'])): ?>
             <div style="color:#ffb3b3; font-size:13px; margin-top:4px; white-space:pre-wrap; direction:ltr; text-align:left">
@@ -1035,34 +626,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
           <?php if($pid>0): ?>
             <div style="font-size:13px; color:var(--muted); margin-top:4px">
-              Poster ID: <?= (int)$pid ?> |
-              AKAs: נשלפו <?= (int)($r['akas_count'] ?? 0) ?>, נשמרו <?= (int)($r['akas_saved'] ?? 0) ?> |
-              Connections: נשלפו <?= (int)($r['conn_count'] ?? 0) ?>, נשמרו <?= (int)($r['conn_saved'] ?? 0) ?>
-              <?php if (!empty($r['conn_source'])): ?><span style="opacity:.7">[src: <?= safe_s($r['conn_source']) ?>]</span><?php endif; ?>
-
-        <?php
-                $dbgParts = [];
-                if (isset($r['dbg_year']) && $r['dbg_year'] !== null && $r['dbg_year'] !== '') {
-                  // ✅ שימוש בפונקציה שמטפלת במערכים
-                  $dbgParts[] = 'Year: ' . dbg_to_s($r['dbg_year']);
-                }
-                if (isset($r['dbg_seasons']) && $r['dbg_seasons'] !== null) {
-                  $dbgParts[] = 'Seasons: ' . (string)(int)$r['dbg_seasons'];
-                }
-                if (isset($r['dbg_episodes']) && $r['dbg_episodes'] !== null) {
-                  $dbgParts[] = 'Episodes: ' . (string)(int)$r['dbg_episodes'];
-                }
-                if (isset($r['dbg_network']) && $r['dbg_network'] !== null && $r['dbg_network'] !== '') {
-                  // ✅ שימוש בפונקציה שמטפלת במערכים
-                  $dbgParts[] = 'Network: ' . dbg_to_s($r['dbg_network']);
-                }
-                if (!empty($dbgParts)) {
-                  // ✅ שימוש בפונקציה לקידוד HTML
-                  echo ' | ' . H(implode(' • ', $dbgParts));
-                }
-              ?>
-
-              &nbsp;|&nbsp;<a href="poster.php?id=<?= (int)$pid ?>" target="_blank">פתח פוסטר</a>
+              Poster ID: <?= H($pid) ?> |
+              AKAs: נשלפו <?= H($r['akas_count'] ?? 0) ?>, נשמרו <?= H($r['akas_saved'] ?? 0) ?> |
+              Connections: נשלפו <?= H($r['conn_count'] ?? 0) ?>, נשמרו <?= H($r['conn_saved'] ?? 0) ?>
+              <?php if (!empty($r['conn_source'])): ?>
+                <span style="opacity:.7">[src: <?= H($r['conn_source']) ?>]</span>
+              <?php endif; ?>
+              &nbsp;|&nbsp;<a href="poster.php?id=<?= H($pid) ?>" target="_blank">פתח פוסטר</a>
             </div>
           <?php endif; ?>
         </div>
