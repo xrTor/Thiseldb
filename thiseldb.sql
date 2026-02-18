@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: אוקטובר 11, 2025 בזמן 09:30 PM
+-- Generation Time: פברואר 18, 2026 בזמן 01:32 AM
 -- גרסת שרת: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `empty`
+-- Database: `11`
 --
 
 -- --------------------------------------------------------
@@ -78,14 +78,18 @@ CREATE TABLE `collections` (
   `name` varchar(255) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `image_url` text DEFAULT NULL,
   `pinned` tinyint(1) NOT NULL DEFAULT 0,
   `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
   `is_private` tinyint(1) NOT NULL DEFAULT 0,
   `poster_image_url` varchar(255) DEFAULT NULL,
   `is_public` tinyint(1) NOT NULL DEFAULT 0,
-  `cover_poster_id` int(11) DEFAULT NULL
+  `cover_poster_id` int(11) DEFAULT NULL,
+  `search_terms` text DEFAULT NULL,
+  `is_safe` tinyint(1) DEFAULT 0,
+  `is_urgent` tinyint(1) DEFAULT 0,
+  `is_green` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -98,8 +102,31 @@ CREATE TABLE `collection_items` (
   `id` int(11) NOT NULL,
   `collection_id` int(11) NOT NULL,
   `poster_id` int(11) NOT NULL,
-  `added_at` timestamp NULL DEFAULT current_timestamp()
+  `added_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- מבנה טבלה עבור טבלה `collection_reports`
+--
+
+CREATE TABLE `collection_reports` (
+  `id` int(11) NOT NULL,
+  `collection_id` int(11) NOT NULL,
+  `report_reason` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `handled_at` datetime DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- הוצאת מידע עבור טבלה `collection_reports`
+--
+
+INSERT INTO `collection_reports` (`id`, `collection_id`, `report_reason`, `created_at`, `handled_at`, `deleted_at`) VALUES
+(11, 561, '652512', '2026-02-02 00:22:09', NULL, NULL),
+(13, 562, '4444444', '2026-02-02 00:28:39', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -165,19 +192,30 @@ CREATE TABLE `languages` (
 CREATE TABLE `posters` (
   `id` int(11) NOT NULL,
   `title_en` varchar(255) DEFAULT NULL,
+  `title_en_bak` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `title_he` varchar(255) DEFAULT NULL,
+  `title_he_bak` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `original_title` varchar(255) DEFAULT NULL,
+  `original_title_bak` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `year` varchar(20) DEFAULT NULL,
+  `year_bak` varchar(20) DEFAULT NULL,
   `is_tv` tinyint(1) NOT NULL DEFAULT 0,
+  `is_tv_bak` tinyint(1) DEFAULT NULL,
   `imdb_rating` decimal(3,1) DEFAULT NULL,
+  `imdb_rating_bak` decimal(3,1) DEFAULT NULL,
   `imdb_votes` int(11) DEFAULT NULL,
+  `imdb_votes_bak` int(11) DEFAULT NULL,
   `poster_url` text DEFAULT NULL,
   `trailer_url` text DEFAULT NULL,
+  `trailer_url_bak` varchar(512) DEFAULT NULL,
   `tmdb_url` text DEFAULT NULL,
+  `tmdb_url_bak` varchar(512) DEFAULT NULL,
   `tvdb_url` text DEFAULT NULL,
+  `tvdb_url_bak` varchar(512) DEFAULT NULL,
   `imdb_link` varchar(255) DEFAULT NULL,
   `network` varchar(255) DEFAULT NULL,
   `image_url` varchar(255) DEFAULT NULL,
+  `image_url_bak` varchar(512) DEFAULT NULL,
   `plot` text DEFAULT NULL,
   `plot_he` text DEFAULT NULL,
   `lang_code` varchar(10) DEFAULT NULL,
@@ -189,9 +227,13 @@ CREATE TABLE `posters` (
   `actors` text DEFAULT NULL,
   `metacritic_score` varchar(50) DEFAULT NULL,
   `rt_score` varchar(50) DEFAULT NULL,
+  `rt_score_bak` int(3) DEFAULT NULL,
   `mc_score` int(11) DEFAULT NULL,
+  `mc_score_bak` int(3) DEFAULT NULL,
   `rt_url` text DEFAULT NULL,
+  `rt_url_bak` varchar(512) DEFAULT NULL,
   `mc_url` text DEFAULT NULL,
+  `mc_url_bak` varchar(512) DEFAULT NULL,
   `poster` text DEFAULT NULL,
   `metacritic_link` varchar(255) DEFAULT NULL,
   `rt_link` varchar(255) DEFAULT NULL,
@@ -202,30 +244,46 @@ CREATE TABLE `posters` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `type_id` int(11) DEFAULT NULL,
   `directors` varchar(255) DEFAULT NULL,
+  `directors_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `writers` varchar(255) DEFAULT NULL,
+  `writers_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `producers` varchar(255) DEFAULT NULL,
+  `producers_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `cinematographers` varchar(255) DEFAULT NULL,
+  `cinematographers_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `composers` varchar(255) DEFAULT NULL,
+  `composers_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `runtime` int(11) DEFAULT NULL,
+  `runtime_bak` int(5) DEFAULT NULL,
   `languages` varchar(255) DEFAULT NULL,
+  `languages_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `countries` varchar(255) DEFAULT NULL,
+  `countries_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `genres` text DEFAULT NULL,
+  `genres_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `networks` text DEFAULT NULL,
+  `networks_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `tmdb_collection_id` int(11) DEFAULT NULL,
   `seasons_count` int(11) DEFAULT 0,
+  `seasons_count_bak` int(4) DEFAULT NULL,
   `episodes_count` int(11) DEFAULT 0,
+  `episodes_count_bak` int(5) DEFAULT NULL,
   `network_logo` varchar(255) DEFAULT NULL,
   `has_subtitles` tinyint(1) DEFAULT 0,
   `is_dubbed` tinyint(1) DEFAULT 0,
   `overview_he` text DEFAULT NULL,
+  `overview_he_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `overview_en` text DEFAULT NULL,
+  `overview_en_bak` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `cast` longtext DEFAULT NULL,
+  `cast_bak` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `title_kind` varchar(50) DEFAULT NULL,
   `he_title` varchar(255) DEFAULT NULL,
   `runtime_minutes` int(11) DEFAULT NULL,
   `connections_count` int(11) NOT NULL DEFAULT 0,
   `imported_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `runtime_pretty` varchar(64) DEFAULT NULL
+  `runtime_pretty` varchar(64) DEFAULT NULL,
+  `last_updated` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -285,6 +343,22 @@ CREATE TABLE `poster_collections` (
   `sort_order` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Triggers `poster_collections`
+--
+DELIMITER $$
+CREATE TRIGGER `update_collection_timestamp_on_delete` AFTER DELETE ON `poster_collections` FOR EACH ROW BEGIN
+  UPDATE collections SET updated_at = NOW() WHERE id = OLD.collection_id;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `update_collection_timestamp_on_insert` AFTER INSERT ON `poster_collections` FOR EACH ROW BEGIN
+  UPDATE collections SET updated_at = NOW() WHERE id = NEW.collection_id;
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -332,7 +406,8 @@ CREATE TABLE `poster_genres_user` (
 
 CREATE TABLE `poster_languages` (
   `poster_id` int(11) NOT NULL,
-  `lang_code` varchar(10) NOT NULL
+  `lang_code` varchar(10) NOT NULL,
+  `applied_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -359,7 +434,8 @@ CREATE TABLE `poster_reports` (
   `poster_id` int(11) NOT NULL,
   `report_reason` text DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `handled_at` datetime DEFAULT NULL
+  `handled_at` datetime DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -448,7 +524,7 @@ CREATE TABLE `unique_visitors` (
 --
 
 INSERT INTO `unique_visitors` (`id`, `count`) VALUES
-(1, 14);
+(1, 23);
 
 -- --------------------------------------------------------
 
@@ -480,7 +556,7 @@ CREATE TABLE `visitors` (
 --
 
 INSERT INTO `visitors` (`id`, `count`) VALUES
-(1, 8146);
+(1, 205895);
 
 --
 -- Indexes for dumped tables
@@ -515,8 +591,13 @@ ALTER TABLE `collections`
 --
 ALTER TABLE `collection_items`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `collection_id` (`collection_id`),
-  ADD KEY `poster_id` (`poster_id`);
+  ADD KEY `collection_id` (`collection_id`);
+
+--
+-- אינדקסים לטבלה `collection_reports`
+--
+ALTER TABLE `collection_reports`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- אינדקסים לטבלה `contact_reports`
@@ -608,7 +689,9 @@ ALTER TABLE `poster_genres_user`
 -- אינדקסים לטבלה `poster_languages`
 --
 ALTER TABLE `poster_languages`
-  ADD PRIMARY KEY (`poster_id`,`lang_code`);
+  ADD PRIMARY KEY (`poster_id`,`lang_code`),
+  ADD KEY `idx_pl_applied_at` (`applied_at`),
+  ADD KEY `idx_pl_poster_applied` (`poster_id`,`applied_at`);
 
 --
 -- אינדקסים לטבלה `poster_likes`
@@ -704,6 +787,12 @@ ALTER TABLE `collection_items`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `collection_reports`
+--
+ALTER TABLE `collection_reports`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+
+--
 -- AUTO_INCREMENT for table `contact_reports`
 --
 ALTER TABLE `contact_reports`
@@ -713,7 +802,7 @@ ALTER TABLE `contact_reports`
 -- AUTO_INCREMENT for table `contact_requests`
 --
 ALTER TABLE `contact_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `genres`
@@ -737,7 +826,7 @@ ALTER TABLE `posters`
 -- AUTO_INCREMENT for table `poster_akas`
 --
 ALTER TABLE `poster_akas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=926388;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2153290;
 
 --
 -- AUTO_INCREMENT for table `poster_bookmarks`
@@ -749,7 +838,7 @@ ALTER TABLE `poster_bookmarks`
 -- AUTO_INCREMENT for table `poster_connections`
 --
 ALTER TABLE `poster_connections`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45472;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=109234;
 
 --
 -- AUTO_INCREMENT for table `poster_genres_user`
@@ -767,7 +856,7 @@ ALTER TABLE `poster_likes`
 -- AUTO_INCREMENT for table `poster_reports`
 --
 ALTER TABLE `poster_reports`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
 
 --
 -- AUTO_INCREMENT for table `poster_types`
@@ -797,7 +886,7 @@ ALTER TABLE `unique_visitors`
 -- AUTO_INCREMENT for table `user_tags`
 --
 ALTER TABLE `user_tags`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18176;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21202;
 
 --
 -- AUTO_INCREMENT for table `visitors`
@@ -813,8 +902,7 @@ ALTER TABLE `visitors`
 -- הגבלות לטבלה `collection_items`
 --
 ALTER TABLE `collection_items`
-  ADD CONSTRAINT `collection_items_ibfk_1` FOREIGN KEY (`collection_id`) REFERENCES `collections` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `collection_items_ibfk_2` FOREIGN KEY (`poster_id`) REFERENCES `posters` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `collection_items_ibfk_1` FOREIGN KEY (`collection_id`) REFERENCES `collections` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- הגבלות לטבלה `poster_akas`
