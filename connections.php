@@ -2,46 +2,66 @@
 include 'header.php';
 require_once 'server.php';
 
-// 1. קבלת פרמטרים מה-URL
-if (!isset($_GET['label']) || empty($_GET['label'])) {
+if (!isset($_GET['label']) || $_GET['label'] === '') {
     die('שגיאה: לא נבחר סוג קשר.');
 }
-$label = $_GET['label'];
+$label = trim($_GET['label']);
 
-// 2. השאילתה מורחבת כדי לכלול גם את שנת ההפקה
+// label חדש: connections.php?label=Follows+only
+$filterPairsOnly = false;
+$baseLabel = $label;
+
+if (strcasecmp($label, 'Follows only') === 0) {
+    $filterPairsOnly = true;
+    $baseLabel = 'Follows';
+}
+
+// שאילתה
 $sql = "
     SELECT DISTINCT
-        original_poster.id AS source_id,
+        original_poster.id       AS source_id,
         original_poster.title_en AS source_title,
         original_poster.title_he AS source_title_he,
-        original_poster.imdb_id AS source_imdb_id,
-        original_poster.year AS source_year,
-        sequel_poster.id AS target_id,
-        sequel_poster.title_en AS target_title,
-        sequel_poster.title_he AS target_title_he,
-        sequel_poster.imdb_id AS target_imdb_id,
-        sequel_poster.year AS target_year
-    FROM
-        poster_connections pc
-    INNER JOIN
-        posters AS original_poster ON pc.related_imdb_id = original_poster.imdb_id
-    LEFT JOIN
-        posters AS sequel_poster ON pc.poster_id = sequel_poster.id
-    WHERE
-        pc.relation_label = ?
-    ORDER BY
-        source_title, target_title
+        original_poster.imdb_id  AS source_imdb_id,
+        original_poster.year     AS source_year,
+
+        sequel_poster.id         AS target_id,
+        sequel_poster.title_en   AS target_title,
+        sequel_poster.title_he   AS target_title_he,
+        sequel_poster.imdb_id    AS target_imdb_id,
+        sequel_poster.year       AS target_year
+    FROM poster_connections pc
+    INNER JOIN posters AS original_poster ON pc.related_imdb_id = original_poster.imdb_id
+    LEFT JOIN posters  AS sequel_poster   ON pc.poster_id       = sequel_poster.id
+    WHERE pc.relation_label = ?
 ";
 
+if ($filterPairsOnly) {
+    // ✅ רק זוגות הדדיים:
+    // אם יש Followed by שמצביע מהיעד חזרה למקור
+    $sql .= "
+        AND sequel_poster.imdb_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1
+            FROM poster_connections pc2
+            WHERE pc2.relation_label = 'Followed by'
+              AND pc2.related_imdb_id = sequel_poster.imdb_id
+              AND pc2.poster_id = original_poster.id
+        )
+    ";
+}
+
+$sql .= " ORDER BY source_title, target_title ";
+
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $label);
+$stmt->bind_param("s", $baseLabel);
 $stmt->execute();
 $result = $stmt->get_result();
 
-// 3. איסוף וקיבוץ התוצאות, כולל שנת ההפקה
+// קיבוץ
 $grouped_connections = [];
 while ($row = $result->fetch_assoc()) {
-    $source_id = $row['source_id'];
+    $source_id = (int)$row['source_id'];
 
     if (!isset($grouped_connections[$source_id])) {
         $grouped_connections[$source_id] = [
@@ -53,9 +73,9 @@ while ($row = $result->fetch_assoc()) {
         ];
     }
 
-    if ($row['target_id']) {
+    if (!empty($row['target_id'])) {
         $grouped_connections[$source_id]['linked_posters'][] = [
-            'id' => $row['target_id'],
+            'id' => (int)$row['target_id'],
             'title' => $row['target_title'],
             'title_he' => $row['target_title_he'],
             'imdb_id' => $row['target_imdb_id'],
@@ -80,22 +100,16 @@ while ($row = $result->fetch_assoc()) {
         a { text-decoration: none; }
         table a { color: green !important; }
         a:hover { text-decoration: underline; }
-        
+
         .linked-list-cell { list-style-type: none; padding: 0; margin: 0; font-weight: normal; }
         .linked-list-cell li { padding-bottom: 10px; }
         .linked-list-cell li:last-child { padding-bottom: 0; }
 
-        .poster-meta {
-            font-size: 0.85em;
-            color: #555;
-            font-weight: normal;
-            padding-top: 4px;
-        }
-        /* עיצוב חדש לקישור של IMDb */
-        .poster-meta a {
-            color: #007bff !important; /* צבע כחול סטנדרטי לקישור */
-        }
-        /* --- הכלל נשמר כפי שביקשת --- */
+        .poster-meta { font-size: 0.85em; color: #555; font-weight: normal; padding-top: 4px; }
+
+        /* IMDb tt כחול */
+        a.imdb-link { color: #007bff !important; }
+
         footer .box {
             background: transparent !important;
             box-shadow: none !important;
@@ -114,14 +128,17 @@ while ($row = $result->fetch_assoc()) {
         <table>
             <thead>
                 <tr>
+                    <th style="width:55px;text-align:center;">#</th>
                     <th>פוסטר מקור (הסרט המקורי)</th>
                     <th>פוסטר מקושר</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!empty($grouped_connections)): ?>
-                    <?php foreach ($grouped_connections as $source_id => $data): ?>
+                    <?php $rowNum = 0; ?>
+                    <?php foreach ($grouped_connections as $source_id => $data): $rowNum++; ?>
                         <tr>
+                            <td style="text-align:center;font-weight:bold;"><?= (int)$rowNum ?></td>
                             <td>
                                 <a href="poster.php?id=<?= (int)$source_id ?>">
                                     <b><?= htmlspecialchars($data['title']) ?> (<?= htmlspecialchars($data['year']) ?>)</b>
@@ -130,21 +147,22 @@ while ($row = $result->fetch_assoc()) {
                                     <?php if (!empty($data['title_he'])): ?>
                                         <?= htmlspecialchars($data['title_he']) ?><br>
                                     <?php endif; ?>
-                                    (<a href="https://www.imdb.com/title/<?= htmlspecialchars($data['imdb_id']) ?>/" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($data['imdb_id']) ?></a>)
+                                    (<a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($data['imdb_id']) ?>/" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($data['imdb_id']) ?></a>)
                                 </div>
                             </td>
                             <td>
                                 <ul class="linked-list-cell">
-                                    <?php foreach ($data['linked_posters'] as $linked_poster): ?>
+                                    <?php $i = 0; foreach ($data['linked_posters'] as $linked_poster): $i++; ?>
                                         <li>
+                                            <span style="font-weight:bold;min-width:28px;display:inline-block;"><?= (int)$i ?>.</span>
                                             <a href="poster.php?id=<?= (int)$linked_poster['id'] ?>">
-                                                <?= htmlspecialchars($linked_poster['title'] ?? '#'.(int)$linked_poster['id']) ?> (<?= htmlspecialchars($linked_poster['year']) ?>)
+                                                <?= htmlspecialchars($linked_poster['title'] ?? ('#'.(int)$linked_poster['id'])) ?> (<?= htmlspecialchars($linked_poster['year']) ?>)
                                             </a>
                                             <div class="poster-meta">
                                                 <?php if (!empty($linked_poster['title_he'])): ?>
                                                     <?= htmlspecialchars($linked_poster['title_he']) ?><br>
                                                 <?php endif; ?>
-                                                (<a href="https://www.imdb.com/title/<?= htmlspecialchars($linked_poster['imdb_id']) ?>/" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($linked_poster['imdb_id']) ?></a>)
+                                                (<a class="imdb-link" href="https://www.imdb.com/title/<?= htmlspecialchars($linked_poster['imdb_id']) ?>/" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($linked_poster['imdb_id']) ?></a>)
                                             </div>
                                         </li>
                                     <?php endforeach; ?>
@@ -154,7 +172,7 @@ while ($row = $result->fetch_assoc()) {
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="2">לא נמצאו קשרים התואמים לסינון.</td>
+                        <td colspan="3">לא נמצאו קשרים התואמים לסינון.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>

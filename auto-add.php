@@ -1,8 +1,9 @@
 <?php
 /****************************************************
  * auto-add.php — ייבוא אוטומטי + AKAs + IMDb Connections (מאוחד)
- * BUILD v22:
- * - מתאים את הקריאה ל-build_row() לחתימה החדשה עם 5 פרמטרים
+ * BUILD v23 (With Blacklist Integration):
+ * - כולל מנגנון חסימה (Blacklist) עבור IMDB, TMDB, TVDB
+ * - שומר על כל הלוגיקה והעיצוב המקוריים
  ****************************************************/
 set_time_limit(3000000);
 mb_internal_encoding('UTF-8');
@@ -27,6 +28,23 @@ ob_end_clean();
 
 /* ========= עזר כללי ========= */
 function H($v){ return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+
+/**
+ * פונקציית בדיקת רשימה שחורה (Blacklist) - חדש
+ */
+function isBlacklisted($conn, $id, $type = 'imdb') {
+    if (empty($id)) return false;
+    // הנחה: הטבלה blacklist קיימת עם עמודות identifier ו-type
+    $stmt = $conn->prepare("SELECT 1 FROM blacklist WHERE identifier = ? AND type = ? LIMIT 1");
+    if (!$stmt) return false; // מונע קריסה אם הטבלה עדיין לא קיימת
+    $stmt->bind_param("ss", $id, $type);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $exists = $res->num_rows > 0;
+    $stmt->close();
+    return $exists;
+}
+
 function to_csv_val($arr){
     if(!$arr) return null;
     $vals=[];
@@ -410,7 +428,7 @@ function sync_connections(mysqli $db, int $poster_id, string $source_imdb_id, ar
 
   $db->begin_transaction();
   try {
-    // נקה connections קיימים לפוסטר הזה (כמו בעמוד שעובד לך)
+    // נקה connections קיימים לפוסטר הזה
     if ($del = $db->prepare("DELETE FROM poster_connections WHERE poster_id = ?")) {
       $del->bind_param("i", $poster_id);
       $del->execute();
@@ -418,7 +436,7 @@ function sync_connections(mysqli $db, int $poster_id, string $source_imdb_id, ar
     }
     if (empty($flat)) { $db->commit(); return 0; }
 
-    // IGNORE כדי לא להתרסק על uniq_conn אם עדיין יש כפילויות "לוגיות"
+    // IGNORE כדי לא להתרסק על uniq_conn
     $sql = "INSERT IGNORE INTO poster_connections
             (poster_id, relation_label, conn_title, related_imdb_id, conn_imdb_id,
              related_title, relation_type, imdb_id, source, kind, target_tt, target_title)
@@ -476,6 +494,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     foreach($ids as $tt){
       $current=['tt'=>$tt,'ok'=>true,'error'=>null,'action'=>'','poster_id'=>0,'akas_count'=>0,'akas_saved'=>0,'conn_count'=>0,'conn_saved'=>0,'conn_source'=>''];
       try{
+        
+        // --- 1. בדיקת Blacklist עבור IMDB (עצירה מיידית) ---
+        if (isBlacklisted($conn, $tt, 'imdb')) {
+            $current['action'] = 'skipped (Blacklisted)';
+            $results[] = $current;
+            continue; // מדלג לסרט הבא
+        }
+        
         // קבלת נתונים מלאים אם יש imdb.php
         $rawRow=$U=[];
         if (function_exists('build_row')) {
@@ -489,6 +515,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
           if (!isset($TMDB_KEY)) $TMDB_KEY='';
           if (!isset($TVDB_KEY)) $TVDB_KEY='';
           $U = unify_details($rawRow, $TMDB_KEY, $TVDB_KEY);
+          
+          // --- 2. בדיקת Blacklist עבור TMDB/TVDB (אחרי שקיבלנו את המזהים שלהם) ---
+          if (!empty($U['tmdb_id']) && isBlacklisted($conn, $U['tmdb_id'], 'tmdb')) {
+              throw new Exception("Blacklisted (TMDB ID: {$U['tmdb_id']})");
+          }
+          if (!empty($U['tvdb_id']) && isBlacklisted($conn, $U['tvdb_id'], 'tvdb')) {
+              throw new Exception("Blacklisted (TVDB ID: {$U['tvdb_id']})");
+          }
         }
 
         // posters
@@ -551,6 +585,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     select { width: 100%; background: #0f1320; color: #e7ecff; border: 1px solid #2a3148; border-radius: 10px; padding: 10px; outline: none; font-family: inherit; font-size: 14px; }
     .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: end; }
 
+
+/* היה קוד של הFOOTER*/
     /* .w3-bar */
     .w3-bar { width: 100%; overflow: hidden; }
     .w3-bar .w3-bar-item { padding: 8px 16px; float: left; width: auto; border: none; display: block; outline: 0; }
@@ -575,13 +611,79 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 </head>
 <body>
 <div class="wrap">
-  <h1 style="margin:0 0 16px">ייבוא פוסטרים (מאוחד) — Debug + Connections</h1>
+  <h1 style="margin:0 0 16px">ייבוא פוסטרים (מאוחד) — Blacklist & Connections</h1>
 
   <div class="card">
     <form method="post" action="" enctype="multipart/form-data">
-      <label for="ids">הדבק מזהי IMDb או לינקים (למשל: tt1013752, https://www.imdb.com/title/tt0120667/):</label>
-      <textarea name="ids" id="ids"><?= H($_POST['ids']??''); ?></textarea>
+      <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:6px;">
+          <label for="ids" style="margin:0;">הדבק מזהי IMDb או לינקים (הסינון אוטומטי):</label>
+          <button type="button" id="pasteBtn" class="btn" style="padding: 4px 12px; font-size: 13px; background: #2a3148; border: 1px solid #3f4763;">
+              📋 הדבק והוסף מהלוח
+          </button>
+      </div>
+      <textarea name="ids" id="ids" placeholder="הדבק כאן... (למשל: https://www.imdb.com/title/tt1234567/)" style="font-family:monospace; color:#a6accd;"></textarea>
 
+<script>
+/**
+ * סקריפט חכם לניהול הדבקות (Ctrl+V או כפתור)
+ * מסנן מזהי IMDb, מסיר כפילויות ומעדכן את התיבה.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('ids');
+    const pasteBtn = document.getElementById('pasteBtn');
+
+    // פונקציה מרכזית לעיבוד טקסט והכנסתו לתיבה
+    function processInput(newText) {
+        if (!newText) return;
+
+        const currentContent = textarea.value;
+        const fullText = currentContent + "\n" + newText;
+
+        // חילוץ כירורגי: רק tt ואחריו 6-10 ספרות
+        const matches = fullText.match(/\btt\d{6,10}\b/gi);
+
+        if (matches && matches.length > 0) {
+            // ניקוי כפילויות (Set) + המרה לאותיות קטנות
+            const uniqueIds = [...new Set(matches.map(id => id.toLowerCase()))];
+            
+            // עדכון התיבה
+            textarea.value = uniqueIds.join('\n');
+            
+            // אפקט ויזואלי להצלחה (הבהוב ירוק)
+            textarea.style.borderColor = '#6fffbe';
+            setTimeout(() => textarea.style.borderColor = '', 300);
+        }
+    }
+
+    // 1. אירוע הדבקה רגיל (Ctrl+V / Right Click Paste)
+    textarea.addEventListener('paste', function(e) {
+        e.preventDefault(); // מניעת הדבקת הזבל המקורי
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        processInput(text);
+    });
+
+    // 2. אירוע גרירה (Drag & Drop)
+    textarea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        const text = e.dataTransfer.getData('text');
+        processInput(text);
+    });
+
+    // 3. אירוע כפתור "הדבק"
+    if (pasteBtn) {
+        pasteBtn.addEventListener('click', async function() {
+            try {
+                // דורש הרשאה בדפדפן (עובד ב-HTTPS וב-localhost)
+                const text = await navigator.clipboard.readText();
+                processInput(text);
+            } catch (err) {
+                alert('לא ניתן לגשת ללוח. אנא ודא שהאתר מאובטח (HTTPS) או השתמש ב-Ctrl+V.');
+                console.error('Clipboard error:', err);
+            }
+        });
+    }
+});
+</script>
       <div class="grid" style="margin-top:12px">
         <div>
           <label for="id_file">או העלה TXT/CSV:</label>
@@ -612,7 +714,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       <?php foreach ($results as $r): ?>
         <?php
           $act = (string)($r['action'] ?? '');
-          $cls = empty($r['ok']) ? 'res-err' : (str_starts_with($act,'skipped') ? 'res-skip' : 'res-ok');
+          $cls = empty($r['ok']) ? 'res-err' : (str_contains($act,'skipped') ? 'res-skip' : 'res-ok');
           $pid = (int)($r['poster_id'] ?? 0);
         ?>
         <div class="res <?= $cls ?>">
@@ -640,6 +742,70 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     </div>
   <?php endif; ?>
 </div>
+<script>
+/**
+ * סקריפט חכם לטיפול בהדבקה (כמו ב-copy-uniq.php)
+ * 1. תופס את האירוע לפני שהטקסט נכנס לתיבה.
+ * 2. מחלץ רק מזהי tt.
+ * 3. מסיר כפילויות מול מה שכבר יש בתיבה.
+ * 4. מדביק תוצאה נקייה ומסודרת.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('ids');
+    
+    // טיפול בהדבקה (Paste)
+    textarea.addEventListener('paste', function(e) {
+        // עוצרים את ההדבקה הרגילה כדי שלא יכנס "זבל"
+        e.preventDefault();
+        
+        // 1. שליפת הטקסט מהלוח (Clipboard)
+        const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipboardData) return;
+
+        // 2. שליפת הטקסט שכבר קיים בתיבה (כדי למזג ולמנוע כפילויות)
+        const currentContent = textarea.value;
+        
+        // 3. איחוד הטקסטים
+        const fullText = currentContent + "\n" + clipboardData;
+
+        // 4. חילוץ כירורגי של מזהי IMDb בלבד
+        // מחפש tt ואחריו לפחות 6 ספרות (מתעלם מכל השאר)
+        const matches = fullText.match(/\btt\d{6,10}\b/gi);
+
+        if (matches && matches.length > 0) {
+            // 5. ניקוי כפילויות (Set) והמרה לאותיות קטנות
+            const uniqueIds = [...new Set(matches.map(id => id.toLowerCase()))];
+            
+            // 6. עדכון התיבה עם הרשימה הנקייה
+            textarea.value = uniqueIds.join('\n');
+            
+            // פידבק ויזואלי קטן (הבהוב מסגרת) כדי שהמשתמש יבין שקרה משהו
+            textarea.style.borderColor = '#6fffbe';
+            setTimeout(() => textarea.style.borderColor = '', 300);
+        } else {
+            // אם לא נמצא שום מזהה תקין בהדבקה - אפשר לבחור אם להדביק את המקור או לא.
+            // כאן בחרתי לא לעשות כלום (לחסום זבל), אבל אם תרצה אפשר להוסיף הודעה.
+            // console.log("לא נמצאו מזהי IMDB תקינים");
+        }
+    });
+
+    // טיפול במקרה של גרירה ושחרור (Drop) - אותו עיקרון
+    textarea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        const text = e.dataTransfer.getData('text');
+        // מפעיל את אותה לוגיקה...
+        const currentContent = textarea.value;
+        const fullText = currentContent + "\n" + text;
+        const matches = fullText.match(/\btt\d{6,10}\b/gi);
+        if (matches && matches.length > 0) {
+            const uniqueIds = [...new Set(matches.map(id => id.toLowerCase()))];
+            textarea.value = uniqueIds.join('\n');
+            textarea.style.borderColor = '#6fffbe';
+            setTimeout(() => textarea.style.borderColor = '', 300);
+        }
+    });
+});
+</script>
 <?php include __DIR__.'/footer.php'; ?>
 </body>
 </html>

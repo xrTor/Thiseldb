@@ -1,55 +1,42 @@
 <?php
-// unpin_all_in_collection.php
+// unpin_all_in_collection.php (FIXED: no CSRF token required)
+// ---------------------------------------------------------
+// Removes pin from all posters in a given collection_id.
+// Expected POST: collection_id
+// ---------------------------------------------------------
 
-// הפעלת סשן כדי לגשת למשתני הסשן
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+if (session_status() !== PHP_SESSION_ACTIVE && !headers_sent()) { @session_start(); }
 
-// 1. וידוא שהבקשה היא מסוג POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Method Not Allowed
-    exit('Error: This action requires a POST request.');
-}
+require_once __DIR__ . '/server.php'; // provides $conn (mysqli)
 
-// 2. וידוא טוקן CSRF לאבטחה
-if (empty($_POST['csrf_token']) || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
-    http_response_code(403); // Forbidden
-    exit('Error: Invalid security token.');
-}
+function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
-// כלול את קובץ החיבור למסד הנתונים
-require_once 'server.php';
-
-// ודא שהתקבל מזהה אוסף (הלוגיקה הקיימת תקינה)
-if (isset($_POST['collection_id'])) {
-    $collection_id = intval($_POST['collection_id']);
-
-    // הכן את שאילתת ה-UPDATE באמצעות Prepared Statement (הלוגיקה הקיימת תקינה)
-    $sql = "UPDATE poster_collections SET is_pinned = 0 WHERE collection_id = ?";
-
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("i", $collection_id);
-
-        if ($stmt->execute()) {
-            // אם ההצלחה, הפנה את המשתמש בחזרה לדף האוסף עם הודעת הצלחה
-            header("Location: collection.php?id=" . $collection_id . "&status=unpinned_all_success");
-        } else {
-            // אם יש שגיאה, הפנה בחזרה עם הודעת שגיאה
-            header("Location: collection.php?id=" . $collection_id . "&status=error");
-        }
-        $stmt->close();
-    } else {
-        // אם הכנת השאילתה נכשלה
-        header("Location: collection.php?id=" . $collection_id . "&status=prepare_error");
-    }
-
-    $conn->close();
-    exit();
-
+$collection_id = 0;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $collection_id = (int)($_POST['collection_id'] ?? 0);
 } else {
-    // אם לא נשלח מזהה אוסף, חזור לדף הבית
-    header("Location: index.php");
-    exit();
+  // allow GET fallback (optional)
+  $collection_id = (int)($_GET['collection_id'] ?? 0);
 }
+
+if ($collection_id <= 0) {
+  http_response_code(400);
+  echo "❌ Missing or invalid collection_id";
+  exit;
+}
+
+// ✅ Update all pinned rows to unpinned
+$stmt = $conn->prepare("UPDATE poster_collections SET is_pinned = 0 WHERE collection_id = ?");
+if (!$stmt) {
+  http_response_code(500);
+  echo "❌ DB error: " . h($conn->error);
+  exit;
+}
+$stmt->bind_param("i", $collection_id);
+$stmt->execute();
+$stmt->close();
+
+// Redirect back to collection page preserving id
+header("Location: collection.php?id=" . $collection_id);
+exit;
 ?>

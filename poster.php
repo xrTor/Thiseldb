@@ -8,7 +8,154 @@ if (function_exists('opcache_reset')) { @opcache_reset(); }
 
 /* ====== תלויות ====== */
 require_once __DIR__ . '/server.php';
+
+/* --- התחלה: טיפול בכפתורי צפייה (חייב להופיע לפני header.php) --- */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_coll_id'])) {
+    // שליפת ה-ID הנוכחי מה-URL בצורה בטוחה כי המשתנה __pa_id עדיין לא הוגדר בשלב זה
+    // ✅ Prefer explicit poster_id from POST (works for poster.php?tt=... too)
+    $current_p_id = isset($_POST['poster_id']) ? (int)$_POST['poster_id'] : 0;
+    if ($current_p_id <= 0) {
+        $current_p_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+    }
+
+    // If still missing and we have tt in URL — resolve poster id from DB
+    $tt_for_redirect = '';
+    if ($current_p_id <= 0) {
+        $ttRaw = (string)($_GET['tt'] ?? '');
+        if ($ttRaw !== '' && preg_match('~(tt\d{5,10})~i', $ttRaw, $mm)) {
+            $tt_for_redirect = strtolower($mm[1]);
+            $st = $conn->prepare("SELECT id FROM posters WHERE imdb_id = ? LIMIT 1");
+            if ($st) {
+                $st->bind_param("s", $tt_for_redirect);
+                $st->execute();
+                $rr = $st->get_result()->fetch_assoc();
+                $st->close();
+                if (!empty($rr['id'])) $current_p_id = (int)$rr['id'];
+            }
+        }
+    } else {
+        $ttRaw = (string)($_GET['tt'] ?? '');
+        if ($ttRaw !== '' && preg_match('~(tt\d{5,10})~i', $ttRaw, $mm)) {
+            $tt_for_redirect = strtolower($mm[1]);
+        }
+    }
+    $target_cid = (int)$_POST['toggle_coll_id'];
+
+    // מוודאים שיש ID תקין ושאלו רק האוספים המותרים (231=צפיתי, 196=מאוחרת)
+    if ($current_p_id > 0 && in_array($target_cid, [196, 231])) {
+        // בדיקה האם קיים
+        $check_q = $conn->prepare("SELECT 1 FROM poster_collections WHERE poster_id=? AND collection_id=?");
+        $check_q->bind_param("ii", $current_p_id, $target_cid);
+        $check_q->execute();
+        $exists = $check_q->get_result()->num_rows > 0;
+        $check_q->close();
+
+        if ($exists) {
+            // מחיקה
+            $del_q = $conn->prepare("DELETE FROM poster_collections WHERE poster_id=? AND collection_id=?");
+            $del_q->bind_param("ii", $current_p_id, $target_cid);
+            $del_q->execute();
+            $del_q->close();
+        } else {
+            // הוספה
+            $ins_q = $conn->prepare("INSERT INTO poster_collections (poster_id, collection_id, added_at) VALUES (?, ?, NOW())");
+            $ins_q->bind_param("ii", $current_p_id, $target_cid);
+            $ins_q->execute();
+            $ins_q->close();
+        }
+        // רענון העמוד
+        header("Location: " . (!empty($tt_for_redirect) ? ("poster.php?tt=" . $tt_for_redirect) : ("poster.php?id=" . $current_p_id)));
+        exit;
+    }
+}
+/* --- סוף: טיפול בכפתורי צפייה --- */
+$__page = $__page ?? 'poster';
 include 'header.php';
+
+echo '<style>\n
+/* === Poster palette (synced to ThiselDB dark UI) === */
+:root{
+  --tdb-bg: #0B1121;
+  --tdb-panel: rgba(16, 26, 47, 0.72);
+  --tdb-panel-solid: #0F1A2E;
+  --tdb-border: rgba(255,255,255,.08);
+  --tdb-border2: rgba(255,255,255,.12);
+  --tdb-text: #EAF0FF;
+  --tdb-muted: rgba(234,240,255,.72);
+  --tdb-muted2: rgba(234,240,255,.55);
+  --tdb-link: #6B8EBC;
+  --tdb-link2: #8DB4FF;
+  --tdb-chip: rgba(41, 51, 82, .55);
+  --tdb-chip2: rgba(52, 70, 97, .55);
+  --tdb-danger: #F7280B;
+  --tdb-success: #2ECC71;
+}
+
+body{
+  background: radial-gradient(1200px 800px at 50% -120px, rgba(54,78,139,.28), transparent 55%),
+              radial-gradient(900px 600px at 10% 30%, rgba(52,70,97,.22), transparent 60%),
+              var(--tdb-bg);
+  color: var(--tdb-text);
+}
+
+a{ color: var(--tdb-link); }
+a:hover{ color: var(--tdb-link2); }
+
+.wrap, .content{ color: var(--tdb-text); }
+
+.card, .section, .box, .panel{
+  background: var(--tdb-panel);
+  border: 1px solid var(--tdb-border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.toolbar, .row-forms, .manage-toggle-bar{
+  background: transparent;
+}
+
+.btn, button, input[type="submit"]{
+  background: rgba(41, 51, 82, .35);
+  color: var(--tdb-text);
+  border: 1px solid var(--tdb-border);
+  border-radius: 10px;
+}
+.btn:hover, button:hover, input[type="submit"]:hover{
+  border-color: var(--tdb-border2);
+  filter: brightness(1.05);
+}
+.btn-danger, .danger{
+  background: rgba(247,40,11,.18);
+  border-color: rgba(247,40,11,.35);
+}
+.btn-danger:hover, .danger:hover{
+  background: rgba(247,40,11,.24);
+}
+
+.tag, .tag-pill, .chip, .chip-static{
+  background: var(--tdb-chip);
+  border: 1px solid var(--tdb-border);
+  color: var(--tdb-text);
+  border-radius: 999px;
+}
+.tag:hover, .tag-pill:hover, .chip:hover{
+  background: var(--tdb-chip2);
+}
+
+.subtitle, .muted, .small, small{
+  color: var(--tdb-muted);
+}
+
+input, textarea, select{
+  background: rgba(15, 26, 46, .65);
+  border: 1px solid var(--tdb-border);
+  color: var(--tdb-text);
+  border-radius: 10px;
+}
+input::placeholder, textarea::placeholder{
+  color: rgba(234,240,255,.45);
+}
+\n</style>';
 
 /* =================== ADD-ONLY BLOCK (poster actions & helpers) =================== */
 if (!function_exists('__pa_h')) { function __pa_h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); } }
@@ -54,12 +201,20 @@ if (isset($_GET['id']) && ctype_digit((string)$_GET['id'])) {
   $stmt->execute();
   $posterRow = $stmt->get_result()->fetch_assoc();
   $stmt->close();
-} elseif (!empty($_GET['tt']) && preg_match('~^tt\d{6,10}$~', $_GET['tt'])) {
-  $stmt = $conn->prepare("SELECT * FROM posters WHERE imdb_id = ? LIMIT 1");
-  $stmt->bind_param("s", $_GET['tt']);
-  $stmt->execute();
-  $posterRow = $stmt->get_result()->fetch_assoc();
-  $stmt->close();
+} else {
+  // ✅ Support tt in many forms: 'tt123', 'tt123/', full IMDb URL, etc.
+  $ttRaw = (string)($_GET['tt'] ?? '');
+  $ttNorm = '';
+  if ($ttRaw !== '' && preg_match('~(tt\d{5,10})~i', $ttRaw, $mm)) {
+    $ttNorm = strtolower($mm[1]);
+  }
+  if ($ttNorm !== '') {
+    $stmt = $conn->prepare("SELECT * FROM posters WHERE imdb_id = ? LIMIT 1");
+    $stmt->bind_param("s", $ttNorm);
+    $stmt->execute();
+    $posterRow = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+  }
 }
 if (!$posterRow) {
   http_response_code(404);
@@ -197,6 +352,7 @@ if ($trailer_url) {
 
 /* ====== POST: לייקים / תגיות / סרטים דומים ====== */
 if (isset($conn) && $_SERVER['REQUEST_METHOD']==='POST' && $__pa_id>0) {
+  
   /* votes (ללא שינוי) */
   if (isset($_POST['pv_action'])) {
     $act=$_POST['pv_action'];
@@ -315,19 +471,35 @@ if (isset($conn) && $__pa_id>0){
   $st=$conn->prepare("SELECT vote_type FROM poster_votes WHERE poster_id=? AND visitor_token=?");
   $st->bind_param("is", $__pa_id, $__pa_token); $st->execute(); $re=$st->get_result();
   if($re && $re->num_rows){ $__pa_user_vote=(string)$re->fetch_assoc()['vote_type']; } $st->close();
+// בדיקת סטטוס צפייה לצביעת הכפתורים
+$is_watched = false;      // collection 231
+$is_watch_later = false;  // collection 196
 
+if (isset($conn) && $__pa_id > 0) {
+    $st_coll = $conn->query("SELECT collection_id FROM poster_collections WHERE poster_id={$__pa_id} AND collection_id IN (196, 231)");
+    while ($row_coll = $st_coll->fetch_assoc()) {
+        if ($row_coll['collection_id'] == 231) $is_watched = true;
+        if ($row_coll['collection_id'] == 196) $is_watch_later = true;
+    }
+}
   $__pa_user_tags=array();
   if($r=$conn->query("SELECT id, genre FROM user_tags WHERE poster_id={$__pa_id} ORDER BY id DESC")){
     while($r && $t=$r->fetch_assoc()){ $__pa_user_tags[]=$t; }
   }
 
   $__pa_similar=array();
-  if($r=$conn->query("SELECT p.id,p.title_en,p.title_he,p.image_url FROM poster_similar ps JOIN posters p ON p.id=ps.similar_id WHERE ps.poster_id={$__pa_id} ORDER BY p.title_en")){
+  if($r=$conn->query("SELECT p.id,p.title_en,p.title_he,p.year,p.image_url FROM poster_similar ps JOIN posters p ON p.id=ps.similar_id WHERE ps.poster_id={$__pa_id} ORDER BY p.title_en")){
     while($r && $s=$r->fetch_assoc()){ $__pa_similar[]=$s; }
   }
 
   $__pa_collections=array();
-  if($r=$conn->query("SELECT c.id, c.name, c.poster_image_url FROM poster_collections pc JOIN collections c ON c.id=pc.collection_id WHERE pc.poster_id={$__pa_id} ORDER BY c.name")){
+  // השינוי כאן: הוספנו את (SELECT COUNT(*) FROM poster_collections x WHERE x.collection_id=c.id) as item_count
+  if($r=$conn->query("SELECT c.id, c.name, c.poster_image_url, 
+                      (SELECT COUNT(*) FROM poster_collections x WHERE x.collection_id=c.id) as item_count 
+                      FROM poster_collections pc 
+                      JOIN collections c ON c.id=pc.collection_id 
+                      WHERE pc.poster_id={$__pa_id} 
+                      ORDER BY c.name")){
     while($r && $c=$r->fetch_assoc()){ $__pa_collections[]=$c; }
   }
 }
@@ -370,6 +542,7 @@ function chip_links(array $items, string $param, array $extra = []): string {
   <title><?= H($display_title) ?> — עמוד פוסטר</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dark.css">
   <style>
   a {color: #5587ec !important;}
 :root{ --bg:#0f1115; --card:#151924; --muted:#8a90a2; --text:#e7ecff; --chip:#1e2433; --accent:#5b8cff; --line:#22283a; }
@@ -447,7 +620,7 @@ body {background-color:#161b26 !important; text-align: right !important;}
 .logo {  filter: saturate(500%) contrast(800%) brightness(500%) invert(100%) sepia(50%) hue-rotate(120deg); }
 
 /* ==== Light theme overrides ==== */
-body.theme-light { --bg:#ffffff; --card:#ffffff; --text:#222; --muted:#555; --chip:#f5f5f5; --accent:#1a73e8; --line:#dddddd; background:#ffffff !important; color:#222 !important; }
+body.theme-light { --bg:#ffffff; --card:#ffffff; --text:#222; --muted:#555; --chip:#f5f5f5; --accent:#1a73e8; --line:#dddddd; background:#ffffff !important;background-image: url("images/pattern.png") !important; color:#222 !important; }
 body.theme-light .card a { color: var(--accent) !important; }
 body.theme-light .content a { color: var(--accent) !important; }
 body.theme-light .poster { background:#ffffff; border-inline-end:1px solid var(--line); }
@@ -824,7 +997,7 @@ if (!empty($networks)) {
             $flagSrc = $FLAG[$code]['flag']  ?? ('flags/'.$code.'.gif');
             $flagClass = (preg_match('~(^|/)(silent\.gif)(\?.*)?$~i', (string)$flagSrc) ? 'logo' : '');
             echo '<div style="margin:.25rem 0;">';
-            echo '<a class="tag" href="language.php?lang_code='.urlencode($code).'" title="'.htmlspecialchars($label,ENT_QUOTES,'UTF-8').'">';
+            echo '<a class="tag" href="home.php?flag_code='.urlencode($code).'" title="'.htmlspecialchars($label,ENT_QUOTES,'UTF-8').'">';
             echo '<img src="'.htmlspecialchars($flagSrc,ENT_QUOTES,'UTF-8').'" alt="'.htmlspecialchars($label,ENT_QUOTES,'UTF-8').'"'.($flagClass?' class="'.$flagClass.'"':'').'>';
             echo '<b>'.htmlspecialchars($label,ENT_QUOTES,'UTF-8').'</b>';
             echo '</a></div>';
@@ -869,10 +1042,53 @@ if (!empty($networks)) {
           <button type="button" id="btn-mgmt-toggle" class="btn admin-only">⚙️ הצג/הסתר ניהול</button>
 
           <form method="post" style="display:inline-flex;gap:8px;align-items:center;margin-inline-start:8px;">
-            <button type="submit" name="pv_action" value="like" class="btn" style="<?= ($__pa_user_vote==='like'?'outline:2px solid #3d6c42;':'') ?>">❤️ אהבתי (<?= (int)$__pa_like ?>)</button>
-            <button type="submit" name="pv_action" value="dislike" class="btn" style="<?= ($__pa_user_vote==='dislike'?'outline:2px solid #6c3d3d;':'') ?>">💔 לא אהבתי (<?= (int)$__pa_dislike ?>)</button>
-            <?php if ($__pa_user_vote): ?><button type="submit" name="pv_action" value="remove" class="btn">❌ בטל</button><?php endif; ?>
+            <button type="submit" name="pv_action" value="like" class="btn" 
+                    style="<?= ($__pa_user_vote==='like' ? 'background-color:#28a745; color:white; border-color:#28a745;' : '') ?>">
+                ❤️ אהבתי (<?= (int)$__pa_like ?>)
+            </button>
+            
+            <button type="submit" name="pv_action" value="dislike" class="btn" 
+                    style="<?= ($__pa_user_vote==='dislike' ? 'background-color:#dc3545; color:white; border-color:#dc3545;' : '') ?>">
+                💔 לא אהבתי (<?= (int)$__pa_dislike ?>)
+            </button>
+
+            <?php if ($__pa_user_vote): ?>
+                <button type="submit" name="pv_action" value="remove" class="btn">❌ בטל</button>
+            <?php endif; ?>
           </form>
+<form method="post" style="display:inline;">
+            <input type="hidden" name="poster_id" value="<?= (int)$__pa_id ?>">
+            <button type="submit" name="toggle_coll_id" value="231" class="btn" 
+                    title="הוסף/הסר מרשימת 'צפיתי'"
+                    style="<?= $is_watched ? 'background-color:#28a745; color:white; border-color:#28a745;' : '' ?>">
+              <?= $is_watched ? '✅ צפיתי' : '👁️ צפיתי' ?>
+            </button>
+          </form>
+
+          <form method="post" style="display:inline;">
+            <input type="hidden" name="poster_id" value="<?= (int)$__pa_id ?>">
+            <button type="submit" name="toggle_coll_id" value="196" class="btn" 
+                    title="הוסף/הסר מרשימת 'צפייה מאוחרת'"
+                    style="<?= $is_watch_later ? 'background-color:#28a745; color:white; border-color:#28a745;' : '' ?>">
+              <?= $is_watch_later ? '✅ רשימת צפייה' : '⏳ רשימת צפייה' ?>
+            </button>
+          </form>
+    <!-- >>> Added: Sync & Restore buttons (copied behavior) <<< -->
+    <a href="update_poster_from_imdb.php?id=<?= (int)$__pa_id ?>&tt=<?= H($imdb_id) ?>" 
+       class="btn" 
+       title="רענן עמוד פוסטר" 
+       style="margin-inline-start:8px;">⟳ רענון</a>
+
+
+       
+    <form action="restore_poster.php" method="post" class="admin-only" 
+          onsubmit="return confirm('האם לשחזר את הגרסה שנשמרה לאחרונה?');" 
+          style="display:inline-flex; gap:8px; align-items:center; margin-inline-start:8px;">
+      <input type="hidden" name="poster_id" value="<?= (int)$__pa_id ?>">
+      <button type="submit" class="btn" title="שחזר פוסטר">♻️ שחזור</button>
+    </form>
+    <!-- <<< /Added: Sync & Restore buttons >>> -->
+
         </div>
 
         <div class="title">
@@ -891,7 +1107,7 @@ if (!empty($networks)) {
             <div class="collection-list" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
               <?php foreach ($__pa_collections as $c): ?>
                 <a class="chip" href="collection.php?id=<?= (int)$c['id'] ?>">
-                  🧩 <?= __pa_h($c['name']) ?>
+                  🧩 (<?= (int)$c['item_count'] ?>) <?= __pa_h($c['name']) ?>
                 </a>
               <?php endforeach; ?>
             </div>
@@ -960,7 +1176,7 @@ if (!empty($networks)) {
           <div class="section" style="border-top:none;padding-top:0;">
             <p class="kv"><span class="label">הוספת סרט דומה:</span></p>
             <form method="post" class="row-forms">
-              <textarea name="sim_value" placeholder="הזן מזהים (tt, id, URL), אחד בכל שורה או מופרדים בפסיק/רווח" required rows="6" style="width:100%; resize: vertical;"></textarea>
+              <textarea name="sim_value" placeholder="הזן מזהים (tt, id, URL), אחד בכל שורה או מופרדים בפסיק/רווח" required rows="8" style="width:100%; resize: vertical;"></textarea>
               <button type="submit" name="sim_add" class="btn">📥 הוסף סרט דומה</button>
             </form>
           </div>
@@ -973,7 +1189,20 @@ if (!empty($networks)) {
                   <div style="width:110px; text-align:center;">
                     <a href="poster.php?id=<?= (int)$sim['id'] ?>">
                       <img src="<?= H($sim_img) ?>" style="width:100px; border-radius:1px;" loading="lazy" decoding="async"><br>
-                      <small><?= H($sim['title_en'] ?: $sim['title_he']) ?></small>
+                      <small style="display:block; line-height:1.15;">
+<?php
+  $sim_he   = trim((string)($sim['title_he'] ?? ''));
+  $sim_en   = trim((string)($sim['title_en'] ?? ''));
+  $sim_year = trim((string)($sim['year'] ?? ''));
+?>
+<span style="display:block; font-weight:600;" dir="rtl"><?= H($sim_he !== '' ? $sim_he : $sim_en) ?></span>
+<?php if ($sim_he !== '' && $sim_en !== '' && $sim_en !== $sim_he): ?>
+  <span style="display:block; opacity:.8;" dir="ltr"><?= H($sim_en) ?></span>
+<?php endif; ?>
+<?php if ($sim_year !== ''): ?>
+  <a href="bar.php?year=<?= rawurlencode($sim_year) ?>" style="display:block; opacity:.75; text-decoration:none;" title="חפש לפי שנה">[<?= H($sim_year) ?>]</a>
+<?php endif; ?>
+</small>
                     </a><br>
                     <form method="post" style="margin-top:6px;"><button type="submit" name="sim_remove" value="<?= (int)$sim['id'] ?>" class="btn mgmt-only">🗑️ הסר</button></form>
                   </div>
@@ -985,7 +1214,7 @@ if (!empty($networks)) {
           <div class="section">
             <p class="kv"><span class="label">הוספת תגית:</span></p>
             <form method="post" class="row-forms">
-              <textarea name="ut_value" placeholder="הוסף תגיות, מופרדות בפסיק או בשורה חדשה" required rows="6" style="width:100%; resize: vertical;"></textarea>
+              <textarea name="ut_value" placeholder="הוסף תגיות, מופרדות בפסיק או בשורה חדשה" required rows="8" style="width:100%; resize: vertical;"></textarea>
               <button type="submit" name="ut_add" class="btn">➕ הוסף</button>
             </form>
           </div>
@@ -1101,7 +1330,20 @@ if (!empty($networks)) {
                 <form method="post">
                   <a href="poster.php?id=<?= (int)$sim['id'] ?>">
                     <img src="<?= H($sim_img) ?>" style="width:100px; border-radius:1px;" loading="lazy" decoding="async"><br>
-                    <small><?= H($sim['title_en'] ?: $sim['title_he']) ?></small>
+                    <small style="display:block; line-height:1.15;">
+<?php
+  $sim_he   = trim((string)($sim['title_he'] ?? ''));
+  $sim_en   = trim((string)($sim['title_en'] ?? ''));
+  $sim_year = trim((string)($sim['year'] ?? ''));
+?>
+<span style="display:block; font-weight:600;" dir="rtl"><?= H($sim_he !== '' ? $sim_he : $sim_en) ?></span>
+<?php if ($sim_he !== '' && $sim_en !== '' && $sim_en !== $sim_he): ?>
+  <span style="display:block; opacity:.8;" dir="ltr"><?= H($sim_en) ?></span>
+<?php endif; ?>
+<?php if ($sim_year !== ''): ?>
+  <a href="bar.php?year=<?= rawurlencode($sim_year) ?>" style="display:block; opacity:.75; text-decoration:none;" title="חפש לפי שנה">[<?= H($sim_year) ?>]</a>
+<?php endif; ?>
+</small>
                   </a><br>
                   <button type="submit" name="sim_remove" value="<?= (int)$sim['id'] ?>" class="btn mgmt-only" style="margin-top:6px;">🗑️ הסר</button>
                 </form>
@@ -1272,6 +1514,90 @@ if (!empty($networks)) {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
+
+<script>
+(function(){
+  // המשתנים צריכים להיות מאוכלסים ע"י PHP לפני שהסקריפט רץ
+  const imdbId = '<?= H($imdb_id) ?>'; 
+  const posterId = '<?= (int)$__pa_id ?>'; 
+  
+  // הגדרת המקשים האפשריים (אנגלית/עברית)
+  const imdbKeys = ['s', 'ד']; // S באנגלית = ד בעברית
+  const editKeys = ['e', 'ק']; // E באנגלית = ק בעברית
+
+  document.addEventListener('keydown', function(e){
+    
+    // בדיקות בטיחות:
+    if (e.target.closest('input, textarea') || e.target.getAttribute('contenteditable') === 'true') {
+        return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+    }
+    
+    const key = e.key.toLowerCase();
+    
+    // ----------------------------------------------------
+    // S / ד: פתיחת עמוד IMDb 
+    // ----------------------------------------------------
+    if ((imdbKeys.includes(key) || e.code === 'KeyS') && imdbId && imdbId !== '0') { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        const imdbUrl = `https://www.imdb.com/title/${imdbId}/`;
+        window.open(imdbUrl, '_blank');
+    }
+
+    // ----------------------------------------------------
+    // E / ק: פתיחת עמוד עריכה
+    // ----------------------------------------------------
+    if ((editKeys.includes(key) || e.code === 'KeyE') && posterId > 0) { 
+        e.preventDefault();
+        e.stopPropagation();
+        const editUrl = `edit.php?id=${posterId}`;
+        window.location.href = editUrl;
+    }
+  });
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  function attachPasteNewline(selector) {
+    var ta = document.querySelector(selector);
+    if (!ta) return;
+
+    ta.addEventListener('paste', function (e) {
+      e.preventDefault();
+
+      var pasted = (e.clipboardData || window.clipboardData).getData('text');
+
+      var start  = ta.selectionStart;
+      var end    = ta.selectionEnd;
+
+      var before = ta.value.slice(0, start);
+      var after  = ta.value.slice(end);
+
+      // אם יש כבר טקסט לפני – נוסיף ירידת שורה לפני ההדבקה
+      if (before && !before.endsWith('\n')) {
+        before += '\n';
+      }
+
+      // מדביקים את הטקסט כמו שהוא (שומר על שורות/רווחים מקוריים)
+      ta.value = before + pasted + after;
+
+      var caretPos = (before + pasted).length;
+      ta.selectionStart = ta.selectionEnd = caretPos;
+    });
+  }
+
+  // ✅ הוספת סרט דומה
+  attachPasteNewline('textarea[name="sim_value"]');
+
+  // ✅ הוספת תגית
+  attachPasteNewline('textarea[name="ut_value"]');
+});
+</script>
+
 </body>
 </html>
 <?php include 'footer.php'; ?>

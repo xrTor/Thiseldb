@@ -21,7 +21,7 @@ if (!function_exists('csrf_verify')) {
 ?>
 <?php
 require_once 'force_post.php';
-include 'bar.php';
+include 'bar.php'; // כולל את server.php, $card_w, $allowed_limits, $limit, $view, $allowed_sizes, $card_w, $view_options
 require_once 'server.php';
 require_once 'alias.php';
 include 'languages.php';
@@ -35,14 +35,10 @@ foreach ($languages as $lang) {
 }
 
 // ----- Base Definitions -----
-$allowed_limits = [5, 10, 20, 50, 100, 250];
-$limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50), $allowed_limits)
-    ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50) : 50;
-$_SESSION['limit'] = $limit;
+// $allowed_limits ו- $limit מגיעים מ-bar.php
 $page   = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
-$view = $_GET['view'] ?? $_SESSION['view_mode'] ?? 'modern_grid';
-$_SESSION['view_mode'] = $view;
+// $view מגיע מ-bar.php
 $search_mode = $_GET['search_mode'] ?? 'and';
 
 // ----- Input Normalization -----
@@ -80,6 +76,17 @@ $where = [];
 $params = [];
 $bind_types = '';
 $join_akas = '';
+
+// --- טיפול בבחירת דגלים (שדה נסתר, נפרד לגמרי מ-lang_code) ---
+$join_langs = ""; 
+if (!empty($_GET['flag_code'])) {
+    $fc = $_GET['flag_code'];
+    // חיבור לטבלת poster_languages כאשר יש בקשה לדגל ספציפי
+    $join_langs = " JOIN poster_languages pl ON posters.id = pl.poster_id ";
+    $where[] = "pl.lang_code = ?";
+    $params[] = $fc;
+    $bind_types .= 's';
+}
 
 if ($types_selected && is_array($types_selected)) {
   $placeholders = implode(',', array_fill(0, count($types_selected), '?'));
@@ -176,20 +183,85 @@ $logic = strtoupper($search_mode) === 'or' ? 'OR' : 'AND';
 $sql_where = $where ? "WHERE " . implode(" $logic ", $where) : "";
 
 // ----- Sorting -----
-$orderBy = "ORDER BY posters.id DESC";
-if (!empty($_GET['sort'])) {
-  switch ($_GET['sort']) {
-    case 'year_asc':    $orderBy = "ORDER BY posters.year ASC"; break;
-    case 'year_desc':   $orderBy = "ORDER BY posters.year DESC"; break;
-    case 'rating_desc': $orderBy = "ORDER BY CAST(SUBSTRING_INDEX(posters.imdb_rating, '/', 1) AS DECIMAL(3,1)) DESC"; break;
-  }
+$orderBy = "ORDER BY posters.id DESC"; // ברירת מחדל: זמן הוספה לאתר (חדש -> ישן)
+$sort = $_GET['sort'] ?? '';
+
+switch ($sort) {
+    // שנה
+    case 'year_asc':      // שנה מישן לחדש
+        $orderBy = "ORDER BY posters.year ASC, posters.id DESC";
+        break;
+    case 'year_desc':     // שנה מחדש לישן
+        $orderBy = "ORDER BY posters.year DESC, posters.id DESC";
+        break;
+case 'updated_at_desc':
+    $orderBy = "ORDER BY posters.updated_at DESC, posters.id DESC";
+    break;
+
+case 'updated_at_asc':
+    $orderBy = "ORDER BY posters.updated_at ASC, posters.id DESC";
+    break;
+
+    // דירוג IMDb
+    case 'rating_desc':   // דירוג מגבוה לנמוך
+        $orderBy = "ORDER BY CAST(SUBSTRING_INDEX(posters.imdb_rating, '/', 1) AS DECIMAL(3,1)) DESC, posters.id DESC";
+        break;
+    case 'rating_asc':    // דירוג מנמוך לגבוה
+        $orderBy = "ORDER BY CAST(SUBSTRING_INDEX(posters.imdb_rating, '/', 1) AS DECIMAL(3,1)) ASC, posters.id DESC";
+        break;
+
+    // כמות הצבעות IMDb
+    case 'votes_desc':    // כמות הצבעות – גבוה -> נמוך
+        $orderBy = "ORDER BY CAST(REPLACE(posters.imdb_votes, ',', '') AS UNSIGNED) DESC, posters.id DESC";
+        break;
+    case 'votes_asc':     // כמות הצבעות – נמוך -> גבוה
+        $orderBy = "ORDER BY CAST(REPLACE(posters.imdb_votes, ',', '') AS UNSIGNED) ASC, posters.id DESC";
+        break;
+
+    // זמן הוספה לאתר (נשתמש ב-ID כסדר)
+    case 'added_desc':    // חדש -> ישן
+        $orderBy = "ORDER BY posters.id DESC";
+        break;
+    case 'added_asc':     // ישן -> חדש
+        $orderBy = "ORDER BY posters.id ASC";
+        break;
+
+    // אורך (זמן ריצה)
+    case 'runtime_desc':  // ארוך -> קצר
+        $orderBy = "ORDER BY CAST(posters.runtime AS UNSIGNED) DESC, posters.id DESC";
+        break;
+    case 'runtime_asc':   // קצר -> ארוך
+        $orderBy = "ORDER BY CAST(posters.runtime AS UNSIGNED) ASC, posters.id DESC";
+        break;
+
+    // כותרת אנגלית – ABC
+    case 'title_en_asc':  // A -> Z
+        $orderBy = "ORDER BY posters.title_en ASC, posters.id DESC";
+        break;
+    case 'title_en_desc': // Z -> A
+        $orderBy = "ORDER BY posters.title_en DESC, posters.id DESC";
+        break;
+
+    // כותרת עברית – א"ב
+    case 'title_he_asc':  // א -> ת
+        $orderBy = "ORDER BY posters.title_he ASC, posters.id DESC";
+        break;
+    case 'title_he_desc': // ת -> א
+        $orderBy = "ORDER BY posters.title_he DESC, posters.id DESC";
+        break;
+
+    default:
+        // נשאר ברירת מחדל: ORDER BY posters.id DESC
+        break;
 }
 
 // ----- Main Fetch -----
+// שים לב: הוספנו את $join_langs לשאילתה
 $sql = "SELECT DISTINCT posters.*, pt.label_he AS type_label, pt.image AS type_image
         FROM posters
         LEFT JOIN poster_types pt ON posters.type_id = pt.id
         $join_akas
+        $join_langs
         $sql_where
         $orderBy
         LIMIT $limit OFFSET $offset";
@@ -199,6 +271,51 @@ $stmt->execute();
 $result = $stmt->get_result();
 $rows = [];
 while ($row = $result->fetch_assoc()) $rows[] = $row;
+
+
+
+// ===============================
+// Watch status for grid buttons (collections: watched=231, watchlist=196)
+// ===============================
+$WATCHED_COLLECTION_ID = 231;
+$WATCHLIST_COLLECTION_ID = 196;
+$watched_set = [];
+$watchlist_set = [];
+
+if (!empty($rows)) {
+    $poster_ids_for_watch = array_column($rows, 'id');
+    $poster_ids_for_watch = array_values(array_filter(array_map('intval', $poster_ids_for_watch)));
+
+    if (!empty($poster_ids_for_watch)) {
+        $wc_ids_placeholder = implode(',', array_fill(0, count($poster_ids_for_watch), '?'));
+        $wc_ids_types = str_repeat('i', count($poster_ids_for_watch));
+
+        $sql_wc = "SELECT collection_id, poster_id
+                   FROM poster_collections
+                   WHERE collection_id IN (?, ?) AND poster_id IN ($wc_ids_placeholder)";
+
+        $stmt_wc = $conn->prepare($sql_wc);
+        if ($stmt_wc) {
+            $wc_bind_types  = "ii" . $wc_ids_types;
+            $wc_bind_params = array_merge([(int)$WATCHED_COLLECTION_ID, (int)$WATCHLIST_COLLECTION_ID], $poster_ids_for_watch);
+
+            $wc_refs = [];
+            $wc_refs[] = &$wc_bind_types;
+            foreach ($wc_bind_params as $k => $v) { $wc_refs[] = &$wc_bind_params[$k]; }
+            call_user_func_array([$stmt_wc, 'bind_param'], $wc_refs);
+
+            $stmt_wc->execute();
+            $r_wc = $stmt_wc->get_result();
+            while ($rr = $r_wc->fetch_assoc()) {
+                $pid = (int)$rr['poster_id'];
+                if ((int)$rr['collection_id'] === (int)$WATCHED_COLLECTION_ID)  $watched_set[$pid] = true;
+                if ((int)$rr['collection_id'] === (int)$WATCHLIST_COLLECTION_ID) $watchlist_set[$pid] = true;
+            }
+            $stmt_wc->close();
+        }
+    }
+}
+
 $stmt->close();
 
 // ----- שליפת נתונים נוספים -----
@@ -248,7 +365,8 @@ if (!empty($rows)) {
 }
 
 // ----- Count Total Rows -----
-$count_sql = "SELECT COUNT(DISTINCT posters.id) as c FROM posters $join_akas $sql_where";
+// שים לב: הוספנו את $join_langs גם לשאילתת הספירה
+$count_sql = "SELECT COUNT(DISTINCT posters.id) as c FROM posters $join_akas $join_langs $sql_where";
 $count_stmt = $conn->prepare($count_sql);
 if ($bind_types) $count_stmt->bind_param($bind_types, ...$params);
 $count_stmt->execute();
@@ -259,15 +377,17 @@ $count_stmt->close();
 $total_pages = max(1, ceil($total_rows / $limit));
 $start = $offset + 1;
 $end   = $offset + count($rows);
+
+$results_summary_text = 'הצגת ' . $start . '-' . $end . ' מתוך ' . $total_rows . ' — עמוד ' . $page . ' מתוך ' . $total_pages;
 $uri_base = preg_replace('/([&?])page=\d+/', '', $_SERVER['REQUEST_URI']);
 $uri_sep  = (str_contains($uri_base, '?') ? '&' : '?');
 
-$max_links = 5;
-$start_page = max(1, $page - floor($max_links / 2));
-$end_page = min($total_pages, $start_page + $max_links - 1);
-if ($end_page - $start_page < $max_links - 1) {
-    $start_page = max(1, $end_page - $max_links + 1);
-}
+$range = 5; // 5 עמודים אחורה ו-5 קדימה
+$start_page = max(1, $page - $range);
+$end_page   = min($total_pages, $page + $range);
+// === קבלת גודל הפוסטר מ-bar.php ===
+$poster_card_width = $card_w ?? 205; 
+// ===================================
 
 ?>
 <!DOCTYPE html>
@@ -300,7 +420,7 @@ if ($end_page - $start_page < $max_links - 1) {
     .poster:hover {
       position: relative;
       z-index: 10;
-      transform: scale(1.25);
+      transform: scale(1.15); 
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     body { background-color:white; margin:0; }
@@ -318,9 +438,10 @@ if ($end_page - $start_page < $max_links - 1) {
       justify-content: center; margin: 10px 0 40px 0;
     }
     .poster {
-      width: 205px;
-      background: #fff; border: 1px solid #eee; border-radius: 7px;
-      padding: 8px; text-align: center; box-shadow: 0 0 6px rgba(0,0,0,0.07);
+      width: <?= (int)$poster_card_width ?>px; /* משתמש ב-card_w מ-bar.php */
+      background: #fff; border: 0px solid #eee; border-radius: 0px;
+      
+      padding:0  0 10px; text-align: center; box-shadow:  25px rgba(0,0,0,0.07);
       display: flex; flex-direction: column;
       position: relative;
     }
@@ -332,7 +453,7 @@ if ($end_page - $start_page < $max_links - 1) {
     }
     .imdb-container span { white-space: nowrap; }
     .imdb-container img {
-      height: 50px;
+      height: 30px;
       width: auto;
       object-fit: contain;
     }
@@ -386,8 +507,11 @@ if ($end_page - $start_page < $max_links - 1) {
     .poster-list, .poster-regular { list-style:none; padding:0; width:95%; margin:24px auto; }
     .poster-list li { display:flex; align-items:center; gap:12px; background: #fff; border-radius: 7px; margin-bottom: 8px; padding: 8px; }
     .poster-list img { height:60px; border-radius:5px; }
-    .poster-regular li { display:inline-block; width:178px; margin:10px; vertical-align:top; text-align:center; background: #fff; border-radius: 7px; padding: 8px; }
-    .poster-regular img { height:150px; border-radius:4px; margin-bottom:6px; }
+    
+    /* השתמש בגודל הדינמי גם פה */
+    .poster-regular li { display:inline-block; width:<?= (int)$poster_card_width ?? 178 ?>px; margin:10px; vertical-align:top; text-align:center; background: #fff; border-radius: 7px; padding: 8px; }
+    .poster-regular img { height:<?= (int)($poster_card_width * 0.73) ?? 150 ?>px; border-radius:4px; margin-bottom:6px; } /* יחס גובה-רוחב קבוע */
+    
     .poster-list-item { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 7px; margin-bottom: 8px; padding: 8px; }
     .poster-list-item .list-thumb { width: 50px; height: 75px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
     .poster-list-item .list-details { flex-grow: 1; text-align: right; }
@@ -469,7 +593,29 @@ if ($end_page - $start_page < $max_links - 1) {
     .card-details .meta-info a { text-decoration: none; color: #0056b3; font-weight: bold; }
     .card-details .meta-info a:hover { text-decoration: underline; }
     /* ========== END: STYLES FOR collections_view ========== */
-  </style>
+  
+    /* === Watch buttons under posters === */
+    .watch-actions{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;flex-wrap:nowrap}
+    .wa-btn{border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap;line-height:1;display:inline-flex;align-items:center;gap:6px}
+    .wa-btn.on{background:#d3f9d8;border-color:#b2f2bb;color:#1b5e20}
+    .wa-btn.watched.on{background:#e7f5ff;border-color:#a5d8ff;color:#0b3d91}
+
+</style>
+
+<style>
+/* Active/current page styling */
+.page-btn.active,
+.pagination .page-btn.active,
+.pager strong,
+.pager .active,
+.pagination a.active,
+.pagination span.active {
+    background: deepskyblue !important;
+    color: #fff !important;
+    border-color: deepskyblue !important;
+}
+</style>
+
 </head>
 <body>
   <h1>🎬 ספריית פוסטרים</h1>
@@ -478,13 +624,29 @@ if ($end_page - $start_page < $max_links - 1) {
   </div>
 
   <div class="results-summary">
-    <b>הצגת <?= $start ?>-<?= $end ?> מתוך <?= $total_rows ?> — עמוד <?= $page ?> מתוך <?= $total_pages ?></b>
+    <b><?= htmlspecialchars($results_summary_text, ENT_QUOTES, 'UTF-8') ?></b>
   </div>
 
   <div class="pager">
-    <?php if ($page > 1): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a><?php endif; ?>
-    <?php for ($i = $start_page; $i <= $end_page; $i++): echo ($i == $page) ? "<strong>$i</strong>" : "<a href='" . htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) . "'>$i</a>"; endfor; ?>
-    <?php if ($page < $total_pages): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">הבא ➡</a><?php endif; ?>
+    <?php if ($total_pages > 1): ?>
+      <?php if ($page > 1): ?>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=1') ?>">⏭ ראשון</a>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">➡ הקודם</a>
+      <?php endif; ?>
+
+      <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+        <?php if ($i == $page): ?>
+          <strong><?= (int)$i ?></strong>
+        <?php else: ?>
+          <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) ?>"><?= (int)$i ?></a>
+        <?php endif; ?>
+      <?php endfor; ?>
+
+      <?php if ($page < $total_pages): ?>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">⬅ הבא</a>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . $total_pages) ?>">⏮ אחרון</a>
+      <?php endif; ?>
+    <?php endif; ?>
   </div>
 
   <?php if (empty($rows)): ?>
@@ -506,10 +668,25 @@ if ($end_page - $start_page < $max_links - 1) {
             <br><span class="year-link">[<a href="home.php?year=<?= htmlspecialchars($row['year']) ?>"><?= $row['year'] ?></a>]</span>
           </div>
 
-          <a class="imdb-container" href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank">
-            <img src="images/imdb.png" alt="IMDb"> 
-            <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
-          </a>
+          <div class="imdb-container" style="display:flex; flex-direction:column; justify-content:center; align-items:center; gap: 4px; padding-bottom: 4px; direction: rtl;">
+            <?php if ($row['imdb_rating']): ?>
+                <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:4px; text-decoration:none; color:inherit; white-space:nowrap;">
+                    <span> 10 / <?= htmlspecialchars($row['imdb_rating']) ?></span> ⭐<img src="images/imdb.png" alt="IMDb">
+                </a>
+            <?php endif; ?>
+            <?php if (!empty($row['runtime'])): ?>
+              <span style="font-size: 0.9em; color: #555; white-space:nowrap; text-align:center;">⏱
+                <?= htmlspecialchars($row['runtime']) ?> דקות 
+              </span>
+            <?php endif; ?>
+          </div>
+          
+
+          <?php $pid = (int)$row['id']; $inWatched = !empty($watched_set[$pid]); $inWatch = !empty($watchlist_set[$pid]); ?>
+          <div class="watch-actions" data-poster-id="<?= $pid ?>">
+            <button type="button" class="wa-btn watched <?= $inWatched ? 'on' : '' ?>" data-cid="231"><?= $inWatched ? '✅ צפיתי' : '👁️ צפיתי' ?></button>
+            <button type="button" class="wa-btn watch <?= $inWatch ? 'on' : '' ?>" data-cid="196"><?= $inWatch ? '✅ הסר מצפייה' : '⏳ הוסף לצפייה' ?></button>
+          </div>
 
           <?php if (!empty($row['type_label'])): ?>
             <a href="home.php?type[]=<?= htmlspecialchars($row['type_id']) ?>" class="poster-type-link">
@@ -521,7 +698,7 @@ if ($end_page - $start_page < $max_links - 1) {
                 </div>
             </a>
           <?php endif; ?>
-          
+
           <div class="network-logo-container">
               <?php
                 $networks = array_filter(array_map('trim', explode(',', $row['networks'] ?? '')));
@@ -574,7 +751,7 @@ if ($end_page - $start_page < $max_links - 1) {
                             if (isset($lang_map[$lang_key])):
                                 $flag_data = $lang_map[$lang_key];
                         ?>
-                            <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
+                            <a href="javascript:void(0);" onclick="document.querySelector('input[name=flag_code]').value='<?= $flag_data['code'] ?>'; document.querySelector('.bar-form').submit();" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>">
                           <span><?= htmlspecialchars($flag_data['label']) ?></span>
                          <img src="<?= htmlspecialchars($flag_data['flag']) ?>">
                             </a>
@@ -650,7 +827,7 @@ if ($end_page - $start_page < $max_links - 1) {
   <?php elseif ($view === 'grid'): ?>
     <div class="poster-wall">
       <?php foreach ($rows as $row): ?>
-        <div class="poster" style="width:190px;">
+        <div class="poster" style="width:<?= (int)$poster_card_width ?? 190 ?>px;">
           <a href="poster.php?id=<?= $row['id'] ?>">
             <img src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
             <div class="poster-title" style="color:#1567c0;"><?= htmlspecialchars($row['title_en']) ?></div>
@@ -688,9 +865,9 @@ if ($end_page - $start_page < $max_links - 1) {
             <a href="poster.php?id=<?= $row['id'] ?>" style="font-size: 18px; text-decoration: none; padding: 0 10px;"></a>
         </li>
     <?php else: // 'regular' view mode ?>
-        <li style="width:178px; margin:10px; vertical-align:top; text-align:center; display:inline-block;">
+        <li style="width:<?= (int)$poster_card_width ?? 178 ?>px; margin:10px; vertical-align:top; text-align:center; display:inline-block;">
             <a href="poster.php?id=<?= $row['id'] ?>">
-                <img style="height:150px; border-radius:4px; margin-bottom:6px;" src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
+                <img style="height:<?= (int)($poster_card_width * 0.73) ?? 150 ?>px; border-radius:4px; margin-bottom:6px;" src="<?= htmlspecialchars($row['image_url'] ?: 'images/no-poster.png') ?>" alt="פוסטר">
                 <br>
                 <strong><?= htmlspecialchars($row['title_en']) ?></strong>
                 <br><?= htmlspecialchars($row['title_he']) ?><br>🗓 <?= htmlspecialchars($row['year']) ?>
@@ -701,10 +878,30 @@ if ($end_page - $start_page < $max_links - 1) {
 </ul>
   <?php endif; ?>
 
-  <div class="pager">
-    <?php if ($page > 1): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">⬅ הקודם</a><?php endif; ?>
-    <?php for ($i = $start_page; $i <= $end_page; $i++): echo ($i == $page) ? "<strong>$i</strong>" : "<a href='" . htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) . "'>$i</a>"; endfor; ?>
-    <?php if ($page < $total_pages): ?><a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">הבא ➡</a><?php endif; ?>
+  
+  <div class="results-summary bottom">
+    <b><?= htmlspecialchars($results_summary_text, ENT_QUOTES, 'UTF-8') ?></b>
+  </div>
+<div class="pager">
+    <?php if ($total_pages > 1): ?>
+      <?php if ($page > 1): ?>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=1') ?>">⏭ ראשון</a>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page - 1)) ?>">➡ הקודם</a>
+      <?php endif; ?>
+
+      <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+        <?php if ($i == $page): ?>
+          <strong><?= (int)$i ?></strong>
+        <?php else: ?>
+          <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . $i) ?>"><?= (int)$i ?></a>
+        <?php endif; ?>
+      <?php endfor; ?>
+
+      <?php if ($page < $total_pages): ?>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . ($page + 1)) ?>">⬅ הבא</a>
+        <a href="<?= htmlspecialchars($uri_base . $uri_sep . 'page=' . $total_pages) ?>">⏮ אחרון</a>
+      <?php endif; ?>
+    <?php endif; ?>
   </div>
 
   <div id="trailer-modal" style="display:none;" class="modal">
@@ -830,6 +1027,85 @@ document.addEventListener('click', function(e) {
 });
 </script>
 
+<!-- ===============================
+     Watch status for grid buttons (collections: watched=231, watchlist=196)
+     =============================== -->
+<?php
+$WATCHED_COLLECTION_ID = 231;
+$WATCHLIST_COLLECTION_ID = 196;
+$watched_set = [];
+$watchlist_set = [];
+
+if (!empty($poster_ids)) {
+    $ids_placeholder2 = implode(',', array_fill(0, count($poster_ids), '?'));
+    $ids_types2 = str_repeat('i', count($poster_ids));
+
+    $sql_wc = "SELECT collection_id, poster_id
+               FROM poster_collections
+               WHERE collection_id IN (?, ?) AND poster_id IN ($ids_placeholder2)";
+    $stmt_wc = $conn->prepare($sql_wc);
+    if ($stmt_wc) {
+        $bind_types = "ii" . $ids_types2;
+        $bind_params = array_merge([(int)$WATCHED_COLLECTION_ID, (int)$WATCHLIST_COLLECTION_ID], array_map('intval', $poster_ids));
+        // mysqli bind_param דורש reference, לכן משתמשים ב-call_user_func_array
+        $refs = [];
+        $refs[] = &$bind_types;
+        foreach ($bind_params as $k => $v) { $refs[] = &$bind_params[$k]; }
+        call_user_func_array([$stmt_wc, 'bind_param'], $refs);
+        $stmt_wc->execute();
+        $r_wc = $stmt_wc->get_result();
+        while ($rr = $r_wc->fetch_assoc()) {
+            $pid = (int)$rr['poster_id'];
+            if ((int)$rr['collection_id'] === (int)$WATCHED_COLLECTION_ID) $watched_set[$pid] = true;
+            if ((int)$rr['collection_id'] === (int)$WATCHLIST_COLLECTION_ID) $watchlist_set[$pid] = true;
+        }
+        $stmt_wc->close();
+    }
+}
+
+?>
+
+<script>
+(function(){
+  function postToggle(posterId, collectionId){
+    return fetch('toggle_collection_api.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      body:new URLSearchParams({poster_id:String(posterId), collection_id:String(collectionId)}).toString()
+    }).then(r=>r.json());
+  }
+
+  function setBtnState(btn, isOn){
+    const cid = btn.dataset.cid;
+    btn.classList.toggle('on', !!isOn);
+    if (cid === '231'){
+      btn.innerHTML = isOn ? '✅ צפיתי' : '👁️ צפיתי';
+    } else if (cid === '196'){
+      btn.innerHTML = isOn ? '✅ הסר מצפייה' : '⏳ הוסף לצפייה';
+    }
+  }
+
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.wa-btn');
+    if(!btn) return;
+    e.preventDefault();
+
+    const wrap = btn.closest('.watch-actions');
+    const posterId = wrap ? wrap.dataset.posterId : null;
+    const cid = btn.dataset.cid;
+    if(!posterId || !cid) return;
+
+    btn.disabled = true;
+    postToggle(posterId, cid).then(data=>{
+      if(!data || !data.ok) throw new Error((data && data.error) ? data.error : 'Toggle failed');
+      setBtnState(btn, !!data.in_collection);
+    }).catch(err=>{
+      console.error(err);
+      alert('שגיאה: ' + (err && err.message ? err.message : err));
+    }).finally(()=>{ btn.disabled = false; });
+  });
+})();
+</script>
+<?php include 'footer.php'; ?>
 </body>
 </html>
-<?php include 'footer.php'; ?>

@@ -22,40 +22,78 @@ $log_report = [];
 if (isset($_POST['bulk_lang_apply'])) {
   $langs = $_POST['languages'] ?? [];
   $lines = explode("\n", $_POST['poster_ids']);
+
   foreach ($lines as $raw) {
-    $id = trim($raw);
-    if ($id === '') continue;
-    if (preg_match('/tt\d+/', $id, $m)) $id = $m[0];
-    if (is_numeric($id)) {
-      $res = $conn->query("SELECT id FROM posters WHERE id = $id");
-      $poster = $res->fetch_assoc();
-    } else {
-      $stmt = $conn->prepare("SELECT id FROM posters WHERE imdb_id = ?");
-      $stmt->bind_param("s", $id); $stmt->execute();
-      $poster = $stmt->get_result()->fetch_assoc(); $stmt->close();
+    $line = trim($raw);
+    if ($line === '') {
+      continue;
     }
+
+    // ✅ לוקחים אך ורק IMDb ID (tt...) מתוך השורה
+    if (!preg_match('/tt\d+/', $line, $m)) {
+      // אין בכלל tt בשורה – מדווחים כשגיאה ולא מחפשים לפי ID פנימי
+      $log_report[] = [
+        'status' => 'error',
+        'id'     => $line,
+        'lang'   => implode(', ', $langs)
+      ];
+      continue;
+    }
+
+    $imdb_id = $m[0]; // תמיד ttXXXXXXX
+
+    // חיפוש אך ורק לפי imdb_id
+    $stmt = $conn->prepare("SELECT id FROM posters WHERE imdb_id = ?");
+    $stmt->bind_param("s", $imdb_id);
+    $stmt->execute();
+    $poster = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
     if ($poster) {
       $pid = (int)$poster['id'];
+
       foreach ($langs as $lang) {
+        // בדיקה אם השפה כבר קיימת לפוסטר
         $stmt = $conn->prepare("SELECT COUNT(*) FROM poster_languages WHERE poster_id = ? AND lang_code = ?");
         $stmt->bind_param("is", $pid, $lang);
-        $stmt->execute(); $stmt->bind_result($exists); $stmt->fetch(); $stmt->close();
-        if ($exists == 0) {
+        $stmt->execute();
+        $stmt->bind_result($exists);
+        $stmt->fetch();
+        $stmt->close();
+
+        if ((int)$exists === 0) {
+          // הוספת שפה
           $stmt = $conn->prepare("INSERT INTO poster_languages (poster_id, lang_code) VALUES (?, ?)");
-          $stmt->bind_param("is", $pid, $lang); $stmt->execute(); $stmt->close();
-          $log_report[] = ['status' => 'added', 'id' => $id, 'lang' => $lang];
+          $stmt->bind_param("is", $pid, $lang);
+          $stmt->execute();
+          $stmt->close();
+
+          $log_report[] = [
+            'status' => 'added',
+            'id'     => $imdb_id,
+            'lang'   => $lang
+          ];
         } else {
-          $log_report[] = ['status' => 'exists', 'id' => $id, 'lang' => $lang];
+          $log_report[] = [
+            'status' => 'exists',
+            'id'     => $imdb_id,
+            'lang'   => $lang
+          ];
         }
       }
     } else {
-      $log_report[] = ['status' => 'error', 'id' => $id, 'lang' => implode(', ', $langs)];
+      // לא נמצא פוסטר עם imdb_id הזה
+      $log_report[] = [
+        'status' => 'error',
+        'id'     => $imdb_id,
+        'lang'   => implode(', ', $langs)
+      ];
     }
   }
 }
 
 // --- pagination setup ---
-$results_per_page = 50;
+$results_per_page = 250;
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($page < 1) $page = 1;
 $offset = ($page - 1) * $results_per_page;
@@ -120,6 +158,14 @@ if ($total_pages > 1) {
     .pagination a.active { background-color: #007bff; color: white; border-color: #007bff; cursor: default; }
     .pagination a:hover:not(.active) { background-color: #f1f1f1; }
     .pagination span { color: #999; border-color: transparent; }
+
+    /* ✅ כפתורי עזר מתחת לטקסטאריה */
+    .ta-tools { display:flex; gap:10px; justify-content:flex-start; flex-wrap:wrap; margin-top:10px; }
+    .btn-secondary { background:#6c757d; }
+    .btn-secondary:hover { background:#565e64; }
+    .btn-outline { background:#f5f5f5; color:#333; border:1px solid #ddd; }
+    .btn-outline:hover { background:#e9e9e9; }
+    .mini-note { font-size:12px; color:#777; margin-top:6px; }
  </style>
 </head>
 <body>
@@ -149,8 +195,18 @@ if ($total_pages > 1) {
 <form method="post" class="form1">
   <h2>🌐 החלת שפות מרוכזת על פוסטרים</h2>
   <?php include 'flags.php'; ?>
-  <textarea name="poster_ids" rows="5" placeholder="tt1234567&#10;15&#10;https://www.imdb.com/title/tt0110912/"></textarea>
-  <button type="submit" name="bulk_lang_apply">💾 החלת שפה</button>
+
+  <textarea id="poster_ids" name="poster_ids" rows="12" placeholder="tt1234567&#10;15&#10;https://www.imdb.com/title/tt0110912/"></textarea>
+
+  <!-- ✅ כפתור הדבק -->
+  <div class="ta-tools">
+    <button type="button" id="btnPaste" class="btn-secondary">📋 הדבק</button>
+    <button type="button" id="btnClear" class="btn-outline">🧹 נקה</button>
+      <button type="submit" name="bulk_lang_apply">💾 החלת שפה</button>
+
+  </div>
+  <div class="mini-note">הדבקה תחלץ רק tt... ותמנע כפילויות (לא ניתן להדביק אותו IMDb ID פעמיים ומעלה).</div>
+
 </form>
 
 <h1>🌐 רשימת פוסטרים והשפות שלהם</h1>
@@ -203,6 +259,92 @@ if ($total_pages > 1) {
 </table>
 
 <?= $pagination_html ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const ta = document.getElementById('poster_ids');
+  const btnPaste = document.getElementById('btnPaste');
+  const btnClear = document.getElementById('btnClear');
+  if (!ta) return;
+
+  function applySmartPaste(pastedText) {
+    const start = ta.selectionStart;
+    const end   = ta.selectionEnd;
+
+    let before = ta.value.slice(0, start);
+    let after  = ta.value.slice(end);
+
+    // אם אין ירידת שורה לפני – נוסיף
+    if (before && !before.endsWith('\n')) {
+      before += '\n';
+    }
+
+    // נשלוף רק מזהי IMDb (tt...) מכל מה שהודבק
+    const ttMatches = String(pastedText || '').match(/tt\d{7,10}/gi) || [];
+
+    // סט של IDs שכבר קיימים בטקסט (בלי החלק שנבחר והולך להתחלף)
+    const existingText = (before + after);
+    const existingIds = new Set((existingText.match(/tt\d{7,10}/gi) || []).map(s => s.toLowerCase()));
+
+    // מסננים כפילויות:
+    // 1) כפילות בתוך ההדבקה עצמה
+    // 2) כפילות מול מה שכבר יש בטקסט
+    const uniqueToPaste = [];
+    const seenInPaste = new Set();
+    for (const raw of ttMatches) {
+      const id = String(raw).toLowerCase();
+      if (seenInPaste.has(id)) continue;
+      seenInPaste.add(id);
+      if (existingIds.has(id)) continue;
+      uniqueToPaste.push(id);
+    }
+
+    if (uniqueToPaste.length === 0) {
+      const caretPos = before.length;
+      ta.selectionStart = ta.selectionEnd = caretPos;
+      return;
+    }
+
+    const normalized = uniqueToPaste.join('\n');
+    ta.value = before + normalized + after;
+
+    const caretPos = (before + normalized).length;
+    ta.selectionStart = ta.selectionEnd = caretPos;
+  }
+
+  // הדבקה רגילה (Ctrl+V) – עם המנגנון
+  ta.addEventListener('paste', function (e) {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData).getData('text');
+    applySmartPaste(pasted);
+  });
+
+  // ✅ כפתור "הדבק" – קורא מהקליפבורד ומכניס לטקסטאריה באותה לוגיקה
+  if (btnPaste) {
+    btnPaste.addEventListener('click', async function () {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.readText) {
+          alert('הדבקה בלחיצה דורשת הרשאה/תמיכה בדפדפן. נסה Ctrl+V בתוך התיבה.');
+          return;
+        }
+        const text = await navigator.clipboard.readText();
+        applySmartPaste(text);
+        ta.focus();
+      } catch (err) {
+        // אם נחסם ע"י הרשאות / HTTP לא מאובטח וכו'
+        alert('לא הצלחתי לקרוא מהקליפבורד (הרשאות/אבטחה). נסה Ctrl+V בתוך התיבה.');
+      }
+    });
+  }
+
+  if (btnClear) {
+    btnClear.addEventListener('click', function () {
+      ta.value = '';
+      ta.focus();
+    });
+  }
+});
+</script>
 
 </body>
 </html>

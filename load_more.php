@@ -48,6 +48,52 @@ $result = $stmt->get_result();
 $rows = [];
 while ($row = $result->fetch_assoc()) $rows[] = $row;
 
+
+
+
+// ===============================
+// Watch status for grid buttons (collections: watched=231, watchlist=196)
+// ===============================
+$WATCHED_COLLECTION_ID = 231;
+$WATCHLIST_COLLECTION_ID = 196;
+$watched_set = [];
+$watchlist_set = [];
+
+if (!empty($rows)) {
+    $poster_ids_for_watch = array_column($rows, 'id');
+    $poster_ids_for_watch = array_values(array_filter(array_map('intval', $poster_ids_for_watch)));
+
+    if (!empty($poster_ids_for_watch)) {
+        $ids_placeholder2 = implode(',', array_fill(0, count($poster_ids_for_watch), '?'));
+        $ids_types2 = str_repeat('i', count($poster_ids_for_watch));
+
+        $sql_wc = "SELECT collection_id, poster_id
+                   FROM poster_collections
+                   WHERE collection_id IN (?, ?) AND poster_id IN ($ids_placeholder2)";
+
+        $stmt_wc = $conn->prepare($sql_wc);
+        if ($stmt_wc) {
+            $bind_types  = "ii" . $ids_types2;
+            $bind_params = array_merge([(int)$WATCHED_COLLECTION_ID, (int)$WATCHLIST_COLLECTION_ID], $poster_ids_for_watch);
+
+            $refs = [];
+            $refs[] = &$bind_types;
+            foreach ($bind_params as $k => $v) { $refs[] = &$bind_params[$k]; }
+            call_user_func_array([$stmt_wc, 'bind_param'], $refs);
+
+            $stmt_wc->execute();
+            $r_wc = $stmt_wc->get_result();
+            while ($rr = $r_wc->fetch_assoc()) {
+                $pid = (int)$rr['poster_id'];
+                if ((int)$rr['collection_id'] === (int)$WATCHED_COLLECTION_ID)  $watched_set[$pid] = true;
+                if ((int)$rr['collection_id'] === (int)$WATCHLIST_COLLECTION_ID) $watchlist_set[$pid] = true;
+            }
+            $stmt_wc->close();
+        }
+    }
+}
+
+
 $user_tags_by_poster_id = [];
 $manual_languages_by_poster_id = [];
 $stickers_by_poster_id = [];
@@ -114,17 +160,29 @@ if (!empty($rows)):
         <br>[<a href="home.php?year=<?= htmlspecialchars($row['year']) ?>"><?= $row['year'] ?></a>]
       </div>
 
-      <div class="imdb-container">
-        <?php if ($row['imdb_rating']): ?>
-          <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:1px; text-decoration:none; color:inherit;">
-            <img src="images/imdb.png" class="imdb ltr" alt="IMDb"> <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
-          </a>
-        <?php endif; ?>
+    <div class="imdb-container" style="display:flex; flex-direction:column; justify-content:center; align-items:center; gap: 4px; padding-bottom: 4px; direction: rtl;">
+            <?php if ($row['imdb_rating']): ?>
+                <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:4px; text-decoration:none; color:inherit; white-space:nowrap;">
+                    <span> 10 / <?= htmlspecialchars($row['imdb_rating']) ?></span> ⭐<img src="images/imdb.png" alt="IMDb">
+                </a>
+            <?php endif; ?>
+            <?php if (!empty($row['runtime'])): ?>
+              <span style="font-size: 0.9em; color: #555; white-space:nowrap; text-align:center;">⏱
+                <?= htmlspecialchars($row['runtime']) ?> דקות 
+              </span>
+            <?php endif; ?>
+          </div>
+
+
+      <?php $pid = (int)$row['id']; $inWatched = !empty($watched_set[$pid]); $inWatch = !empty($watchlist_set[$pid]); ?>
+      <div class="watch-actions" data-poster-id="<?= $pid ?>">
+        <button type="button" class="wa-btn watched <?= $inWatched ? 'on' : '' ?>" data-cid="231"><?= $inWatched ? '✅ צפיתי' : '👁️ צפיתי' ?></button>
+        <button type="button" class="wa-btn watch <?= $inWatch ? 'on' : '' ?>" data-cid="196"><?= $inWatch ? '✅ הסר מצפייה' : '⏳ הוסף לצפייה' ?></button>
       </div>
 
       <?php if (!empty($row['label_he'])): ?>
         <a href="home.php?type[]=<?= htmlspecialchars($row['type_id']) ?>" class="poster-type-link">
-            <div class="poster-type-display">
+            <div class="poster-type-display" style="direction: ltr;">
                 <span><?= htmlspecialchars($row['label_he']) ?></span>
                 <?php if (!empty($row['type_image'])): ?>
                     <img src="images/types/<?= htmlspecialchars($row['type_image']) ?>" alt="" style="max-height: 32px; width: auto; vertical-align: middle;">
@@ -186,7 +244,7 @@ if (!empty($rows)):
                         if (isset($lang_map[$lang_key])):
                             $flag_data = $lang_map[$lang_key];
                     ?>
-                        <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
+                        <a href="home.php?flag_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
                                                         <span><?= htmlspecialchars($flag_data['label']) ?></span>
 
                                                         <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
@@ -228,5 +286,8 @@ if (!empty($rows)):
 <?php
   endforeach;
 endif;
+
+
+
 
 ?>

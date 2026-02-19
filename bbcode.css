@@ -57,7 +57,7 @@
 
 /* === קישורים === */
 .bbcode a {
-  color: #1565c0;
+  color: #6AC6EF !important;
   text-decoration: none;
 }
 .bbcode a:hover { text-decoration: underline; }

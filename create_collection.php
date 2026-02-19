@@ -14,6 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $desc_en    = trim($_POST['description_en'] ?? '');
   $img        = trim($_POST['image_url'] ?? '');
   $poster_img = trim($_POST['poster_image_url'] ?? '');
+  $search_terms = trim($_POST['search_terms'] ?? '');
   
   $desc = '';
   if (!empty($desc_shared)) {
@@ -48,13 +49,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 
   if ($name !== '') {
-    // Assuming the SQL column error is fixed by the user
-    $stmt = $conn->prepare("INSERT INTO collections (name, description, image_url, poster_image_url, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
-    $stmt->bind_param("ssss", $name, $desc, $imgToSave, $posterImgToSave);
+    $stmt = $conn->prepare("INSERT INTO collections (name, description, image_url, poster_image_url, search_terms, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
+    $stmt->bind_param("sssss", $name, $desc, $imgToSave, $posterImgToSave, $search_terms);
     $stmt->execute();
     $new_id = $conn->insert_id;
     $stmt->close();
-    $message = "✅ האוסף נוסף בהצלחה!";
+    
+    // --- שינוי: הפניה אוטומטית לאוסף החדש ---
+    header("Location: collection.php?id=" . $new_id);
+    exit;
+    // ----------------------------------------
+    
   } else {
     $message = "❌ יש למלא שם לאוסף";
   }
@@ -89,11 +94,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
   <?php if ($message): ?>
     <div class="message"><?= $message ?></div>
-    <?php if (!empty($new_id)): ?>
-      <div class="goto-wrap">
-        <a class="goto-btn" href="collection.php?id=<?= (int)$new_id ?>">➡ עבור לאוסף שנשמר</a>
-      </div>
-    <?php endif; ?>
   <?php endif; ?>
 
   <form method="post">
@@ -127,6 +127,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     <label>🖼️ תמונת סטיקר לפוסטרים</label>
     <input type="text" name="poster_image_url" placeholder="sticker.png">
+
+    <label>🕵️ מילות מפתח מוסתרות (לחיפוש בלבד)</label>
+    <textarea name="search_terms" rows="2" placeholder="לדוגמה: 287529, אוסף אקשן סודי (מופרד בפסיקים או שורות). טקסט זה לא יוצג באתר."></textarea>
 
     <button type="submit">📥 שמור אוסף</button>
   </form>

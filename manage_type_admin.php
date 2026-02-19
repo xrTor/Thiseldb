@@ -2,7 +2,6 @@
 include 'header.php';
 require_once 'server.php';
 
-// ... (קוד עיבוד הטפסים נשאר זהה) ...
 // שינוי קבוצתי
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_update'])) {
     $new_type_id = intval($_POST['bulk_type']);
@@ -10,40 +9,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_update'])) {
     $input_text = trim($_POST['bulk_mixed_list'] ?? '');
     $updated = 0;
     $not_found = [];
+    $updated_list = []; // <-- הוספה: רשימת המזהים שעודכנו
+    
     if (!empty($selected)) {
         $placeholders = implode(',', array_fill(0, count($selected), '?'));
         $stmt = $conn->prepare("UPDATE posters SET type_id = ? WHERE id IN ($placeholders)");
         $stmt->bind_param("i" . str_repeat('i', count($selected)), $new_type_id, ...$selected);
         $stmt->execute();
-        $updated += $stmt->affected_rows;
+        $rows_affected = $stmt->affected_rows; 
+        $updated += $rows_affected;
+        
+        // הוספה: הוספת ה-IDs שנבחרו לרשימת המעודכנים אם היו שינויים
+        if ($rows_affected > 0) {
+            foreach ($selected as $id) {
+                // לשם פשטות והתאמה למערך ה-ID/IMDb, נוסיף קידומת
+                $updated_list[] = "ID: " . $id; 
+            }
+        }
         $stmt->close();
     }
+    
     if ($input_text !== '') {
         $lines = preg_split('/[\s,]+/', $input_text);
         foreach ($lines as $item) {
             $item = trim($item);
             if ($item === '') continue;
+            
             if (preg_match('/tt\d{7,}/', $item, $matches)) {
                 $stmt = $conn->prepare("UPDATE posters SET type_id = ? WHERE imdb_id = ?");
                 $stmt->bind_param("is", $new_type_id, $matches[0]);
-                if ($stmt->execute() && $stmt->affected_rows > 0) $updated++; else $not_found[] = $matches[0];
+                if ($stmt->execute() && $stmt->affected_rows > 0) {
+                    $updated++; 
+                    $updated_list[] = $matches[0]; // <-- שמירת ה-IMDb
+                } else {
+                    $not_found[] = $matches[0];
+                }
                 $stmt->close();
             } elseif (is_numeric($item)) {
                 $stmt = $conn->prepare("UPDATE posters SET type_id = ? WHERE id = ?");
                 $stmt->bind_param("ii", $new_type_id, $item);
-                if ($stmt->execute() && $stmt->affected_rows > 0) $updated++; else $not_found[] = $item;
+                if ($stmt->execute() && $stmt->affected_rows > 0) {
+                    $updated++; 
+                    $updated_list[] = "ID: " . $item; // <-- שמירת ה-ID
+                } else {
+                    $not_found[] = $item;
+                }
                 $stmt->close();
             } elseif (preg_match('/poster\.php\?id=(\d+)/', $item, $matches)) {
                 $stmt = $conn->prepare("UPDATE posters SET type_id = ? WHERE id = ?");
                 $stmt->bind_param("ii", $new_type_id, $matches[1]);
-                if ($stmt->execute() && $stmt->affected_rows > 0) $updated++; else $not_found[] = $item;
+                if ($stmt->execute() && $stmt->affected_rows > 0) {
+                    $updated++;
+                    $updated_list[] = "ID: " . $matches[1]; // <-- שמירת ה-ID מהלינק
+                } else {
+                    $not_found[] = $item;
+                }
                 $stmt->close();
             } else { $not_found[] = $item; }
         }
     }
-    if ($updated > 0) echo "<p style='color:green;'>✅ עודכנו $updated פוסטרים!</p>";
-    if (!empty($not_found)) echo "<p style='color:orange;'>⚠️ לא נמצאו התאמות עבור: " . implode(', ', array_unique($not_found)) . "</p>";
+    
+    // --- הצגת תוצאות עדכון קבוצתי (כולל הפירוט המבוקש) ---
+    if ($updated > 0) {
+        $updated_unique = array_unique($updated_list);
+        echo "<p style='color:green;'>✅ עודכנו $updated פוסטרים!</p>";
+        // שורה זו מציגה את הפירוט המלא של המזהים שעודכנו:
+        echo "<p style='color:green;'>✅ המזהים שעודכנו: " . implode(', ', $updated_unique) . "</p>"; 
+    }
+    if (!empty($not_found)) {
+        echo "<p style='color:orange;'>⚠️ לא נמצאו התאמות עבור: " . implode(', ', array_unique($not_found)) . "</p>";
+    }
 }
+
 // שינוי פרטני
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
     foreach ($_POST['poster_type'] as $poster_id => $new_type_id) {
@@ -365,7 +402,7 @@ $pagination_html = ob_get_clean();
 </form>
 
 <script>
-// ... (ה-JavaScript נשאר זהה לחלוטין ועובד עם המבנה החדש) ...
+// ה-JavaScript נשאר זהה
 document.addEventListener('DOMContentLoaded', function() {
     const bulkSelector = document.getElementById('bulk-type-selector');
     const bulkHiddenInput = document.getElementById('bulk-type-hidden-input');
@@ -377,6 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 hasSelected = true;
             }
         });
+        // אם לא נבחר כלום, בחר את הראשון כברירת מחדל
         if (!hasSelected) {
             bulkSelector.firstElementChild.classList.add('selected');
             bulkHiddenInput.value = bulkSelector.firstElementChild.getAttribute('data-value');

@@ -128,11 +128,10 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
             <h2 class="card-header">🧭 ניווט מהיר</h2>
             <div class="nav-grid">
                 <a href="manage_posters.php" class="nav-button" style="--btn-color: #27ae60;"><span class="nav-icon">🎬</span><span class="nav-text">ניהול פוסטרים</span></a>
-                               
-          
-                 <a href="cleanup_duplicates.php" class="nav-button" style="--btn-color: deepskyblue;"><span class="nav-icon">🛠️</span><span class="nav-text">פוסטרים כפולים</span></a>
-                 
-                 
+                
+                     
+                <a href="manage_cleanup_duplicates.php" class="nav-button" style="--btn-color: deepskyblue;"><span class="nav-icon">🛠️</span><span class="nav-text">פוסטרים כפולים</span></a>
+                                  
                 <a href="manage_contacts.php" class="nav-button" style="--btn-color: #f39c12;"><span class="nav-icon">📩</span><span class="nav-text">ניהול פניות</span></a>
                 <a href="manage_reports.php" class="nav-button" style="--btn-color: #c0392b;"><span class="nav-icon">🚨</span><span class="nav-text">ניהול דיווחים</span></a>
                 <a href="manage_trailers.php" class="nav-button" style="--btn-color: #8e44ad;"><span class="nav-icon">▶️</span><span class="nav-text">ניהול טריילרים</span></a>
@@ -140,26 +139,32 @@ $switch_theme_text = $is_modern ? 'הצג עיצוב קלאסי' : 'הצג עי�
                 <a href="manage_user_tag.php" class="nav-button" style="--btn-color: #d35400;"><span class="nav-icon">🏷️</span><span class="nav-text">ניהול תגיות</span></a>
                 <a href="manage_name_genres.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות ז'אנרים</span></a>
                 <a href="manage_name_user_tag.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות תגיות</span></a>
-
-
                  <a href="manage_name_language.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות שפות</span></a>
                 <a href="manage_name_country.php" class="nav-button" style="--btn-color: #5D6D7E;"><span class="nav-icon">✍️</span><span class="nav-text">ניהול שמות מדינות</span></a>
-
-                
-
                 <a href="manage_languages.php" class="nav-button" style="--btn-color: #34495e;"><span class="nav-icon">🌐</span><span class="nav-text">ניהול שפות (דגלים)</span></a>
                 <a href="manage_types.php" class="nav-button" style="--btn-color: #717D7E;"><span class="nav-icon">📋</span><span class="nav-text">ניהול סוגים</span></a>
                 <a href="manage_type_admin.php" class="nav-button" style="--btn-color: #717D7E;"><span class="nav-icon">🔗</span><span class="nav-text">שיוך סוגים</span></a>
                 <a href="manage_titles.php" class="nav-button" style="--btn-color: #4A235A;"><span class="nav-icon">🔤</span><span class="nav-text">ניהול כותרות</span></a>
                 <a href="manage_missing.php" class="nav-button" style="--btn-color: #B7950B;"><span class="nav-icon">❓</span><span class="nav-text">פוסטרים חסרים</span></a>
+                <a href="editor.php" class="nav-button" style="--btn-color: deepskyblue;"><span class="nav-icon">🛠️</span><span class="nav-text">עריכת פוסטרים חסרים</span></a>
                 <a href="manage_plots.php" class="nav-button" style="--btn-color: #4A235A;"><span class="nav-icon">📝</span><span class="nav-text">ניהול תקצירים</span></a>
+                <a href="manage_sync.php" class="nav-button" style="--btn-color: #7f8c8d;"><span class="nav-icon">🔄</span><span class="nav-text">סנכרון תמונות פוסטרים</span></a>
+                <a href="manage_sync_network_logos.php" class="nav-button" style="--btn-color: #7f8c8d;"><span class="nav-icon">🔄</span><span class="nav-text">סנכרון תמונות לוגואים (רשתות)</span></a>
+            
+                <a href="manage_blacklist.php" class="nav-button" style=" color: black;--btn-color: green; color: black;"><span class="nav-icon">🚫</span><span class="nav-text">Blacklist</span></a>
+
+
+                <a href="tmdb_logos.php" class="nav-button" style=" color: black;--btn-color: pink; color: black;"><span class="nav-icon">❓</span><span class="nav-text">לוגואים חסרים</span></a>
+
+<a href="copy-uniq.php" class="nav-button" style="--btn-color: deepskyblue;"><span class="nav-icon"><img src="images/imdb.png" width="70px" alt=""></span><span class="nav-text">IMDb Checker</span></a>
 
                 
-                <a href="manage_sync.php" class="nav-button" style="--btn-color: #7f8c8d;"><span class="nav-icon">🔄</span><span class="nav-text">סנכרון תמונות</span></a>
+                <a href="manage-imdb-rating.php" class="nav-button" style="--btn-color: deepskyblue;"><span class="nav-icon"><img src="images/imdb.png" width="70px" alt=""></span><span class="nav-text">סנכרון דירוג IMDb</span></a>
+
             </div>
         </div>
       </div>
-
+      
       <div class="grid-layout">
         <div class="card">
           <h2 class="card-header">📊 סטטיסטיקות</h2>

@@ -19,12 +19,47 @@ if (function_exists('mysqli_set_charset')) {
 function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
 /* ===== עימוד ===== */
-$allowed_limits = [20, 50, 100, 250, 500, 999999]; //999999 = הכל
+$allowed_limits = [20, 50, 100, 250, 500, 999999]; // 999999 = הכל
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
 if (!in_array($limit, $allowed_limits)) $limit = 50;
 
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
+
+/* ===== מיון ===== */
+$allowed_sorts = [
+  'en_az'   => "p.title_en ASC",
+  'en_za'   => "p.title_en DESC",
+  'year_dn' => "p.year DESC",
+  'year_up' => "p.year ASC",
+  'imdb_dn' => "CAST(NULLIF(p.imdb_rating,'') AS DECIMAL(4,1)) DESC",
+  'imdb_up' => "CAST(NULLIF(p.imdb_rating,'') AS DECIMAL(4,1)) ASC",
+  'sim_dn'  => "sim_count DESC"
+];
+
+$sort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'en_az';
+if (!isset($allowed_sorts[$sort])) $sort = 'en_az';
+$order_by_sql = $allowed_sorts[$sort];
+
+$sort_options = [
+  'sim_dn'  => 'כמות דומים',
+  'imdb_dn' => 'IMDb ↓',
+  'imdb_up' => 'IMDb ↑',
+  'year_dn' => 'שנה ↓',
+  'year_up' => 'שנה ↑',
+  'en_az'   => 'A-Z',
+  'en_za'   => 'Z-A'
+];
+
+/* ===== בניית Query String לשמירת פרמטרים ===== */
+function build_qs(array $override = []): string {
+    $q = $_GET;
+    foreach ($override as $k => $v) {
+        if ($v === null) unset($q[$k]);
+        else $q[$k] = $v;
+    }
+    return http_build_query($q);
+}
 
 /* --- סה"כ פוסטרים --- */
 $count_res = $conn->query("
@@ -33,19 +68,25 @@ $count_res = $conn->query("
     JOIN poster_similar ps ON ps.poster_id = p.id
 ");
 $total_rows = ($count_res && $row = $count_res->fetch_assoc()) ? (int)$row['c'] : 0;
-$total_pages = ($limit >= 999999) ? 1 : ceil($total_rows / $limit);
+$total_pages = ($limit >= 999999) ? 1 : (int)ceil($total_rows / $limit);
 
-/* --- שליפת פוסטרים --- */
+/* --- שליפת פוסטרים (כולל sim_count למיון כמות דומים) --- */
 $sql = "
-    SELECT DISTINCT p.id, p.title_he, p.title_en, p.year, p.image_url, p.imdb_id, p.imdb_rating
+    SELECT
+        p.id, p.title_he, p.title_en, p.year, p.image_url, p.imdb_id, p.imdb_rating,
+        COUNT(DISTINCT ps2.similar_id) AS sim_count
     FROM posters p
     JOIN poster_similar ps ON ps.poster_id = p.id
-    ORDER BY p.title_en ASC
+    LEFT JOIN poster_similar ps2 ON ps2.poster_id = p.id
+    GROUP BY p.id
+    ORDER BY $order_by_sql
     LIMIT $limit OFFSET $offset
 ";
 $res = $conn->query($sql);
 $base_posters = [];
-while ($row = $res->fetch_assoc()) $base_posters[] = $row;
+if ($res) {
+    while ($row = $res->fetch_assoc()) $base_posters[] = $row;
+}
 
 /* --- שליפת דומים --- */
 function fetch_similars(mysqli $conn, int $poster_id): array {
@@ -103,8 +144,8 @@ body {
   color:#f8fafc;
 }
 .section-header h2 span {
-  font-size:20px; 
-  color:#f8fafc; 
+  font-size:20px;
+  color:#f8fafc;
   margin-right:6px;
 }
 .meta { color:#9ca3af; font-size:13px; }
@@ -160,21 +201,83 @@ body {
 .rating a { color:#ffffff !important; text-decoration:none; }
 .rating a:hover { color:#2d89ef !important; }
 
-/* ===== עימוד ===== */
-.pagination { text-align:center; margin:20px 0; }
-.pagination a {
-  margin:0 3px; padding:6px 12px; border:1px solid #1f2937;
-  background:#111827; color:#fff; text-decoration:none; border-radius:4px; color: white !important;
+/* ===== תיקון חפיפות: sort/limit/pagination ב-Flex עם gap ===== */
+.sort-buttons{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:12px;
+  margin-bottom:20px;
 }
-.pagination a.active { background:#2563eb; }
-.pagination a:hover { background:#1e40af; }
-.limit-buttons { text-align:center; margin-bottom:20px; }
-.limit-buttons a {
-  margin:0 5px; padding:6px 12px; border:1px solid #1f2937;
-  background:#111827; color:#fff; text-decoration:none; border-radius:4px; color: white !important
+.sort-buttons a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 18px;
+  line-height:1;
+  white-space:nowrap;
+  border:1px solid #1f2937;
+  background:#111827;
+  text-decoration:none;
+  border-radius:10px;
+  color:#fff !important;
 }
-.limit-buttons a.active { background:#2563eb;  color: white !important}
-.limit-buttons a:hover { background:#1e40af;  color: white !important}
+.sort-buttons a.active{ background:#2563eb; color:#fff !important; }
+.sort-buttons a:hover{ background:#1e40af; color:#fff !important; }
+
+.limit-buttons{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:12px;
+  margin-bottom:20px;
+}
+.limit-buttons a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 18px;
+  line-height:1;
+  white-space:nowrap;
+  border:1px solid #1f2937;
+  background:#111827;
+  text-decoration:none;
+  border-radius:10px;
+  color:#fff !important;
+}
+.limit-buttons a.active{ background:#2563eb; color:#fff !important; }
+.limit-buttons a:hover{ background:#1e40af; color:#fff !important; }
+
+.pagination{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+  margin:20px 0;
+}
+.pagination a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 16px;
+  line-height:1;
+  white-space:nowrap;
+  border:1px solid #1f2937;
+  background:#111827;
+  text-decoration:none;
+  border-radius:8px;
+  color:#fff !important;
+}
+.pagination a.active{ background:#2563eb; }
+.pagination a:hover{ background:#1e40af; }
+.pagination span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 10px;
+  line-height:1;
+  color:#9ca3af;
+}
 
 /* ===== CSS שהשארת קודם ===== */
 html { box-sizing: border-box; }
@@ -205,19 +308,59 @@ html { box-sizing: border-box; }
 <div class="container">
   <h1>🎬 כל הסרטים הדומים</h1>
 
-  <!-- כפתורי בחירת כמות -->
+  <!-- כפתורי מיון (למעלה) -->
+  <div class="sort-buttons">
+    <?php foreach ($sort_options as $k => $label): ?>
+      <a href="?<?= h(build_qs(['sort'=>$k,'page'=>1])) ?>" class="<?= ($k==$sort ? 'active' : '') ?>">
+        <?= h($label) ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
+
+  <!-- כפתורי בחירת כמות (למעלה) -->
   <div class="limit-buttons">
     <?php foreach ($allowed_limits as $opt): ?>
-      <a href="?limit=<?= $opt ?>&page=1"
+      <a href="?<?= h(build_qs(['limit'=>$opt,'page'=>1])) ?>"
          class="<?= ($opt==$limit ? 'active' : '') ?>">
         <?= ($opt==999999 ? 'הכל' : $opt) ?>
       </a>
     <?php endforeach; ?>
   </div>
 
+  <!-- עימוד (למעלה) -->
+  <?php if ($total_pages > 1): ?>
+    <div class="pagination">
+      <?php if ($page > 1): ?>
+        <a href="?<?= h(build_qs(['page'=>1])) ?>">« ראשון</a>
+        <a href="?<?= h(build_qs(['page'=>$page-1])) ?>">‹ קודם</a>
+      <?php endif; ?>
+
+      <?php
+        $max_links = 10;
+        $start = max(1, $page - floor($max_links/2));
+        $end = min($total_pages, $start + $max_links - 1);
+        if ($end - $start < $max_links) $start = max(1, $end - $max_links + 1);
+      ?>
+      <?php if ($start > 1): ?><span>…</span><?php endif; ?>
+      <?php for ($i=$start; $i <= $end; $i++): ?>
+        <a href="?<?= h(build_qs(['page'=>$i])) ?>" class="<?= ($i==$page ? 'active' : '') ?>">
+          <?= $i ?>
+        </a>
+      <?php endfor; ?>
+      <?php if ($end < $total_pages): ?><span>…</span><?php endif; ?>
+
+      <?php if ($page < $total_pages): ?>
+        <a href="?<?= h(build_qs(['page'=>$page+1])) ?>">הבא ›</a>
+        <a href="?<?= h(build_qs(['page'=>$total_pages])) ?>">אחרון »</a>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+
   <?php if (empty($base_posters)): ?>
     <div class="section"><div>❌ לא נמצאו פוסטרים עם דומים.</div></div>
   <?php endif; ?>
+
+  <?php $rownum = $offset + 1; ?>
 
   <?php foreach ($base_posters as $bp):
       $sim = fetch_similars($conn, (int)$bp['id']);
@@ -226,6 +369,7 @@ html { box-sizing: border-box; }
     <div class="section">
       <div class="section-header">
         <h2>
+          <span style="color:#9ca3af; font-size:14px; margin-left:8px;"><?= (int)$rownum ?>.</span>
           <?= h($bp['title_he'] ?: $bp['title_en']) ?>
           <?php if (!empty($bp['title_en']) && !empty($bp['title_he'])): ?>
             <span>/ <?= h($bp['title_en']) ?></span>
@@ -283,14 +427,15 @@ html { box-sizing: border-box; }
         </div>
       </div>
     </div>
+    <?php $rownum++; ?>
   <?php endforeach; ?>
 
-  <!-- עימוד -->
+  <!-- עימוד (למטה) -->
   <?php if ($total_pages > 1): ?>
     <div class="pagination">
       <?php if ($page > 1): ?>
-        <a href="?page=1&limit=<?= $limit ?>">« ראשון</a>
-        <a href="?page=<?= $page-1 ?>&limit=<?= $limit ?>">‹ קודם</a>
+        <a href="?<?= h(build_qs(['page'=>1])) ?>">« ראשון</a>
+        <a href="?<?= h(build_qs(['page'=>$page-1])) ?>">‹ קודם</a>
       <?php endif; ?>
 
       <?php
@@ -301,18 +446,36 @@ html { box-sizing: border-box; }
       ?>
       <?php if ($start > 1): ?><span>…</span><?php endif; ?>
       <?php for ($i=$start; $i <= $end; $i++): ?>
-        <a href="?page=<?= $i ?>&limit=<?= $limit ?>" class="<?= ($i==$page ? 'active' : '') ?>">
+        <a href="?<?= h(build_qs(['page'=>$i])) ?>" class="<?= ($i==$page ? 'active' : '') ?>">
           <?= $i ?>
         </a>
       <?php endfor; ?>
       <?php if ($end < $total_pages): ?><span>…</span><?php endif; ?>
 
       <?php if ($page < $total_pages): ?>
-        <a href="?page=<?= $page+1 ?>&limit=<?= $limit ?>">הבא ›</a>
-        <a href="?page=<?= $total_pages ?>&limit=<?= $limit ?>">אחרון »</a>
+        <a href="?<?= h(build_qs(['page'=>$page+1])) ?>">הבא ›</a>
+        <a href="?<?= h(build_qs(['page'=>$total_pages])) ?>">אחרון »</a>
       <?php endif; ?>
     </div>
   <?php endif; ?>
+
+  <!-- כפתורי מיון + כמות (למטה) -->
+  <div class="sort-buttons">
+    <?php foreach ($sort_options as $k => $label): ?>
+      <a href="?<?= h(build_qs(['sort'=>$k,'page'=>1])) ?>" class="<?= ($k==$sort ? 'active' : '') ?>">
+        <?= h($label) ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
+
+  <div class="limit-buttons">
+    <?php foreach ($allowed_limits as $opt): ?>
+      <a href="?<?= h(build_qs(['limit'=>$opt,'page'=>1])) ?>"
+         class="<?= ($opt==$limit ? 'active' : '') ?>">
+        <?= ($opt==999999 ? 'הכל' : $opt) ?>
+      </a>
+    <?php endforeach; ?>
+  </div>
 
 </div>
 </body>

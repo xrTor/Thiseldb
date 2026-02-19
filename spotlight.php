@@ -116,7 +116,19 @@ if ($all_countries_str_res) {
 // --- 8. תגיות פופולריות ---
 $popular_tag_name = null;
 $popular_tag_posters = [];
-$res_pop_tag = $conn->query("SELECT genre, COUNT(*) as tag_count FROM user_tags GROUP BY genre ORDER BY tag_count DESC LIMIT 1");
+
+// בוחר תגית אקראית מתוך 30 התגיות הכי נפוצות (משתנה בכל רענון)
+$res_pop_tag = $conn->query("
+    SELECT genre FROM (
+        SELECT genre, COUNT(*) AS tag_count
+        FROM user_tags
+        GROUP BY genre
+        ORDER BY tag_count DESC
+        LIMIT 10
+    ) t
+    ORDER BY RAND()
+    LIMIT 1
+");
 if ($res_pop_tag && $res_pop_tag->num_rows > 0) {
     $popular_tag_name = $res_pop_tag->fetch_assoc()['genre'];
     if ($popular_tag_name) {
@@ -307,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (carousel) {
                 const scrollAmount = carousel.clientWidth * 0.8;
                 carousel.scrollBy({ 
-                    left: this.classList.contains('next') ? scrollAmount : -scrollAmount, 
+                    left: this.classList.contains('next') ? -scrollAmount : scrollAmount, 
                     behavior: 'smooth' 
                 });
             }

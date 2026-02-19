@@ -5,6 +5,21 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 include 'header.php'; // כלול את קובץ ה-header שלך
 
+// === פונקציה לבניית קישורי מיון מהיר (שומרת את כל פרמטרי ה-GET) ===
+if (!function_exists('thiseldb_build_sort_url')) {
+    function thiseldb_build_sort_url(string $sortValue): string {
+        $params = $_GET;
+        $params['sort'] = $sortValue;
+        // בעת שינוי מיון נחזור לעמוד הראשון
+        $params['page'] = 1;
+        $self = $_SERVER['PHP_SELF'] ?? 'home.php';
+        $base = basename($self);
+        return $base . '?' . http_build_query($params);
+    }
+}
+
+$current_sort = $_GET['sort'] ?? '';
+
 // שליפת טבלת סוגים מהמסד
 // וודא שעמודת 'image' קיימת בטבלת poster_types במסד הנתונים
 $type_result = $conn->query("SELECT id, label_he, icon, image FROM poster_types ORDER BY sort_order ASC");
@@ -17,14 +32,34 @@ while ($type = $type_result->fetch_assoc()) {
     ];
 }
 
+// === הוספת לוגיקת גודל פוסטר (SIZE) + תרגום לתוויות ===
+$allowed_sizes = [210, 240, 320];
+$size_labels = [
+    210 => 'קטן',
+    240 => 'בינוני',
+    320 => 'גדול'
+];
+$size_param = $_GET['size'] ?? $_SESSION['poster_size'] ?? 260; // ברירת מחדל ל-260
+$card_w = in_array((int)$size_param, $allowed_sizes, true) ? (int)$size_param : 260;
+$_SESSION['poster_size'] = $card_w;
+// =======================================================
+
 // הגדרות מגבלת פוסטרים לדף
-$allowed_limits = [5, 10, 20, 50, 100, 250];
+$allowed_limits = [5, 10, 20, 50, 100, 250, 500, 1000, 2500, 30000];
 $limit = in_array((int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50), $allowed_limits)
     ? (int)($_GET['limit'] ?? $_SESSION['limit'] ?? 50) : 50;
 $_SESSION['limit'] = $limit;
 
 // מצב תצוגה
 $view = $_SESSION['view_mode'] = $_GET['view'] ?? $_SESSION['view_mode'] ?? 'modern_grid';
+$view_options = [
+    'modern_grid'    => 'רשת מודרנית',
+    'collections_view' => 'תצוגת גלריה',
+    'grid'           => 'Grid',
+    'list'           => 'List',
+    'default'        => 'רגילה'
+];
+
 
 // פונקציה לקבלת ערך מ-GET או ברירת מחדל
 $get = fn($k) => $_GET[$k] ?? '';
@@ -54,7 +89,7 @@ $fields = [
     ['writers',          'תסריטאים',     '✍️'],
     ['composers',        'מלחינים',      '🎼'],
     ['cinematographers', 'צלמים',        '📸'],
-    ['lang_code',        'שפות',         '🌐'],
+    ['lang_code',        'שפות',         '🌐'], // זה השדה הטקסטואלי הרגיל מ-IMDB
     ['country',          'מדינות',       '🌍'],
     ['runtime',          'אורך (דקות)',  '⏱️'],
     ['network',          'רשת',          '📡']
@@ -185,7 +220,8 @@ $fields = [
             padding: 3px 11px;
             border: 1px solid #c0c0cc;
             background: #fff;
-            transition: background .18s, border-color .15s;
+            transition: background .18s, border-color .15s;            cursor: pointer;
+
         }
         .b {
             display: block;
@@ -195,6 +231,87 @@ $fields = [
             color: #555;
             line-height: 1.5;
         }
+
+        .sort-bar {
+            text-align: center;
+            margin: 6px 0 14px 0;
+            font-size: 13px;
+        }
+        .sort-btn {
+            display: inline-block;
+            background: #f5f5f5;
+            border-radius: 16px;
+            border: 1px solid #ccc;
+            color: #333;
+            font-size: 13px;
+            padding: 3px 9px;
+            margin: 0 2px 6px 2px;
+            text-decoration: none;
+        }
+        .sort-btn.selected {
+            background: #28a745;
+            color: #fff;
+            border-color: #1e7e34;
+            font-weight: bold;
+        }
+        
+        /* === סגנונות חדשים: כפתורי Limit & Size & View - מפוצלים לשורות === */
+        .controls-row {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 13px;
+            margin-bottom: 8px; /* הפרדה בין השורות */
+        }
+        
+        /* סגנון חדש לשמירת קבוצות הבקרה (View + Size) בשורה אחת */
+        .view-size-row {
+            flex-wrap: wrap; /* שומר על יכולת מעבר שורה במסכים קטנים */
+            justify-content: flex-start;
+            gap: 25px; /* רווח בין קבוצות הבקרה View ו-Size */
+            margin-bottom: 8px;
+        }
+
+        /* עוטף כל קבוצת בקרה (תצוגה או גודל) כדי לשלוט ב-Display */
+        .control-group-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px 13px;
+        }
+
+        .limit-buttons-group, .size-buttons-group, .view-buttons-group {
+            display: inline-flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .limit-btn, .size-btn, .view-btn {
+            font-size: 14px;
+            border-radius: 6px;
+            padding: 4px 8px;
+            border: 1px solid #c0c0cc;
+            background: #fff;
+            cursor: pointer;
+            transition: background .18s, border-color .15s;
+        }
+        .limit-btn:hover, .size-btn:hover, .view-btn:hover {
+            background: #f0f0f0;
+        }
+        /* הצבע החדש לסימון הנוכחי */
+        .limit-btn-selected, .size-btn-selected, .view-btn-selected {
+            background: deepskyblue;
+            color: #fff;
+            border-color: #00bfff;
+            font-weight: bold;
+        }
+        .control-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #444;
+            padding-right: 5px;
+        }
+        /* ================================================================= */
     </style>
 </head>
 <body>
@@ -206,6 +323,9 @@ $fields = [
      <span class="b" style="color:blue">
 ניתן לחפש בעברית, לדוגמא: מדינה: קנדה, שפה: צרפתית, רשת שידור: נטפליקס, ז'אנר: מתח, תגית: פוליטיקה    </span>
     <form class="bar-form" method="get" action="home.php" autocomplete="off">
+        
+        <input type="hidden" name="flag_code" id="hidden_flag_code" value="<?= htmlspecialchars($_GET['flag_code'] ?? '') ?>">
+
         <div class="bar-fields-row">
             <?php foreach ($fields as [$name, $placeholder, $icon]): ?>
             <div class="bar-field">
@@ -234,6 +354,48 @@ $fields = [
                 </label>
             <?php endforeach; ?>
         </div>
+        
+        <div class="controls-row">
+            <span class="control-label">כמות פוסטרים להצגה: </span>
+            <div class="limit-buttons-group">
+                <?php foreach ($allowed_limits as $opt):
+                    $lbl = ($opt == 30000 ? 'הכל' : $opt);
+                    $cls = $limit == $opt ? ' limit-btn-selected' : '';
+                ?>
+                    <button type="submit" name="limit" value="<?= $opt ?>" class="limit-btn<?= $cls ?>" title="הצג <?= $lbl ?> פוסטרים">
+                        <?= $lbl ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div class="controls-row view-size-row">
+            <div class="control-group-wrapper">
+                <span class="control-label">תצוגה:</span>
+                <div class="view-buttons-group">
+                    <?php foreach ($view_options as $val => $label):
+                        $cls = $view === $val ? ' view-btn-selected' : '';
+                    ?>
+                        <button type="submit" name="view" value="<?= $val ?>" class="view-btn<?= $cls ?>" title="תצוגה: <?= $label ?>">
+                            <?= $label ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div class="control-group-wrapper">
+                <span class="control-label">גודל פוסטר:</span>
+                <div class="size-buttons-group">
+                    <?php foreach ($allowed_sizes as $sz):
+                        $lbl = $size_labels[$sz] ?? $sz.'px';
+                        $cls = $card_w === $sz ? ' size-btn-selected' : ''; ?>
+                        <button type="submit" name="size" value="<?= (int)$sz ?>" class="size-btn<?= $cls ?>" title="רוחב: <?= (int)$sz ?>px">
+                            <?= $lbl ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
         <div class="bar-bottom-row">
             <label><input type="radio" name="search_mode" value="and" <?= $search_mode === 'and' ? 'checked' : '' ?>> AND</label>
             <label><input type="radio" name="search_mode" value="or" <?= $search_mode === 'or' ? 'checked' : '' ?>> OR</label>
@@ -241,22 +403,7 @@ $fields = [
             <button type="button" class="flags-btn" id="toggleTags">הצג תגיות 🏷️</button>
             <button type="button" class="flags-btn" id="toggleGenres">הצג ז'אנרים 🎭</button>
             <button type="button" class="flags-btn" id="toggleNetworks">הצג רשתות 📡</button>
-            <select name="limit"><?php foreach ($allowed_limits as $opt): ?>
-                <option value="<?= $opt ?>" <?= $limit == $opt ? 'selected' : '' ?>><?= $opt ?></option>
-            <?php endforeach; ?></select>
-            <select name="view">
-                <option value="modern_grid" <?= $view === 'modern_grid' ? 'selected' : '' ?>>רשת מודרנית</option>
-                <option value="collections_view" <?= $view === 'collections_view' ? 'selected' : '' ?>>תצוגת גלריה</option>
-                <option value="grid" <?= $view === 'grid' ? 'selected' : '' ?>>Grid</option>
-                <option value="list" <?= $view === 'list' ? 'selected' : '' ?>>List</option>
-                <option value="default" <?= $view === 'default' ? 'selected' : '' ?>>רגילה</option>
-            </select>
-            <select name="sort">
-                <option value="">מיון</option>
-                <option value="year_asc" <?= ($_GET['sort'] ?? '') == 'year_asc' ? 'selected' : '' ?>>שנה ↑</option>
-                <option value="year_desc" <?= ($_GET['sort'] ?? '') == 'year_desc' ? 'selected' : '' ?>>שנה ↓</option>
-                <option value="rating_desc" <?= ($_GET['sort'] ?? '') == 'rating_desc' ? 'selected' : '' ?>>דירוג ↓</option>
-            </select>
+       
             <button type="submit" class="filter-btn">סנן</button>
             <a href="home.php" class="reset-btn">איפוס</a>
         </div>
@@ -266,6 +413,43 @@ $fields = [
         <div id="genresMenu" style="display:none;"><?php include 'links_genres.php'; ?></div>
         <div id="networksMenu" style="display:none;"><?php include 'links_network.php'; ?></div>
     </form>
+
+    <div class="sort-bar">
+        מיון מהיר:
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('rating_desc')) ?>"
+           class="sort-btn<?= $current_sort === 'rating_desc' ? ' selected' : '' ?>">דירוג ↓</a>
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('rating_asc')) ?>"
+           class="sort-btn<?= $current_sort === 'rating_asc' ? ' selected' : '' ?>">דירוג ↑</a>
+
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('votes_desc')) ?>"
+           class="sort-btn<?= $current_sort === 'votes_desc' ? ' selected' : '' ?>">כמות הצבעות ↓</a>
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('votes_asc')) ?>"
+           class="sort-btn<?= $current_sort === 'votes_asc' ? ' selected' : '' ?>">כמות הצבעות ↑</a>
+
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('year_desc')) ?>"
+           class="sort-btn<?= $current_sort === 'year_desc' ? ' selected' : '' ?>">שנה ↓</a>
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('year_asc')) ?>"
+           class="sort-btn<?= $current_sort === 'year_asc' ? ' selected' : '' ?>">שנה ↑</a>
+
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('added_desc')) ?>"
+           class="sort-btn<?= $current_sort === 'added_desc' ? ' selected' : '' ?>">תאריך הוספה ↓</a>
+           <a class="sort-btn" href="?<?php echo http_build_query(array_merge($_GET, ['sort' => 'updated_at_desc'])); ?>">
+    התעדכן לאחרונה ↓
+</a>
+
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('added_asc')) ?>"
+           class="sort-btn<?= $current_sort === 'added_asc' ? ' selected' : '' ?>">תאריך הוספה ↑</a>
+
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('runtime_desc')) ?>"
+           class="sort-btn<?= $current_sort === 'runtime_desc' ? ' selected' : '' ?>">אורך ↓</a>
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('runtime_asc')) ?>"
+           class="sort-btn<?= $current_sort === 'runtime_asc' ? ' selected' : '' ?>">אורך ↑</a>
+
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('title_en_asc')) ?>"
+           class="sort-btn<?= $current_sort === 'title_en_asc' ? ' selected' : '' ?>">ABC ↑</a>
+        <a href="<?= htmlspecialchars(thiseldb_build_sort_url('title_en_desc')) ?>"
+           class="sort-btn<?= $current_sort === 'title_en_desc' ? ' selected' : '' ?>">ABC ↓</a>
+    </div>
 </div>
 
 <script>
@@ -294,17 +478,23 @@ document.addEventListener("DOMContentLoaded", function() {
     toggle("toggleTags", "tagsMenu");
     toggle("toggleGenres", "genresMenu");
     toggle("toggleNetworks", "networksMenu");
-
-    const langMenu = document.getElementById("flagsMenu");
-    if (langMenu) {
-        langMenu.querySelectorAll(".language-cell").forEach(cell => {
-            cell.addEventListener("click", () => {
-                const lang = cell.getAttribute("data-lang") || cell.title || "";
-                if (lang) window.location = "language.php?lang_code=" + encodeURIComponent(lang);
-            });
-        });
-    }
 });
+
+// פונקציה לשליחת הטופס בעת לחיצה על דגל
+function selectFlag(code) {
+    // 1. עדכון השדה הנסתר של הדגלים בלבד
+    const hiddenInput = document.getElementById('hidden_flag_code');
+    if(hiddenInput) hiddenInput.value = code;
+    
+    // 2. איפוס עמוד ל-1
+    const pageInput = document.querySelector('input[name="page"]');
+    // אם אין שדה page מוסתר, אין צורך לאפס
+    if (pageInput) pageInput.value = 1;
+
+    // 3. שליחת הטופס
+    const form = document.querySelector('.bar-form');
+    if(form) form.submit();
+}
 </script>
 </body>
 </html>

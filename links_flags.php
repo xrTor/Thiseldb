@@ -33,6 +33,7 @@
       min-width: 60px;
       text-align: left;
       font-weight: normal;
+      color: #000;
     }
   </style>
 
@@ -46,12 +47,12 @@
     $i = 0;
     foreach ($languages as $lang) {
       if ($i >= $max_count) break;
-      // דגל לחיץ בלבד, ללא checkbox
+      // השינוי: קריאה לפונקציה selectFlag ב-onclick במקום href
       echo "<td class='language-td'>
-              <a class='language-cell' href='language.php?lang_code={$lang['code']}' title='{$lang['label']}'>
+              <div class='language-cell' onclick=\"selectFlag('{$lang['code']}')\" title='{$lang['label']}'>
                 <img src='{$lang['flag']}' alt='{$lang['label']}'>
                 <span>{$lang['label']}</span>
-              </a>
+              </div>
             </td>";
       $i++;
       if ($i % $columns === 0 && $i < $max_count) echo '</tr><tr>';

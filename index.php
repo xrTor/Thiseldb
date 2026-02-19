@@ -1,11 +1,66 @@
 <?php
 // FILE: index.php (Universal Version)
-// This file is identical for both admin and public servers.
-// Its behavior is controlled by the version of style.css on the server.
 
 require_once 'server.php';
 include 'header.php';
 include 'languages.php'; // Include for flags array
+
+// --- ספירת התראות ודיווחים (PHP) ---
+$contact_count = 0;
+$report_count = 0;
+
+try {
+    // 1. ספירת פניות 'צור קשר'
+    $sql_contact = "SELECT COUNT(*) AS total_contacts FROM contact_requests";
+    $stmt_contact = $conn->prepare($sql_contact);
+    $stmt_contact->execute();
+    $contact_count = $stmt_contact->get_result()->fetch_assoc()['total_contacts'];
+    $stmt_contact->close();
+    
+    // 2. ספירת דיווחים פתוחים (רק handled_at IS NULL) + כולל אוספים
+$poster_report_open = 0;
+$collection_report_open = 0;
+
+try {
+    // poster_reports פתוחים
+    $sql_report_p = "
+  SELECT COUNT(*) AS total
+  FROM poster_reports r
+  JOIN posters p ON p.id = r.poster_id
+  WHERE r.handled_at IS NULL
+    AND r.deleted_at IS NULL
+";
+    $stmt_rp = $conn->prepare($sql_report_p);
+    $stmt_rp->execute();
+    $poster_report_open = (int)($stmt_rp->get_result()->fetch_assoc()['total'] ?? 0);
+    $stmt_rp->close();
+
+    // collection_reports פתוחים (אם הטבלה קיימת)
+    $sql_report_c = "
+  SELECT COUNT(*) AS total
+  FROM collection_reports r
+  JOIN collections c ON c.id = r.collection_id
+  WHERE r.handled_at IS NULL
+    AND r.deleted_at IS NULL
+";
+    $stmt_rc = $conn->prepare($sql_report_c);
+    $stmt_rc->execute();
+    $collection_report_open = (int)($stmt_rc->get_result()->fetch_assoc()['total'] ?? 0);
+    $stmt_rc->close();
+} catch (Exception $e) {
+    // אם אין טבלה/עמודה אצלך עדיין, פשוט נשאיר 0
+    error_log("Error fetching report counts: " . $e->getMessage());
+}
+
+$report_count = $poster_report_open + $collection_report_open;
+
+    
+} catch (Exception $e) {
+    // במקרה של שגיאה (למשל, טבלה לא קיימת), הספירה תישאר 0
+    error_log("Error fetching admin counts: " . $e->getMessage());
+}
+// --- סוף ספירת התראות ---
+
 
 // --- Language to Flag Mapping ---
 $lang_map = [];
@@ -106,6 +161,52 @@ if (!empty($rows)) {
     }
 }
 ?>
+
+<?php
+// ===============================
+// Watch status for grid buttons (collections: watched=231, watchlist=196)
+// ===============================
+$WATCHED_COLLECTION_ID = 231;
+$WATCHLIST_COLLECTION_ID = 196;
+$watched_set = [];
+$watchlist_set = [];
+
+if (!empty($rows)) {
+    $poster_ids_for_watch = array_column($rows, 'id');
+    $poster_ids_for_watch = array_values(array_filter(array_map('intval', $poster_ids_for_watch)));
+
+    if (!empty($poster_ids_for_watch)) {
+        $ids_placeholder2 = implode(',', array_fill(0, count($poster_ids_for_watch), '?'));
+        $ids_types2 = str_repeat('i', count($poster_ids_for_watch));
+
+        $sql_wc = "SELECT collection_id, poster_id
+                   FROM poster_collections
+                   WHERE collection_id IN (?, ?) AND poster_id IN ($ids_placeholder2)";
+
+        $stmt_wc = $conn->prepare($sql_wc);
+        if ($stmt_wc) {
+            $bind_types  = "ii" . $ids_types2;
+            $bind_params = array_merge([(int)$WATCHED_COLLECTION_ID, (int)$WATCHLIST_COLLECTION_ID], $poster_ids_for_watch);
+
+            $refs = [];
+            $refs[] = &$bind_types;
+            foreach ($bind_params as $k => $v) { $refs[] = &$bind_params[$k]; }
+            call_user_func_array([$stmt_wc, 'bind_param'], $refs);
+
+            $stmt_wc->execute();
+            $r_wc = $stmt_wc->get_result();
+            while ($rr = $r_wc->fetch_assoc()) {
+                $pid = (int)$rr['poster_id'];
+                if ((int)$rr['collection_id'] === (int)$WATCHED_COLLECTION_ID)  $watched_set[$pid] = true;
+                if ((int)$rr['collection_id'] === (int)$WATCHLIST_COLLECTION_ID) $watchlist_set[$pid] = true;
+            }
+            $stmt_wc->close();
+        }
+    }
+}
+
+
+?>
 <!DOCTYPE html>
 <html lang="he">
 <head>
@@ -143,7 +244,36 @@ if (!empty($rows)) {
     .collection-sticker-container { padding: 8px 0; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
     .imdb-container img { height: 18px; width: auto; object-fit: contain; }
     .flags-container a { font-size: 16px; color: #333; font-weight: 500; }
-  </style>
+    
+    /* עיצוב פס ההתראות המאוחד - חדש */
+    .admin-notification-bar {
+        /* background-color: #fff3cd; צהוב בהיר */
+        /* border: 1px solid #ffeeba; גבול צהוב */
+        color: #856404; /* טקסט חום-צהוב כהה */
+        padding: 10px 15px;
+        margin: 10px auto;
+        max-width: 900px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 1.1em;
+        font-weight: bold;
+        display: flex;
+        justify-content: center;
+        gap: 25px; /* מרווח בין הפריטים */
+        flex-wrap: wrap;
+    }
+    .admin-notification-bar a {
+        color: #856404;
+        text-decoration: underline;
+    }
+  
+    /* === Watch buttons under posters === */
+    .watch-actions{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;flex-wrap:nowrap}
+    .wa-btn{border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap;line-height:1;display:inline-flex;align-items:center;gap:6px}
+    .wa-btn.on{background:#d3f9d8;border-color:#b2f2bb;color:#1b5e20}
+    .wa-btn.watched.on{background:#e7f5ff;border-color:#a5d8ff;color:#0b3d91}
+
+</style>
 </head>
 <body class="rtl">
 
@@ -151,6 +281,27 @@ if (!empty($rows)) {
     <iframe src="chat.php" style="width:100%; height:470px; border:1px solid #444; border-radius:10px;"></iframe>
 </div> -->
 
+<?php
+// --- הצגת פס התראות ניהול (Admin Notification Bar) ---
+if ($contact_count > 0 || $report_count > 0):
+?>
+    <div class="admin-notification-bar">
+        <?php if ($contact_count > 0): ?>
+            <a href="manage_contacts.php" title="צפייה בפניות צור קשר">
+                📧 יש לך <?= $contact_count ?> פניות 'צור קשר'
+            </a>
+        <?php endif; ?>
+        <?php if ($contact_count > 0 && $report_count > 0): ?>
+            <span style="color:#f0a301;">|</span>
+        <?php endif; ?>
+        <?php if ($report_count > 0): ?>
+            <a href="manage_reports.php" title="צפייה בדיווחים">
+                🚨 יש לך <?= $report_count ?> דיווחים
+            </a>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+    
 <div style="text-align:center; margin:10px;">
   <button id="toggle-admin" style="padding:6px 12px; cursor:pointer;">🔑 מצב ניהול</button>
 </div>
@@ -174,17 +325,29 @@ if (!empty($rows)) {
         <br>[<a href="home.php?year=<?= htmlspecialchars($row['year']) ?>"><?= $row['year'] ?></a>]
       </div>
 
-      <div class="imdb-container">
-        <?php if ($row['imdb_rating']): ?>
-          <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:1px; text-decoration:none; color:inherit;">
-            <img src="images/imdb.png" class="imdb ltr" alt="IMDb"> <span>⭐<?= htmlspecialchars($row['imdb_rating']) ?> / 10</span>
-          </a>
-        <?php endif; ?>
+   <div class="imdb-container" style="display:flex; flex-direction:column; justify-content:center; align-items:center; gap: 4px; padding-bottom: 4px; direction: rtl;">
+            <?php if ($row['imdb_rating']): ?>
+                <a href="https://www.imdb.com/title/<?= $row['imdb_id'] ?>" target="_blank" style="display:inline-flex; align-items:center; gap:4px; text-decoration:none; color:inherit; white-space:nowrap;">
+                    <span> 10 / <?= htmlspecialchars($row['imdb_rating']) ?></span> ⭐<img src="images/imdb.png" alt="IMDb">
+                </a>
+            <?php endif; ?>
+            <?php if (!empty($row['runtime'])): ?>
+              <span style="font-size: 0.9em; color: #555; white-space:nowrap; text-align:center;">⏱
+                <?= htmlspecialchars($row['runtime']) ?> דקות
+              </span>
+            <?php endif; ?>
+          </div>
+
+
+      <?php $pid = (int)$row['id']; $inWatched = !empty($watched_set[$pid]); $inWatch = !empty($watchlist_set[$pid]); ?>
+      <div class="watch-actions" data-poster-id="<?= $pid ?>">
+        <button type="button" class="wa-btn watched <?= $inWatched ? 'on' : '' ?>" data-cid="231"><?= $inWatched ? '✅ צפיתי' : '👁️ צפיתי' ?></button>
+        <button type="button" class="wa-btn watch <?= $inWatch ? 'on' : '' ?>" data-cid="196"><?= $inWatch ? '✅ הסר מצפייה' : '⏳ הוסף לצפייה' ?></button>
       </div>
 
       <?php if (!empty($row['label_he'])): ?>
         <a href="home.php?type[]=<?= htmlspecialchars($row['type_id']) ?>" class="poster-type-link">
-            <div class="poster-type-display">
+            <div class="poster-type-display" style="direction: ltr;">
                 <span><?= htmlspecialchars($row['label_he']) ?></span>
                 <?php if (!empty($row['type_image'])): ?>
                     <img src="images/types/<?= htmlspecialchars($row['type_image']) ?>" alt="" style="max-height: 32px; width: auto; vertical-align: middle;">
@@ -238,7 +401,7 @@ if (!empty($rows)) {
                         if (isset($lang_map[$lang_key])):
                             $flag_data = $lang_map[$lang_key];
                     ?>
-                        <a href="language.php?lang_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
+                        <a href="home.php?flag_code=<?= urlencode($flag_data['code']) ?>" title="שפה: <?= htmlspecialchars($flag_data['label']) ?>" style="display:inline-flex; align-items:center; gap:3px; text-decoration:none;">
                             <span><?= htmlspecialchars($flag_data['label']) ?></span>
                             <img src="<?= htmlspecialchars($flag_data['flag']) ?>" style="height: 16px; width: auto; object-fit: contain; vertical-align: middle;">
                         </a>
@@ -291,8 +454,10 @@ if (!empty($rows)) {
 <?php endif; ?>
 </div>
 
-<div id="loading" style="display: none; text-align: center; padding: 20px; font-size: 1.2em;">
-  טוען פריטים נוספים...
+<div id="loading" class="modal" style="display:none; background:none; box-shadow:none; padding-top:20px; text-align:center;">
+    <div style="background:#fff; padding:10px; display:inline-block; border-radius:5px;">
+        טוען עוד פוסטרים... ⏳
+    </div>
 </div>
 
 <div id="trailer-modal" class="modal">
@@ -307,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Trailer and Infinite Scroll Logic ---
     const posterWall = document.getElementById('poster-wall');
     const loadingIndicator = document.getElementById('loading');
-    const modal = document.getElementById('trailer-modal');
+    const modal = document.getElementById('trailer-modal'); // שורה זו הייתה נכונה, אך ה-HTML היה חסר
     const videoContainer = document.getElementById('video-container');
     const closeBtn = document.querySelector('.close-btn');
 
@@ -337,7 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const closeModal = () => {
         modal.style.display = 'none';
-        videoContainer.innerHTML = '';
+        document.getElementById('video-container').innerHTML = '';
     };
 
     posterWall.addEventListener('click', (event) => {
@@ -412,7 +577,51 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<script>
+(function(){
+  function postToggle(posterId, collectionId){
+    return fetch('toggle_collection_api.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      body:new URLSearchParams({poster_id:String(posterId), collection_id:String(collectionId)}).toString()
+    }).then(r=>r.json());
+  }
+
+  function setBtnState(btn, isOn){
+    const cid = btn.dataset.cid;
+    btn.classList.toggle('on', !!isOn);
+    if (cid === '231'){
+      btn.innerHTML = isOn ? '✅ צפיתי' : '👁️ צפיתי';
+    } else if (cid === '196'){
+      btn.innerHTML = isOn ? '✅ הסר מצפייה' : '⏳ הוסף לצפייה';
+    }
+  }
+
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.wa-btn');
+    if(!btn) return;
+    e.preventDefault();
+
+    const wrap = btn.closest('.watch-actions');
+    const posterId = wrap ? wrap.dataset.posterId : null;
+    const cid = btn.dataset.cid;
+    if(!posterId || !cid) return;
+
+    btn.disabled = true;
+    postToggle(posterId, cid).then(data=>{
+      if(!data || !data.ok) throw new Error((data && data.error) ? data.error : 'Toggle failed');
+      setBtnState(btn, !!(data.in_collection ?? data.inCollection ?? data.is_in_collection ?? data.isInCollection));
+    }).catch(err=>{
+      console.error(err);
+      alert('שגיאה: ' + (err && err.message ? err.message : err));
+    }).finally(()=>{ btn.disabled = false; });
+  });
+})();
+</script>
+
 </body>
 </html>
 <?php $conn->close(); ?>
-<?php include 'footer.php'; ?>
+<?php include 'footer.php'; 
+

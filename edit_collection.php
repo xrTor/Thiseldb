@@ -6,6 +6,7 @@ require_once 'bbcode.php';
 $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $message = '';
 
+// כאן נשלף גם ה-search_terms בגלל ה-*
 $stmt = $conn->prepare("SELECT * FROM collections WHERE id = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
@@ -25,6 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
   $desc_en = trim($_POST['description_en'] ?? '');
   $img  = trim($_POST['image_url'] ?? '');
   $poster_img = trim($_POST['poster_image_url'] ?? '');
+  $search_terms = trim($_POST['search_terms'] ?? ''); // <--- חדש
   
   $desc = '';
   if (!empty($desc_shared)) {
@@ -54,8 +56,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_collection']))
   if ($name !== '') {
     $imgToSave = ($img === '') ? null : $img;
     
-    $stmt = $conn->prepare("UPDATE collections SET name=?, description=?, image_url=?, poster_image_url=?, updated_at=NOW() WHERE id=?");
-    $stmt->bind_param("ssssi", $name, $desc, $imgToSave, $posterImgToSave, $id);
+    // עדכון השאילתה עם העמודה החדשה
+    $stmt = $conn->prepare("UPDATE collections SET name=?, description=?, image_url=?, poster_image_url=?, search_terms=?, updated_at=NOW() WHERE id=?");
+    $stmt->bind_param("sssssi", $name, $desc, $imgToSave, $posterImgToSave, $search_terms, $id); // <--- עודכן
     $stmt->execute();
     $stmt->close();
 
@@ -171,6 +174,9 @@ if (empty($desc_he_val) && empty($desc_en_val) && !empty($descValue) && strpos($
     <div class="hint">
       הזן שם קובץ בלבד. המערכת תחפש אותו בתיקייה <code>images/stickers/</code>.
     </div>
+
+    <label>🕵️ מילות מפתח מוסתרות</label>
+    <textarea name="search_terms" rows="2" placeholder="ביטויים לחיפוש שלא יוצגו בעמוד (למשל מזהה חיצוני)"><?= htmlspecialchars($collection['search_terms'] ?? '') ?></textarea>
     
     <button type="submit" name="update_collection">💾 שמור שינויים</button>
   </form>

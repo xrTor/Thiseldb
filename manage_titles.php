@@ -44,7 +44,7 @@ if ($search !== '') {
 }
 $where_sql = count($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
-$results_per_page = 50;
+$results_per_page = 500;
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($page < 1) $page = 1;
 $offset = ($page - 1) * $results_per_page;
