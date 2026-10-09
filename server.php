@@ -16,10 +16,10 @@ if ($conn->connect_error) {
 $conn->set_charset("utf8mb4");
 
 // ===== מפתחות API =====
-define('TMDB_KEY',     '931b94936ba364daf0fd91fb38ecd91e');
-define('RAPIDAPI_KEY', 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'); // IMDb rating/votes בלבד
-define('TVDB_KEY',     '1c93003f-ab80-4baf-b5c4-58c7b96494a2');               // TheTVDB v4
-define('OMDB_KEY',     'f7e4ae0b');                                          // OMDb — RT/MC
+define('TMDB_KEY',     'YOUR_KEY');
+define('RAPIDAPI_KEY', 'YOUR_KEY'); // IMDb rating/votes בלבד
+define('TVDB_KEY',     'YOUR_KEY');               // TheTVDB v4
+define('OMDB_KEY',     'YOUR_KEY');                                          // OMDb — RT/MC
 ?>
 <?php
 
@@ -35,14 +35,14 @@ if ($conn->connect_error) {
 
 $conn->set_charset("utf8mb4");
 
-$tmdb_key = '931b94936ba364daf0fd91fb38ecd91e';
-$omdb_key = 'f7e4ae0b';
-$omdbKey = 'f7e4ae0b';
-$tvdbKey = '1c93003f-ab80-4baf-b5c4-58c7b96494a2'; // TVDB v4
-$rapidApiKey = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1'; // הוספת מפתח RapidAPI
+$tmdb_key = 'YOUR_KEY';
+$omdb_key = 'YOUR_KEY';
+$omdbKey = 'YOUR_KEY';
+$tvdbKey = 'YOUR_KEY'; // TVDB v4
+$rapidApiKey = 'YOUR_KEY'; // הוספת מפתח RapidAPI
 
-$TMDB_KEY      = '931b94936ba364daf0fd91fb38ecd91e';
-$RAPIDAPI_KEY  = 'f5d4bd03c8msh29a2dc12893f4bfp157343jsn2b5bfcad5ae1';
-$TVDB_KEY      = '1c93003f-ab80-4baf-b5c4-58c7b96494a2'; // <<< הוסף כאן את המפתח שלך ל-TheTVDB v4
+$TMDB_KEY      = 'YOUR_KEY';
+$RAPIDAPI_KEY  = 'YOUR_KEY';
+$TVDB_KEY      = 'YOUR_KEY'; // <<< הוסף כאן את המפתח שלך ל-TheTVDB v4
 
 ?>
